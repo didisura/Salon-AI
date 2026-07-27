@@ -1,30 +1,24 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+import os
+from sqlmodel import SQLModel, create_engine, Session
+from sqlalchemy.orm import sessionmaker
 
-# Database path (creates salonai.db in your root directory)
-DATABASE_URL = "sqlite:///./salonai.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
-# connect_args is necessary ONLY for SQLite to allow multiple threads
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    DATABASE_URL, 
+    echo=True, 
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
 
-# Session factory for handling database sessions
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+# Compatibility for standard SQLAlchemy routers expecting SessionLocal
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for your SQLAlchemy models
-Base = declarative_base()
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
 
+def get_session():
+    with Session(engine) as session:
+        yield session
 
-# Dependency to yield database sessions per request
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Aliases to fix router imports across the project
+get_db = get_session

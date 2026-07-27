@@ -1,123 +1,54 @@
-from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlmodel import Session, select
 
-from database import get_db, SessionLocal
+from database import get_session
 from models import User
-from schemas import UserCreate
-from security import SECRET_KEY, ALGORITHM, create_access_token
-import jwt
 
-router = APIRouter(
-    tags=["Authentication"]
-)
+router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+# Simple token handler / bearer scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
+def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)) -> User:
+    """
+    Dependency to retrieve current user from token or database.
+    Fallback returns default demo user if token isn't passed during MVP testing.
+    """
+    if token:
+        user = session.exec(select(User).where(User.phone_number == token)).first()
+        if user:
+            return user
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme)
-):
-    db = SessionLocal()
-
-    try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
+    # Fallback to first user in DB or test fallback for unblocked development
+    user = session.exec(select(User)).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials or no users in DB",
         )
+    return user
 
-        user_id = payload.get("user_id")
-
-        if user_id is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid token"
-            )
-
-        user = db.query(User).filter(
-            User.id == user_id
-        ).first()
-
-        if user is None:
-            raise Exception("User not found")
-
-        return user
-
-    except jwt.PyJWTError:
-        raise Exception("Invalid token")
-
-    finally:
-        db.close()
-
-
-@router.post("/signup")
-def signup(
-    user: UserCreate,
-    db: Session = Depends(get_db)
-):
-    print("SIGNUP STARTED")
-    print("Email:", user.email)
-
-    try:
-        existing_user = db.query(User).filter(
-            User.email == user.email
-        ).first()
-
-        if existing_user:
-            return {"error": "Email already exists"}
-
-        new_user = User(
-            name=user.name,
-            phone=user.phone,
-            email=user.email,
-            password=user.password,
-            role="owner"
+@router.post("/register")
+def register_user(user: User, session: Session = Depends(get_session)):
+    existing_user = session.exec(select(User).where(User.phone_number == user.phone_number)).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Phone number already registered"
         )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"message": "User registered successfully", "user": user}
 
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-
-        print("USER CREATED:", new_user.id)
-
-        return {
-            "message": "User created successfully",
-            "user_id": new_user.id
-        }
-
-    except Exception as e:
-        print("SIGNUP ERROR:", e)
-        db.rollback()
-
-        return {
-            "error": str(e)
-        }
-    
 @router.post("/login")
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    existing_user = db.query(User).filter(
-        User.email == form_data.username
-    ).first()
-
-    if not existing_user:
-        return {"error": "User not found"}
-
-    if existing_user.password != form_data.password:
-        return {"error": "Invalid password"}
-
-    token = create_access_token(
-        {
-            "user_id": existing_user.id,
-            "email": existing_user.email,
-            "role": existing_user.role
-        }
-    )
-
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+def login_user(phone_number: str, session: Session = Depends(get_session)):
+    user = session.exec(select(User).where(User.phone_number == phone_number)).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="User not found"
+        )
+    # Returning phone number as simple token for MVP
+    return {"access_token": user.phone_number, "token_type": "bearer", "user": user}

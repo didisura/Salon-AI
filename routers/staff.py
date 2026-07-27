@@ -1,49 +1,23 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
-from database import SessionLocal
+from database import get_session
 from models import Staff
-from schemas import StaffCreate
 
-router = APIRouter(
-    prefix="/staff",
-    tags=["Staff"]
-)
+router = APIRouter()
 
+@router.get("/", response_model=List[Staff])
+def get_all_staff(session: Session = Depends(get_session)):
+    return session.exec(select(Staff)).all()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@router.get("/salon/{salon_id}", response_model=List[Staff])
+def get_staff_by_salon(salon_id: int, session: Session = Depends(get_session)):
+    return session.exec(select(Staff).where(Staff.salon_id == salon_id)).all()
 
-
-@router.post("", status_code=status.HTTP_201_CREATED)
-def create_staff(
-    staff: StaffCreate,
-    db: Session = Depends(get_db)
-):
-    new_staff = Staff(
-        salon_id=staff.salon_id,
-        name=staff.name,
-        specialty=staff.specialty,
-        phone=staff.phone
-    )
-
-    db.add(new_staff)
-    db.commit()
-    db.refresh(new_staff)
-
-    return {
-        "message": "Staff created successfully",
-        "staff_id": new_staff.id
-    }
-
-
-@router.get("/{salon_id}")
-def get_staff(
-    salon_id: int,
-    db: Session = Depends(get_db)
-):
-    return db.query(Staff).filter(Staff.salon_id == salon_id).all()
+@router.post("/", response_model=Staff, status_code=status.HTTP_201_CREATED)
+def create_staff(staff: Staff, session: Session = Depends(get_session)):
+    session.add(staff)
+    session.commit()
+    session.refresh(staff)
+    return staff
