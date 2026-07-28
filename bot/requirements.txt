@@ -1,6 +1,6 @@
 fastapi
-uvicorn
+uvicorn[standard]
+sqlmodel
 python-telegram-bot
-python-dotenv
-httpx
-pydantic
+jinja2
+python-multipart

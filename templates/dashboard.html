@@ -3,293 +3,394 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melkegna - Reception Digital Logbook</title>
+    <title>Melkegna - Reception Desk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --bg-color: #f8fafc;
-            --card-bg: #ffffff;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --success: #16a34a;
-            --warning: #d97706;
-            --danger: #dc2626;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; max-width: 800px; margin: 0 auto; }
-
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
-        h1 { font-size: 1.3rem; color: var(--text-main); }
-        .subtitle { font-size: 0.85rem; color: var(--text-muted); }
-
-        .btn { padding: 10px 16px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s; text-align: center; }
-        .btn-primary { background-color: var(--primary); color: white; }
-        .btn-primary:hover { background-color: var(--primary-dark); }
-        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
-        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
-
-        .controls-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-        .search-box { flex: 1; min-width: 200px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem; outline: none; }
-        .filter-select { padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: white; font-size: 0.9rem; }
-
-        .card-list { display: flex; flex-direction: column; gap: 12px; }
-        .booking-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .customer-name { font-weight: 700; font-size: 1.1rem; }
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
-        .badge-Telegram { background: #e0f2fe; color: #0369a1; }
-        .badge-Manual { background: #fef3c7; color: #b45309; }
-        .badge-confirmed { background: #dcfce7; color: #15803d; }
-        .badge-completed { background: #f1f5f9; color: #475569; }
-        .badge-cancelled { background: #fee2e2; color: #b91c1c; }
-
-        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; font-size: 0.9rem; color: var(--text-muted); }
-        .details-grid span { color: var(--text-main); font-weight: 500; }
-        .card-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-color); }
-
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; padding: 16px; z-index: 100; }
-        .modal-content { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 450px; }
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.9rem; }
+        .active-tab { border-bottom: 3px solid #0d9488; color: #0d9488; font-weight: bold; }
+        .hidden-tab { display: none; }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 font-sans text-slate-800">
 
-    <header>
-        <div>
-            <h1 id="salonTitle">Melkegna Dashboard</h1>
-            <p class="subtitle" id="subTitleText">Digital Logbook & Reception Control</p>
+    <!-- LOGIN / PIN OVERLAY -->
+    <div id="authOverlay" class="fixed inset-0 bg-slate-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center border border-slate-100">
+            <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600">
+                <i class="fas fa-lock text-2xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-1">Melkegna Reception</h2>
+            <p class="text-sm text-slate-500 mb-6">Enter PIN to access salon dashboard</p>
+            
+            <form onsubmit="handlePinSubmit(event)">
+                <input type="password" id="pinInput" placeholder="••••" maxlength="4" autofocus
+                    class="w-full text-center text-3xl tracking-widest font-mono py-3 border-2 border-slate-200 rounded-xl mb-4 focus:border-teal-600 focus:outline-none transition">
+                <div id="pinError" class="text-red-500 text-xs hidden mb-4 font-semibold">
+                    <i class="fas fa-exclamation-circle mr-1"></i> Incorrect PIN code. Try again.
+                </div>
+                <button type="submit" 
+                    class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-teal-100 transition">
+                    Unlock Dashboard
+                </button>
+            </form>
+            <p class="text-xs text-slate-400 mt-4">Default PIN: <span class="font-mono bg-slate-100 px-2 py-0.5 rounded">1234</span></p>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-            <button class="btn btn-outline btn-sm" type="button" onclick="toggleLanguage()" id="langBtn">🇪🇹 አማርኛ</button>
-            <button class="btn btn-primary" type="button" onclick="openModal()" id="newBookingBtn">+ New Booking</button>
-        </div>
-    </header>
-
-    <div class="controls-bar">
-        <input type="text" id="searchInput" class="search-box" onkeyup="applyFilters()" placeholder="🔍 Search name or phone...">
-        <select id="statusFilter" class="filter-select" onchange="applyFilters()">
-            <option value="ALL" id="optAll">All Statuses</option>
-            <option value="confirmed" id="optConfirmed">Confirmed</option>
-            <option value="completed" id="optCompleted">Completed</option>
-            <option value="cancelled" id="optCancelled">Cancelled</option>
-        </select>
-        <button class="btn btn-outline" type="button" onclick="loadSchedule()" id="refreshBtn">🔄 Refresh</button>
     </div>
 
-    <div id="scheduleContainer" class="card-list">
-        <p style="text-align: center; color: var(--text-muted); padding: 20px;" id="loadingText">Loading today's schedule...</p>
-    </div>
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div id="dashboardApp" class="min-h-screen flex flex-col">
+        <!-- TOP NAVIGATION -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-teal-200">
+                            M
+                        </div>
+                        <div>
+                            <h1 id="salonTitle" class="font-bold text-lg text-slate-900 leading-tight">Melkegna Beauty Center</h1>
+                            <span class="text-xs text-slate-500 flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1.5"></span>
+                                Reception Live Desk
+                            </span>
+                        </div>
+                    </div>
 
-    <div id="bookingModal" class="modal">
-        <div class="modal-content">
-            <h2 style="margin-bottom: 16px;" id="modalTitle">New Phone / Walk-in Client</h2>
-            <!-- Changed from form submit to a normal div container -->
-            <div>
-                <div class="form-group">
-                    <label id="labelName">Customer Full Name</label>
-                    <input type="text" id="custName" placeholder="e.g. Abebe Bikila">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="openManualBookingModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md shadow-teal-100 transition flex items-center">
+                            <i class="fas fa-plus mr-2"></i> New Walk-In
+                        </button>
+                        <button onclick="lockDashboard()" title="Lock Dashboard" class="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition">
+                            <i class="fas fa-lock"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label id="labelPhone">Phone Number</label>
-                    <input type="tel" id="custPhone" placeholder="0911223344">
-                </div>
-                <div class="form-group">
-                    <label id="labelService">Service</label>
-                    <select id="serviceSelect"></select>
-                </div>
-                <div class="form-group">
-                    <label id="labelStaff">Assigned Staff (Optional)</label>
-                    <select id="staffSelect"></select>
-                </div>
-                <div class="form-group">
-                    <label id="labelTime">Appointment Time</label>
-                    <input type="text" id="appTime" placeholder="e.g. 02:30 PM">
-                </div>
-                <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
-                    <button type="button" class="btn btn-outline" onclick="closeModal()" id="btnCancel">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="submitManualBookingDirect()" id="btnSave">Save Booking</button>
+
+                <!-- TABS -->
+                <div class="flex space-x-8 border-t border-slate-100 text-sm font-medium pt-2">
+                    <button onclick="switchTab('schedule')" id="tab-schedule" class="py-3 px-1 active-tab flex items-center">
+                        <i class="fas fa-calendar-alt mr-2"></i> Today's Schedule
+                    </button>
+                    <button onclick="switchTab('services')" id="tab-services" class="py-3 px-1 text-slate-500 hover:text-slate-700 flex items-center">
+                        <i class="fas fa-scissors mr-2"></i> Services Menu
+                    </button>
+                    <button onclick="switchTab('staff')" id="tab-staff" class="py-3 px-1 text-slate-500 hover:text-slate-700 flex items-center">
+                        <i class="fas fa-users mr-2"></i> Staff Team
+                    </button>
+                    <button onclick="switchTab('customers')" id="tab-customers" class="py-3 px-1 text-slate-500 hover:text-slate-700 flex items-center">
+                        <i class="fas fa-address-book mr-2"></i> Client Directory
+                    </button>
                 </div>
             </div>
+        </header>
+
+        <!-- CONTENT AREA -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- 1. SCHEDULE TAB -->
+            <section id="content-schedule">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Appointments Schedule</h2>
+                        <p class="text-sm text-slate-500">Real-time incoming client bookings</p>
+                    </div>
+                    <button onclick="loadSchedule()" class="text-xs text-slate-500 hover:text-teal-600 flex items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                        <i class="fas fa-sync-alt mr-1"></i> Refresh
+                    </button>
+                </div>
+
+                <div id="scheduleGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Dynamic appointment cards injected here -->
+                </div>
+            </section>
+
+            <!-- 2. SERVICES TAB -->
+            <section id="content-services" class="hidden-tab">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Salon Services Menu</h2>
+                        <p class="text-sm text-slate-500">Configure catalog offered in Telegram bot</p>
+                    </div>
+                    <button onclick="openAddServiceModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center">
+                        <i class="fas fa-plus mr-2"></i> Add Service
+                    </button>
+                </div>
+
+                <div id="servicesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Dynamic service cards injected here -->
+                </div>
+            </section>
+
+            <!-- 3. STAFF TAB -->
+            <section id="content-staff" class="hidden-tab">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Staff & Stylists</h2>
+                        <p class="text-sm text-slate-500">Manage active salon specialists</p>
+                    </div>
+                    <button onclick="openAddStaffModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center">
+                        <i class="fas fa-user-plus mr-2"></i> Add Staff
+                    </button>
+                </div>
+
+                <div id="staffGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Dynamic staff cards injected here -->
+                </div>
+            </section>
+
+            <!-- 4. CUSTOMERS TAB -->
+            <section id="content-customers" class="hidden-tab">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-slate-800">Client Directory</h2>
+                    <p class="text-sm text-slate-500">History of walk-in and Telegram clients</p>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-xs uppercase text-slate-400 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4">Client Name</th>
+                                <th class="px-6 py-4">Contact / Handle</th>
+                                <th class="px-6 py-4">Total Visits</th>
+                                <th class="px-6 py-4">Completed Visits</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customersTable" class="divide-y divide-slate-100">
+                            <!-- Dynamic customer rows injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL: MANUAL BOOKING -->
+    <div id="modalManualBooking" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Add Manual Walk-In / Phone Booking</h3>
+            <form onsubmit="submitManualBooking(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Customer Full Name</label>
+                        <input type="text" id="manualName" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Phone Number</label>
+                        <input type="text" id="manualPhone" required placeholder="0911..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Service</label>
+                        <select id="manualServiceSelect" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Assign Stylist</label>
+                        <select id="manualStaffSelect" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Appointment Date & Time</label>
+                        <input type="text" id="manualTime" required placeholder="Today at 02:00 PM" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modalManualBooking')" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:bg-teal-700">Save Booking</button>
+                </div>
+            </form>
         </div>
     </div>
 
+    <!-- MODAL: ADD SERVICE -->
+    <div id="modalAddService" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Add New Service</h3>
+            <form onsubmit="submitAddService(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Service Name</label>
+                        <input type="text" id="serviceName" required placeholder="Pedicure Spa" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Price (ETB)</label>
+                        <input type="number" id="servicePrice" required placeholder="300" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Duration (Minutes)</label>
+                        <input type="number" id="serviceDuration" required placeholder="30" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modalAddService')" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:bg-slate-900">Add Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD STAFF -->
+    <div id="modalAddStaff" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Add New Staff Member</h3>
+            <form onsubmit="submitAddStaff(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Full Name</label>
+                        <input type="text" id="staffName" required placeholder="Chala Taddese" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Role / Specialization</label>
+                        <input type="text" id="staffRole" required placeholder="Hair Colorist" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-600">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modalAddStaff')" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:bg-slate-900">Add Staff</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT APP ENGINE -->
     <script>
         const SALON_ID = 1;
-        let allBookings = [];
-        let currentLang = 'en';
+        const VALID_PIN = "1234"; // Salon Reception PIN Code
 
-        const i18n = {
-            en: {
-                subtitle: "Digital Logbook & Reception Control",
-                langBtn: "🇪🇹 አማርኛ",
-                newBooking: "+ New Booking",
-                searchPlaceholder: "🔍 Search name or phone...",
-                allStatuses: "All Statuses",
-                confirmed: "Confirmed",
-                completed: "Completed",
-                cancelled: "Cancelled",
-                refresh: "🔄 Refresh",
-                loading: "Loading today's schedule...",
-                modalTitle: "New Phone / Walk-in Client",
-                labelName: "Customer Full Name",
-                labelPhone: "Phone Number",
-                labelService: "Service",
-                labelStaff: "Assigned Staff (Optional)",
-                labelTime: "Appointment Time",
-                btnCancel: "Cancel",
-                btnSave: "Save Booking",
-                markComplete: "✓ Mark Complete",
-                btnCancelApp: "✕ Cancel",
-                phoneLabel: "📱 Phone",
-                serviceLabel: "💇 Service",
-                timeLabel: "⏰ Time",
-                staffLabel: "👤 Staff",
-                priceLabel: "💵 Price",
-                durationLabel: "⏱️ Duration"
-            },
-            am: {
-                subtitle: "የዲጂታል መዝገብ እና የሪሴፕሽን መቆጣጠሪያ",
-                langBtn: "🇬🇧 English",
-                newBooking: "+ አዲስ ቀጠሮ",
-                searchPlaceholder: "🔍 ስም ወይም ስልክ ቁጥር ይፈልጉ...",
-                allStatuses: "ሁሉም ሁኔታዎች",
-                confirmed: "የተረጋገጠ",
-                completed: "የተጠናቀቀ",
-                cancelled: "የተሰረዘ",
-                refresh: "🔄 አድስ",
-                loading: "የዛሬውን ቀጠሮዎች በመጫን ላይ...",
-                modalTitle: "አዲስ የስልክ / በአካል የመጣ ደንበኛ",
-                labelName: "የደንበኛው ሙሉ ስም",
-                labelPhone: "ስልክ ቁጥር",
-                labelService: "አገልግሎት",
-                labelStaff: "የሰራተኛ ስም (ከተፈለገ)",
-                labelTime: "የቀጠሮ ሰዓት",
-                btnCancel: "ሰርዝ",
-                btnSave: "ቀጠሮ መዝግብ",
-                markComplete: "✓ እንደተጠናቀቀ ምልክት አድርግ",
-                btnCancelApp: "✕ ሰርዝ",
-                phoneLabel: "📱 ስልክ",
-                serviceLabel: "💇 አገልግሎት",
-                timeLabel: "⏰ ሰዓት",
-                staffLabel: "👤 ሰራተኛ",
-                priceLabel: "💵 ዋጋ",
-                durationLabel: "⏱️ የሚፈጀው ጊዜ"
+        // On Page Load: Check authentication state
+        document.addEventListener("DOMContentLoaded", () => {
+            if (sessionStorage.getItem("melkegna_auth") === "true") {
+                unlockDashboardUI();
+            } else {
+                document.getElementById("authOverlay").classList.remove("hidden");
             }
-        };
+        });
 
-        function toggleLanguage() {
-            currentLang = currentLang === 'en' ? 'am' : 'en';
-            updateStaticTexts();
-            renderSchedule(allBookings);
+        function handlePinSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById("pinInput").value;
+            const errDiv = document.getElementById("pinError");
+
+            if (input === VALID_PIN) {
+                sessionStorage.setItem("melkegna_auth", "true");
+                errDiv.classList.add("hidden");
+                unlockDashboardUI();
+            } else {
+                errDiv.classList.remove("hidden");
+                document.getElementById("pinInput").value = "";
+                document.getElementById("pinInput").focus();
+            }
         }
 
-        function updateStaticTexts() {
-            const t = i18n[currentLang];
-            document.getElementById('subTitleText').innerText = t.subtitle;
-            document.getElementById('langBtn').innerText = t.langBtn;
-            document.getElementById('newBookingBtn').innerText = t.newBooking;
-            document.getElementById('searchInput').placeholder = t.searchPlaceholder;
-            document.getElementById('optAll').innerText = t.allStatuses;
-            document.getElementById('optConfirmed').innerText = t.confirmed;
-            document.getElementById('optCompleted').innerText = t.completed;
-            document.getElementById('optCancelled').innerText = t.cancelled;
-            document.getElementById('refreshBtn').innerText = t.refresh;
-            document.getElementById('modalTitle').innerText = t.modalTitle;
-            document.getElementById('labelName').innerText = t.labelName;
-            document.getElementById('labelPhone').innerText = t.labelPhone;
-            document.getElementById('labelService').innerText = t.labelService;
-            document.getElementById('labelStaff').innerText = t.labelStaff;
-            document.getElementById('labelTime').innerText = t.labelTime;
-            document.getElementById('btnCancel').innerText = t.btnCancel;
-            document.getElementById('btnSave').innerText = t.btnSave;
+        function unlockDashboardUI() {
+            document.getElementById("authOverlay").classList.add("hidden");
+            loadSalonDetails();
+            loadSchedule();
         }
 
-        async function init() {
-            await loadSalonDetails();
-            await loadSchedule();
+        function lockDashboard() {
+            sessionStorage.removeItem("melkegna_auth");
+            document.getElementById("pinInput").value = "";
+            document.getElementById("pinError").classList.add("hidden");
+            document.getElementById("authOverlay").classList.remove("hidden");
         }
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            ['schedule', 'services', 'staff', 'customers'].forEach(t => {
+                document.getElementById(`content-${t}`).classList.add('hidden-tab');
+                document.getElementById(`tab-${t}`).classList.remove('active-tab');
+                document.getElementById(`tab-${t}`).classList.add('text-slate-500');
+            });
+
+            document.getElementById(`content-${tabName}`).classList.remove('hidden-tab');
+            document.getElementById(`tab-${tabName}`).classList.add('active-tab');
+            document.getElementById(`tab-${tabName}`).classList.remove('text-slate-500');
+
+            if (tabName === 'schedule') loadSchedule();
+            if (tabName === 'services') loadServices();
+            if (tabName === 'staff') loadStaff();
+            if (tabName === 'customers') loadCustomers();
+        }
+
+        // Fetch Salon Details
+        let globalServices = [];
+        let globalStaff = [];
 
         async function loadSalonDetails() {
             try {
                 const res = await fetch(`/api/reception/salons/${SALON_ID}/details`);
                 const data = await res.json();
-                document.getElementById('salonTitle').innerText = data.salon_name;
-
-                const serviceSelect = document.getElementById('serviceSelect');
-                serviceSelect.innerHTML = data.services.map(s => 
-                    `<option value="${s.id}">${s.name} - ${s.price_etb} ETB (${s.duration_min}m)</option>`
-                ).join('');
-
-                const staffSelect = document.getElementById('staffSelect');
-                staffSelect.innerHTML = '<option value="">Any Available / ማንኛውም</option>' + 
-                    data.staff.map(st => `<option value="${st.id}">${st.name} (${st.role})</option>`).join('');
+                document.getElementById("salonTitle").innerText = data.salon_name;
+                globalServices = data.services;
+                globalStaff = data.staff;
             } catch (err) {
-                console.error("Failed to load salon details", err);
+                console.error("Failed to fetch salon details", err);
             }
         }
 
+        // Load Appointments Schedule
         async function loadSchedule() {
             try {
                 const res = await fetch(`/api/reception/salons/${SALON_ID}/today-schedule`);
                 const data = await res.json();
-                allBookings = data.schedule;
-                applyFilters();
-            } catch (err) {
-                document.getElementById('scheduleContainer').innerHTML = 
-                    '<p style="color: var(--danger); text-align: center;">Failed to load schedule. Make sure backend is running.</p>';
-            }
-        }
+                const container = document.getElementById("scheduleGrid");
+                container.innerHTML = "";
 
-        function applyFilters() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const filter = document.getElementById('statusFilter').value;
+                if (data.schedule.length === 0) {
+                    container.innerHTML = `<div class="col-span-3 text-center py-12 text-slate-400">No appointments scheduled for today.</div>`;
+                    return;
+                }
 
-            const filtered = allBookings.filter(b => {
-                const matchesSearch = b.customer_name.toLowerCase().includes(search) || b.customer_phone.includes(search);
-                const matchesStatus = (filter === 'ALL') || b.status === filter;
-                return matchesSearch && matchesStatus;
-            });
+                data.schedule.forEach(appt => {
+                    const statusColors = {
+                        confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                        completed: 'bg-slate-100 text-slate-600 border-slate-200',
+                        cancelled: 'bg-rose-50 text-rose-700 border-rose-200'
+                    };
 
-            renderSchedule(filtered);
-        }
+                    const card = `
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColors[appt.status] || 'bg-slate-100'}">
+                                        ${appt.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <span class="text-xs font-mono text-slate-400">${appt.booking_channel}</span>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-lg">${appt.customer_name}</h3>
+                            <p class="text-xs text-slate-500 mb-4"><i class="fas fa-phone mr-1"></i> ${appt.customer_phone}</p>
+                            
+                            <div class="space-y-2 border-t border-slate-100 pt-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Service:</span>
+                                    <span class="font-medium text-slate-800">${appt.service_name}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Stylist:</span>
+                                    <span class="font-medium text-slate-800">${appt.assigned_staff}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Time:</span>
+                                    <span class="font-medium text-teal-600">${appt.appointment_time}</span>
+                                </div>
+                            </div>
 
-        function renderSchedule(bookings) {
-            const container = document.getElementById('scheduleContainer');
-            const t = i18n[currentLang];
-
-            if (bookings.length === 0) {
-                container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 20px;">${currentLang === 'am' ? 'ምንም ቀጠሮ አልተገኘም።' : 'No appointments match your search.'}</p>`;
-                return;
-            }
-
-            container.innerHTML = bookings.map(b => `
-                <div class="booking-card" data-status="${b.status}">
-                    <div class="card-header">
-                        <div>
-                            <span class="customer-name">${b.customer_name}</span>
-                            <span class="badge badge-${b.booking_channel}">${b.booking_channel}</span>
+                            <div class="mt-4 pt-3 border-t border-slate-100 flex space-x-2">
+                                ${appt.status === 'confirmed' ? `
+                                    <button onclick="updateStatus(${appt.appointment_id}, 'completed')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 rounded-lg transition">Complete</button>
+                                    <button onclick="updateStatus(${appt.appointment_id}, 'cancelled')" class="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold py-2 rounded-lg transition">Cancel</button>
+                                ` : `<div class="text-xs text-slate-400 italic">No further actions</div>`}
+                            </div>
                         </div>
-                        <span class="badge badge-${b.status}">${b.status}</span>
-                    </div>
-                    <div class="details-grid">
-                        <div>${t.phoneLabel}: <span>${b.customer_phone}</span></div>
-                        <div>${t.serviceLabel}: <span>${b.service_name}</span></div>
-                        <div>${t.timeLabel}: <span>${b.appointment_time}</span></div>
-                        <div>${t.staffLabel}: <span>${b.assigned_staff}</span></div>
-                        <div>${t.priceLabel}: <span>${b.price_etb} ETB</span></div>
-                        <div>${t.durationLabel}: <span>${b.duration_min} min</span></div>
-                    </div>
-                    <div class="card-actions">
-                        ${b.status !== 'completed' ? `<button class="btn btn-sm btn-primary" type="button" onclick="updateStatus(${b.appointment_id}, 'completed')">${t.markComplete}</button>` : ''}
-                        ${b.status !== 'cancelled' ? `<button class="btn btn-sm btn-outline" type="button" style="color: var(--danger);" onclick="updateStatus(${b.appointment_id}, 'cancelled')">${t.btnCancelApp}</button>` : ''}
-                    </div>
-                </div>
-            `).join('');
+                    `;
+                    container.innerHTML += card;
+                });
+            } catch (err) {
+                console.error("Failed to load schedule", err);
+            }
         }
 
         async function updateStatus(appId, newStatus) {
@@ -301,57 +402,166 @@
                 });
                 loadSchedule();
             } catch (err) {
-                alert("Failed to update status.");
+                alert("Failed to update status");
             }
         }
 
-        async function submitManualBookingDirect() {
-            const name = document.getElementById('custName').value.trim();
-            const phone = document.getElementById('custPhone').value.trim();
-            const serviceId = document.getElementById('serviceSelect').value;
-            const staffId = document.getElementById('staffSelect').value;
-            const appTime = document.getElementById('appTime').value.trim();
+        // Load Services
+        async function loadServices() {
+            await loadSalonDetails();
+            const container = document.getElementById("servicesGrid");
+            container.innerHTML = "";
 
-            if (!name || !phone || !appTime) {
-                alert("Please fill in all required fields!");
-                return;
+            globalServices.forEach(s => {
+                const card = `
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-slate-800">${s.name}</h4>
+                            <p class="text-xs text-slate-500">${s.duration_min} mins</p>
+                            <span class="inline-block mt-2 font-mono text-sm font-semibold text-teal-600">${s.price_etb} ETB</span>
+                        </div>
+                        <button onclick="deleteService(${s.id})" class="text-slate-300 hover:text-rose-500 p-2">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // Load Staff
+        async function loadStaff() {
+            await loadSalonDetails();
+            const container = document.getElementById("staffGrid");
+            container.innerHTML = "";
+
+            globalStaff.forEach(st => {
+                const card = `
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">
+                                ${st.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800">${st.name}</h4>
+                                <span class="text-xs text-slate-500">${st.role}</span>
+                            </div>
+                        </div>
+                        <button onclick="deleteStaff(${st.id})" class="text-slate-300 hover:text-rose-500 p-2">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // Load Customers
+        async function loadCustomers() {
+            try {
+                const res = await fetch(`/api/reception/salons/${SALON_ID}/customers`);
+                const data = await res.json();
+                const tbody = document.getElementById("customersTable");
+                tbody.innerHTML = "";
+
+                data.customers.forEach(c => {
+                    const row = `
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-6 py-4 font-semibold text-slate-800">${c.name}</td>
+                            <td class="px-6 py-4 font-mono text-xs text-slate-500">${c.phone}</td>
+                            <td class="px-6 py-4">${c.total_visits}</td>
+                            <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">${c.completed_visits} completed</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } catch (err) {
+                console.error("Failed to load customers", err);
             }
+        }
 
+        // Modals & Submissions
+        function openManualBookingModal() {
+            const sSelect = document.getElementById("manualServiceSelect");
+            const stSelect = document.getElementById("manualStaffSelect");
+            sSelect.innerHTML = globalServices.map(s => `<option value="${s.id}">${s.name} (${s.price_etb} ETB)</option>`).join('');
+            stSelect.innerHTML = globalStaff.map(st => `<option value="${st.id}">${st.name} (${st.role})</option>`).join('');
+            document.getElementById("modalManualBooking").classList.remove("hidden");
+        }
+
+        function openAddServiceModal() { document.getElementById("modalAddService").classList.remove("hidden"); }
+        function openAddStaffModal() { document.getElementById("modalAddStaff").classList.remove("hidden"); }
+        function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+        async function submitManualBooking(e) {
+            e.preventDefault();
             const payload = {
-                customer_name: name,
-                customer_phone: phone,
                 salon_id: SALON_ID,
-                service_id: parseInt(serviceId),
-                staff_id: staffId ? parseInt(staffId) : null,
-                appointment_time: appTime,
-                booking_source: "Manual"
+                customer_name: document.getElementById("manualName").value,
+                customer_phone: document.getElementById("manualPhone").value,
+                service_id: parseInt(document.getElementById("manualServiceSelect").value),
+                staff_id: parseInt(document.getElementById("manualStaffSelect").value),
+                appointment_time: document.getElementById("manualTime").value
             };
 
-            try {
-                const res = await fetch('/api/reception/bookings/manual', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (res.ok) {
-                    closeModal();
-                    document.getElementById('custName').value = '';
-                    document.getElementById('custPhone').value = '';
-                    document.getElementById('appTime').value = '';
-                    loadSchedule();
-                } else {
-                    alert("Server rejected booking creation.");
-                }
-            } catch (err) {
-                alert("Network error connecting to backend.");
+            await fetch('/api/reception/bookings/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            closeModal('modalManualBooking');
+            loadSchedule();
+        }
+
+        async function submitAddService(e) {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById("serviceName").value,
+                price_etb: parseFloat(document.getElementById("servicePrice").value),
+                duration_min: parseInt(document.getElementById("serviceDuration").value)
+            };
+
+            await fetch(`/api/reception/salons/${SALON_ID}/services`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            closeModal('modalAddService');
+            loadServices();
+        }
+
+        async function submitAddStaff(e) {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById("staffName").value,
+                role: document.getElementById("staffRole").value
+            };
+
+            await fetch(`/api/reception/salons/${SALON_ID}/staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            closeModal('modalAddStaff');
+            loadStaff();
+        }
+
+        async function deleteService(id) {
+            if (confirm("Delete this service?")) {
+                await fetch(`/api/reception/services/${id}`, { method: 'DELETE' });
+                loadServices();
             }
         }
 
-        function openModal() { document.getElementById('bookingModal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('bookingModal').style.display = 'none'; }
-
-        init();
+        async function deleteStaff(id) {
+            if (confirm("Delete this staff member?")) {
+                await fetch(`/api/reception/staff/${id}`, { method: 'DELETE' });
+                loadStaff();
+            }
+        }
     </script>
 </body>
 </html>
