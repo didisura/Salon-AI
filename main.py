@@ -1,7 +1,10 @@
+import os
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Optional, List
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -15,14 +18,22 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ----------------------------------------------------
-# Configuration
-# ----------------------------------------------------
-TELEGRAM_BOT_TOKEN = "8868410970:AAEEPEXsk8fzf6TyS-bVhKRMCA4JvIPPdsQ"
-TELEGRAM_RECEPTION_CHAT_ID = "8366924087"
+# Load local environment variables from .env file
+load_dotenv()
 
-DATABASE_URL = "sqlite:///./melkegna.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# ----------------------------------------------------
+# Configuration & Environment Setup
+# ----------------------------------------------------
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_RECEPTION_CHAT_ID = os.getenv("TELEGRAM_RECEPTION_CHAT_ID", "")
+
+# Supports Render PostgreSQL automatically, falls back to local SQLite
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./melkegna.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 templates = Jinja2Templates(directory="templates")
 
 # Global reference to Telegram Application for external notifications
@@ -270,7 +281,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 parse_mode="Markdown",
             )
 
-            # Instant alert sent to your reception chat ID
+            # Instant alert sent to reception chat ID
             alert_msg = (
                 f"🚨 **NEW BOOKING ALERT (Telegram Bot)**\n\n"
                 f"👤 **Customer:** {customer_name} ({customer_phone_str})\n"
@@ -305,22 +316,26 @@ async def lifespan(app: FastAPI):
             session.add(Staff(salon_id=1, name="Tigist Haile", role="Nail Artist"))
             session.commit()
 
-    tg_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    tg_app.add_handler(CommandHandler("start", start_command))
-    tg_app.add_handler(CallbackQueryHandler(button_callback_handler))
+    if TELEGRAM_BOT_TOKEN:
+        tg_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        tg_app.add_handler(CommandHandler("start", start_command))
+        tg_app.add_handler(CallbackQueryHandler(button_callback_handler))
 
-    await tg_app.initialize()
-    await tg_app.start()
-    await tg_app.updater.start_polling()
+        await tg_app.initialize()
+        await tg_app.start()
+        await tg_app.updater.start_polling(drop_pending_updates=True)
 
-    tg_app_global = tg_app
-    print("🤖 Melkegna Telegram Bot is live with Reception Notifications!")
+        tg_app_global = tg_app
+        print("🤖 Melkegna Telegram Bot is live with Reception Notifications!")
+    else:
+        print("⚠️ WARNING: TELEGRAM_BOT_TOKEN not found in environment!")
 
     yield
 
-    await tg_app.updater.stop()
-    await tg_app.stop()
-    await tg_app.shutdown()
+    if tg_app_global:
+        await tg_app_global.updater.stop()
+        await tg_app_global.stop()
+        await tg_app_global.shutdown()
 
 
 app = FastAPI(title="Melkegna Backend API", version="1.0", lifespan=lifespan)

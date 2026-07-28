@@ -1,4 +1,12 @@
 import os
+from dotenv import load_dotenv
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8677551972:AAHc86kxF0_fKMiHzLNVWPV2LOVgEL955mY")
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+# Load local .env file for local development
+load_dotenv()
+
+class Settings:
+    PROJECT_NAME: str = "Melkegna"
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    API_BASE_URL: str = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+
+settings = Settings()

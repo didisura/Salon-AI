@@ -4,3 +4,4 @@ sqlmodel
 python-telegram-bot
 jinja2
 python-multipart
+paython-dotenv
