@@ -6,6 +6,7 @@ from typing import Optional, List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -27,7 +28,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_RECEPTION_CHAT_ID = os.getenv("TELEGRAM_RECEPTION_CHAT_ID", "")
 
-# Supports Render PostgreSQL automatically, falls back to local SQLite
+# Supports Render/Railway PostgreSQL automatically, falls back to local SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./melkegna.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -340,6 +341,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Melkegna Backend API", version="1.0", lifespan=lifespan)
 
+# Allow cross-origin requests from frontend dashboards
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ----------------------------------------------------
+# Root & Health Check Endpoints
+# ----------------------------------------------------
+@app.get("/", tags=["Health Check"])
+def read_root():
+    return {
+        "status": "ok",
+        "message": "Melkegna server is running",
+        "documentation": "/docs"
+    }
+
 
 # ----------------------------------------------------
 # API & Web Routes
@@ -521,7 +543,3 @@ def create_manual_booking(payload: ManualBookingCreate, db: Session = Depends(ge
     asyncio.create_task(send_reception_notification(alert_msg))
 
     return {"message": "Booking created successfully"}
-
-@app.get("/")
-def read_root():
-    return {"status": "ok", "message": "Server is running"}
