@@ -521,3 +521,7 @@ def create_manual_booking(payload: ManualBookingCreate, db: Session = Depends(ge
     asyncio.create_task(send_reception_notification(alert_msg))
 
     return {"message": "Booking created successfully"}
+
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "Server is running"}
