@@ -1,6 +1,10 @@
+from dataclasses import Field
 import os
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+from typing import Optional
+from sqlmodel import SQLModel, Field, Relationship
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
@@ -22,3 +26,13 @@ def get_session():
 
 # Aliases to fix router imports across the project
 get_db = get_session
+
+class Appointment(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    customer_name: str
+    customer_phone: str
+    appointment_time: datetime
+    status: str = Field(default="Pending") # Pending, Confirmed, Completed, Cancelled
+    
+    service_id: int = Field(foreign_key="service.id")
+    staff_id: Optional[int] = Field(default=None, foreign_key="staff.id")

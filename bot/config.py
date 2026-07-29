@@ -7,6 +7,7 @@ load_dotenv()
 class Settings:
     PROJECT_NAME: str = "Melkegna"
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    API_BASE_URL: str = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+    # Falls back to Railway URL if API_BASE_URL isn't set in environment
+    API_BASE_URL: str = os.getenv("API_BASE_URL", "https://web-production-e8bc1.up.railway.app")
 
 settings = Settings()

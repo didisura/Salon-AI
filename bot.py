@@ -1,301 +1,223 @@
-import os
-import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
-
-from dotenv import load_dotenv
-from sqlmodel import SQLModel, Session, select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
-    CallbackQueryHandler,
     ContextTypes,
+    CallbackQueryHandler,
+    MessageHandler,
+    ConversationHandler,
+    filters,
+)
+from datetime import datetime, timedelta
+from sqlmodel import Session, select
+
+# Import database models and settings from main.py
+from main import (
+    engine,
+    Service,
+    Staff,
+    Appointment,
+    TELEGRAM_BOT_TOKEN,
 )
 
-# Load environment variables
-load_dotenv()
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
-# Import models & engine from your project configuration/main setup
-# (Ensure database models are imported or shared cleanly across modules)
-from main import engine, Service, Staff, Customer, Appointment
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_RECEPTION_CHAT_ID = os.getenv("TELEGRAM_RECEPTION_CHAT_ID", "")
-
-TIME_SLOTS = [
-    "09:00 AM", "10:00 AM", "11:00 AM",
-    "01:00 PM", "02:00 PM", "03:00 PM",
-    "04:00 PM", "05:00 PM"
-]
-
-# Global reference to Telegram Application for sending external notifications
-tg_app_global: Optional[Application] = None
+# Define Conversation States
+SERVICE, STAFF, DATE, TIME, PHONE, CONFIRM = range(6)
 
 
-async def send_reception_notification(message_text: str):
-    """Helper function to send instant alerts to the reception Telegram chat."""
-    if tg_app_global and TELEGRAM_RECEPTION_CHAT_ID:
-        try:
-            await tg_app_global.bot.send_message(
-                chat_id=TELEGRAM_RECEPTION_CHAT_ID,
-                text=message_text,
-                parse_mode="Markdown",
-            )
-        except Exception as e:
-            logger.error(f"Failed to send Telegram notification: {e}")
+def get_available_slots(staff_id: int, selected_date_str: str):
+    base_slots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM", "04:00 PM", "05:30 PM"]
+    with Session(engine) as session:
+        query = select(Appointment).where(
+            Appointment.staff_id == staff_id,
+            Appointment.appointment_time.like(f"{selected_date_str}%"),
+            Appointment.status != "CANCELLED",
+        )
+        booked_appts = session.exec(query).all()
+        booked_times = []
+        for a in booked_appts:
+            parts = a.appointment_time.rsplit(" ", 2)
+            if len(parts) >= 2:
+                booked_times.append(f"{parts[-2]} {parts[-1]}")
+
+    return [slot for slot in base_slots if slot not in booked_times]
 
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /start command."""
+async def bot_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    with Session(engine) as session:
+        services = session.exec(select(Service)).all()
+
+    if not services:
+        await update.message.reply_text("Welcome to Melkegna! No services are currently available.")
+        return ConversationHandler.END
+
     keyboard = [
-        [InlineKeyboardButton("📅 Book Appointment", callback_data="book_start")],
-        [InlineKeyboardButton("💈 View Services", callback_data="view_services")],
+        [InlineKeyboardButton(f"{s.name} - {s.price} ETB ({s.duration_min} min)", callback_data=f"srv_{s.id}")]
+        for s in services
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-
-    user_first_name = (
-        update.effective_user.first_name if update.effective_user else "Valued Client"
-    )
-    await update.message.reply_text(
-        f"Selam {user_first_name}! 👋\nWelcome to Melkegna Beauty Center.\n\nHow can we assist you today?",
-        reply_markup=reply_markup,
-    )
+    await update.message.reply_text("Welcome to Melkegna! 🌸\nPlease select a service:", reply_markup=reply_markup)
+    return SERVICE
 
 
-async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles all inline keyboard button clicks for booking workflow."""
+async def bot_select_service(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
+    service_id = int(query.data.split("_")[1])
 
-    # 1. View Services
-    if query.data == "view_services":
-        with Session(engine) as session:
-            services = session.exec(select(Service)).all()
-            if not services:
-                await query.edit_message_text("No services available at the moment.")
-                return
+    with Session(engine) as session:
+        service = session.get(Service, service_id)
+        staff_members = session.exec(select(Staff)).all()
 
-            text = "💈 **Melkegna Services Menu**:\n\n"
-            for s in services:
-                text += f"• **{s.name}** — {s.price_etb:.0f} ETB ({s.duration_min} mins)\n"
+    if not service or not staff_members:
+        await query.edit_message_text("Selected service or staff unavailable.")
+        return ConversationHandler.END
 
-            keyboard = [[InlineKeyboardButton("📅 Book Now", callback_data="book_start")]]
-            await query.edit_message_text(
-                text=text,
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard),
+    context.user_data["service_id"] = service.id
+    context.user_data["service_name"] = service.name
+    context.user_data["service_price"] = service.price
+
+    keyboard = [
+        [InlineKeyboardButton(f"💇 {st.name} ({st.role or 'Stylist'})", callback_data=f"stf_{st.id}")]
+        for st in staff_members
+    ]
+    await query.edit_message_text("Choose your preferred specialist:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return STAFF
+
+
+async def bot_select_staff(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    staff_id = int(query.data.split("_")[1])
+
+    with Session(engine) as session:
+        staff = session.get(Staff, staff_id)
+
+    if not staff:
+        await query.edit_message_text("Staff member not found.")
+        return ConversationHandler.END
+
+    context.user_data["staff_id"] = staff.id
+    context.user_data["staff_name"] = staff.name
+
+    today = datetime.now()
+    dates = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(3)]
+    date_labels = ["Today", "Tomorrow", (today + timedelta(days=2)).strftime("%a, %b %d")]
+
+    keyboard = [
+        [InlineKeyboardButton(label, callback_data=f"dt_{d}")]
+        for label, d in zip(date_labels, dates)
+    ]
+    await query.edit_message_text("Select an appointment date:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return DATE
+
+
+async def bot_select_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    selected_date = query.data.split("_")[1]
+    context.user_data["selected_date"] = selected_date
+
+    slots = get_available_slots(context.user_data["staff_id"], selected_date)
+
+    if not slots:
+        await query.edit_message_text("No slots available for this staff member on that date.")
+        return ConversationHandler.END
+
+    keyboard = [[InlineKeyboardButton(t, callback_data=f"tm_{t}")] for t in slots]
+    await query.edit_message_text(f"Available times for {selected_date}:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return TIME
+
+
+async def bot_select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    selected_time = query.data.split("_")[1]
+
+    context.user_data["appointment_time"] = f"{context.user_data['selected_date']} {selected_time}"
+    await query.edit_message_text("Please reply with your **Full Name**:")
+    return PHONE
+
+
+async def bot_get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["customer_name"] = update.message.text
+    await update.message.reply_text("Got it! Now, please share your **Phone Number**:")
+    return CONFIRM
+
+
+async def bot_get_phone_and_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["customer_phone"] = update.message.text
+    ud = context.user_data
+
+    with Session(engine) as session:
+        existing = session.exec(
+            select(Appointment).where(
+                Appointment.staff_id == ud["staff_id"],
+                Appointment.appointment_time == ud["appointment_time"],
+                Appointment.status != "CANCELLED",
             )
+        ).first()
 
-    # 2. Step 1: Select Service
-    elif query.data == "book_start":
-        with Session(engine) as session:
-            services = session.exec(select(Service)).all()
-            if not services:
-                await query.edit_message_text("No services currently available to book.")
-                return
+        if existing:
+            await update.message.reply_text("⚠️ Sorry, that exact slot was taken just now! Type /start to try another time.")
+            return ConversationHandler.END
 
-            keyboard = []
-            for s in services:
-                keyboard.append(
-                    [
-                        InlineKeyboardButton(
-                            f"{s.name} ({s.price_etb:.0f} ETB)",
-                            callback_data=f"select_service_{s.id}",
-                        )
-                    ]
-                )
-
-            await query.edit_message_text(
-                "Step 1/4: Choose a service for your appointment:",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
-
-    # 3. Step 2: Select Staff
-    elif query.data.startswith("select_service_"):
-        service_id = int(query.data.split("_")[2])
-        with Session(engine) as session:
-            service = session.get(Service, service_id)
-            staff_members = session.exec(select(Staff)).all()
-
-            if not service:
-                await query.edit_message_text("Selected service not found.")
-                return
-
-            keyboard = []
-            for st in staff_members:
-                keyboard.append(
-                    [
-                        InlineKeyboardButton(
-                            f"💇 {st.name} ({st.role})",
-                            callback_data=f"select_staff_{service.id}_{st.id}",
-                        )
-                    ]
-                )
-
-            await query.edit_message_text(
-                f"Selected: **{service.name}**\n\nStep 2/4: Choose your preferred stylist/specialist:",
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
-
-    # 4. Step 3: Select Date
-    elif query.data.startswith("select_staff_"):
-        parts = query.data.split("_")
-        service_id, staff_id = int(parts[2]), int(parts[3])
-
-        today = datetime.now()
-        day1 = today.strftime("%a, %b %d")
-        day2 = (today + timedelta(days=1)).strftime("%a, %b %d")
-        day3 = (today + timedelta(days=2)).strftime("%a, %b %d")
-
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    f"📅 Today ({day1})",
-                    callback_data=f"select_date_{service_id}_{staff_id}_Today",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    f"📅 Tomorrow ({day2})",
-                    callback_data=f"select_date_{service_id}_{staff_id}_Tomorrow",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    f"📅 {day3}",
-                    callback_data=f"select_date_{service_id}_{staff_id}_{day3}",
-                )
-            ],
-        ]
-
-        await query.edit_message_text(
-            "Step 3/4: Select your preferred day:",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+        appt = Appointment(
+            telegram_id=update.effective_user.id,
+            customer_name=ud["customer_name"],
+            customer_phone=ud["customer_phone"],
+            service_id=ud["service_id"],
+            service_name=ud["service_name"],
+            staff_id=ud["staff_id"],
+            staff_name=ud["staff_name"],
+            appointment_time=ud["appointment_time"],
+            status="PENDING",
+            booking_source="TELEGRAM"
         )
+        session.add(appt)
+        session.commit()
 
-    # 5. Step 4: Select Time Slot
-    elif query.data.startswith("select_date_"):
-        parts = query.data.split("_")
-        service_id, staff_id, chosen_date = int(parts[2]), int(parts[3]), parts[4]
-
-        keyboard = []
-        for i in range(0, len(TIME_SLOTS), 2):
-            row = [
-                InlineKeyboardButton(
-                    TIME_SLOTS[i],
-                    callback_data=f"confirm_{service_id}_{staff_id}_{chosen_date}_{TIME_SLOTS[i]}",
-                ),
-            ]
-            if i + 1 < len(TIME_SLOTS):
-                row.append(
-                    InlineKeyboardButton(
-                        TIME_SLOTS[i + 1],
-                        callback_data=f"confirm_{service_id}_{staff_id}_{chosen_date}_{TIME_SLOTS[i + 1]}",
-                    )
-                )
-            keyboard.append(row)
-
-        await query.edit_message_text(
-            f"Date selected: **{chosen_date}**\n\nStep 4/4: Choose an available time slot:",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-        )
-
-    # 6. Final Step: Confirm Booking & Notify Reception
-    elif query.data.startswith("confirm_"):
-        parts = query.data.split("_")
-        service_id = int(parts[1])
-        staff_id = int(parts[2])
-        chosen_date = parts[3]
-        chosen_time = parts[4]
-
-        formatted_appointment_time = f"{chosen_date} at {chosen_time}"
-
-        user = query.from_user
-        customer_name = f"{user.first_name} {user.last_name or ''}".strip()
-        telegram_id = user.id
-
-        with Session(engine) as session:
-            service = session.get(Service, service_id)
-            staff = session.get(Staff, staff_id)
-
-            if not service or not staff:
-                await query.edit_message_text(
-                    "Error processing request. Please try again."
-                )
-                return
-
-            existing_cust = session.exec(
-                select(Customer).where(Customer.telegram_id == telegram_id)
-            ).first()
-            if not existing_cust:
-                new_cust = Customer(
-                    salon_id=1,
-                    full_name=customer_name,
-                    phone="Telegram Booking",
-                    telegram_id=telegram_id,
-                )
-                session.add(new_cust)
-
-            customer_phone_str = (
-                f"Telegram (@{user.username})" if user.username else "Telegram User"
-            )
-
-            appt = Appointment(
-                salon_id=1,
-                customer_name=customer_name,
-                customer_phone=customer_phone_str,
-                service_name=service.name,
-                staff_name=staff.name,
-                appointment_time=formatted_appointment_time,
-                status="confirmed",
-            )
-            session.add(appt)
-            session.commit()
-
-            # Client confirmation message
-            await query.edit_message_text(
-                f"🎉 **Booking Confirmed!**\n\n"
-                f"👤 **Client:** {customer_name}\n"
-                f"💈 **Service:** {service.name}\n"
-                f"💇 **Stylist:** {staff.name}\n"
-                f"💵 **Price:** {service.price_etb:.0f} ETB\n"
-                f"⏰ **Appointment Time:** {formatted_appointment_time}\n\n"
-                f"Thank you for choosing Melkegna! We look forward to seeing you.",
-                parse_mode="Markdown",
-            )
-
-            # Instant alert sent to your reception chat ID
-            alert_msg = (
-                f"🚨 **NEW BOOKING ALERT (Telegram Bot)**\n\n"
-                f"👤 **Customer:** {customer_name} ({customer_phone_str})\n"
-                f"💇 **Service:** {service.name}\n"
-                f"👤 **Assigned Staff:** {staff.name}\n"
-                f"⏰ **Scheduled Time:** {formatted_appointment_time}\n"
-                f"💵 **Price:** {service.price_etb:.0f} ETB"
-            )
-            asyncio.create_task(send_reception_notification(alert_msg))
+    summary = (
+        f"✅ **Booking Request Received!**\n\n"
+        f"**Service:** {ud['service_name']} ({ud['service_price']} ETB)\n"
+        f"**Specialist:** {ud['staff_name']}\n"
+        f"**Time:** {ud['appointment_time']}\n"
+        f"**Name:** {ud['customer_name']}\n"
+        f"**Phone:** {ud['customer_phone']}\n\n"
+        f"Our reception will confirm your appointment shortly."
+    )
+    await update.message.reply_text(summary, parse_mode="Markdown")
+    return ConversationHandler.END
 
 
-def create_bot_app() -> Application:
-    """Initializes and configures the Telegram Application."""
-    global tg_app_global
+async def bot_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Booking cancelled. Type /start whenever you're ready!")
+    return ConversationHandler.END
 
-    if not TELEGRAM_BOT_TOKEN:
-        logger.warning("TELEGRAM_BOT_TOKEN is missing or empty in environment!")
 
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CallbackQueryHandler(button_callback_handler))
+def main():
+    bot_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    tg_app_global = app
-    return app
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", bot_start)],
+        states={
+            SERVICE: [CallbackQueryHandler(bot_select_service, pattern="^srv_")],
+            STAFF: [CallbackQueryHandler(bot_select_staff, pattern="^stf_")],
+            DATE: [CallbackQueryHandler(bot_select_date, pattern="^dt_")],
+            TIME: [CallbackQueryHandler(bot_select_time, pattern="^tm_")],
+            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, bot_get_name)],
+            CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, bot_get_phone_and_confirm)],
+        },
+        fallbacks=[CommandHandler("cancel", bot_cancel)],
+    )
+
+    bot_app.add_handler(conv_handler)
+    print("🤖 Melkegna Telegram Bot is running...")
+    bot_app.run_polling(drop_pending_updates=True)
+
+
+if __name__ == "__main__":
+    main()

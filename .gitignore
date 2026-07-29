@@ -34,3 +34,14 @@ Thumbs.db
 # Uploaded files (if you add uploads later)
 uploads/
 media/
+
+# Ignore environment variables
+.env
+.env.*
+
+# Ignore Python cache & virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
