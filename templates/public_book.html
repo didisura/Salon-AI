@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Appointment - {{ salon.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 flex justify-center items-center">
+
+    <div class="bg-white max-w-md w-full rounded-2xl shadow-xl p-6">
+        <h1 class="text-2xl font-bold text-slate-800 text-center mb-1">{{ salon.name }}</h1>
+        <p class="text-slate-500 text-sm text-center mb-6">ቀጠሮ ይያዙ (Book Your Appointment)</p>
+
+        <form action="/public-book-appointment" method="post" class="space-y-4">
+            <input type="hidden" name="salon_id" value="{{ salon.id }}">
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">ስም (Full Name)</label>
+                <input type="text" name="customer_name" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">ስልክ ቁጥር (Phone Number)</label>
+                <input type="tel" name="customer_phone" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">አገልግሎት ይምረጡ (Select Service)</label>
+                <select name="service_id" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    {% for s in services %}
+                        <option value="{{ s.id }}">{{ s.name }} - {{ s.price }} ETB</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">ሰራተኛ ይምረጡ (Select Specialist)</label>
+                <select name="staff_id" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    {% for st in staff_members %}
+                        <option value="{{ st.id }}">{{ st.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">ቀን እና ሰዓት (Date & Time)</label>
+                <input type="datetime-local" name="appointment_time" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-md transition">
+                ቀጠሮ አረጋግጥ (Confirm Booking)
+            </button>
+        </form>
+    </div>
+
+</body>
+</html>

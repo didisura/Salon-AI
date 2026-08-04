@@ -1,4 +1,5 @@
 import datetime
+import os
 from typing import Optional, List
 
 import jwt
@@ -6,14 +7,14 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
-from sqlmodel import Field, Session, SQLModel, create_engine, select, func, col
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 # ==============================================================================
 # 1. SECURITY & CONFIGURATION
 # ==============================================================================
 
-SECRET_KEY = "SUPER_SECRET_MELKEGNA_KEY_CHANGE_THIS_IN_PRODUCTION"
-ADMIN_SECRET_KEY = "MELKEGNA_ADMIN_2026"  # Use this to access the admin portal
+SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_MELKEGNA_KEY_CHANGE_THIS_IN_PRODUCTION")
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "MELKEGNA_ADMIN_2026")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
@@ -41,12 +42,12 @@ def get_current_salon_id(request: Request) -> Optional[int]:
             token = token.split(" ")[1]
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return int(payload.get("sub"))
-    except (jwt.PyJWTError, ValueError):
+    except (jwt.InvalidTokenError, ValueError):
         return None
 
 
 # ==============================================================================
-# 2. DATABASE MODELS
+# 2. DATABASE MODELS & DYNAMIC ENGINE
 # ==============================================================================
 
 class Salon(SQLModel, table=True):
@@ -81,9 +82,13 @@ class Appointment(SQLModel, table=True):
     appointment_date: datetime.date = Field(default_factory=datetime.date.today)
     status: str = Field(default="Confirmed")  # Options: Confirmed, Completed, Cancelled
 
-sqlite_url = "sqlite:///melkegna.db"
-engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
-SQLModel.metadata.create_all(engine)
+# Dynamic Database URL Configuration (PostgreSQL on Railway / SQLite locally)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///melkegna.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 def get_session():
     with Session(engine) as session:
@@ -96,6 +101,10 @@ def get_session():
 
 app = FastAPI(title="Melkegna Platform")
 templates = Jinja2Templates(directory="templates")
+
+@app.on_event("startup")
+def on_startup():
+    SQLModel.metadata.create_all(engine)
 
 
 def get_active_salon(request: Request, db: Session = Depends(get_session)) -> Salon:
@@ -199,13 +208,13 @@ def post_signup(
         owner_name=owner_name,
         phone=phone,
         password_hash=hash_password(password),
-        status="pending"  # Requires admin approval
+        status="pending"
     )
     db.add(new_salon)
     db.commit()
     db.refresh(new_salon)
 
-    # Add default services and staff
+    # Add default service and staff member
     default_service = Service(salon_id=new_salon.id, name="Hair Styling / የፀጉር ስራ", price=500.0)
     default_staff = Staff(salon_id=new_salon.id, name="General Staff / ሰራተኛ")
     db.add(default_service)
@@ -256,7 +265,7 @@ def get_dashboard(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     db: Session = Depends(get_session),
-    salon: Salon = Depends(get_active_salon)  # Strictly checks approval/subscription
+    salon: Salon = Depends(get_active_salon)
 ):
     salon_id = salon.id
     today = datetime.date.today()
@@ -470,7 +479,7 @@ def delete_staff(
 
 
 # ==============================================================================
-# 7. SUPER ADMIN PORTAL (FOR YOU TO CONTROL ACCESS)
+# 7. SUPER ADMIN PORTAL
 # ==============================================================================
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -484,7 +493,6 @@ def admin_dashboard(
 
     salons = db.exec(select(Salon)).all()
     
-    # Generate simple HTML response for super admin control
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -552,7 +560,6 @@ def approve_salon_admin(
     salon = db.get(Salon, salon_id)
     if salon:
         today = datetime.date.today()
-        # Extend from today or from current expiration date if still valid
         base_date = salon.subscription_expires_at if (salon.subscription_expires_at and salon.subscription_expires_at > today) else today
         
         salon.status = "active"
@@ -578,3 +585,75 @@ def suspend_salon_admin(
         db.commit()
 
     return RedirectResponse(url=f"/admin?key={ADMIN_SECRET_KEY}", status_code=status.HTTP_303_SEE_OTHER)
+
+# ==============================================================================
+# 8. PUBLIC CLIENT BOOKING ROUTES (NO AUTH REQUIRED)
+# ==============================================================================
+
+@app.get("/book/{salon_id}", response_class=HTMLResponse)
+def get_public_booking_page(
+    salon_id: int, 
+    request: Request, 
+    db: Session = Depends(get_session)
+):
+    salon = db.get(Salon, salon_id)
+    if not salon or salon.status != "active":
+        raise HTTPException(status_code=404, detail="Salon not found or inactive")
+
+    services = db.exec(select(Service).where(Service.salon_id == salon_id)).all()
+    staff_members = db.exec(select(Staff).where(Staff.salon_id == salon_id)).all()
+
+    return templates.TemplateResponse(
+        "public_book.html",
+        {
+            "request": request,
+            "salon": salon,
+            "services": services,
+            "staff_members": staff_members
+        }
+    )
+
+
+@app.post("/public-book-appointment")
+def post_public_appointment(
+    salon_id: int = Form(...),
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    service_id: int = Form(...),
+    staff_id: int = Form(...),
+    appointment_time: str = Form(...),
+    db: Session = Depends(get_session)
+):
+    salon = db.get(Salon, salon_id)
+    if not salon or salon.status != "active":
+        raise HTTPException(status_code=400, detail="Invalid salon")
+
+    appt_date = datetime.date.today()
+    if "T" in appointment_time:
+        try:
+            date_part = appointment_time.split("T")[0]
+            appt_date = datetime.datetime.strptime(date_part, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    new_appt = Appointment(
+        salon_id=salon_id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        service_id=service_id,
+        staff_id=staff_id,
+        appointment_time=appointment_time,
+        appointment_date=appt_date,
+        status="Confirmed"
+    )
+    db.add(new_appt)
+    db.commit()
+
+    return HTMLResponse(
+        content="""
+        <div style='text-align: center; font-family: sans-serif; padding: 50px;'>
+            <h2 style='color: #16a34a;'>ቀጠሮዎ ተይዟል! (Booking Confirmed!)</h2>
+            <p>እናመሰግናለን፤ በቅርቡ እንገናኛለን።</p>
+        </div>
+        """
+    )
