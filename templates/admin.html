@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melkegna Super Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6 md:p-12 font-sans">
+    
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Melkegna Admin Portal</h1>
+                <p class="text-slate-400 text-sm mt-1">Manage salon accounts, approvals, and subscription extensions.</p>
+            </div>
+            <span class="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-mono border border-slate-700">
+                Super Admin Access
+            </span>
+        </div>
+
+        <!-- Salons Table Container -->
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-xl shadow-2xl overflow-hidden backdrop-blur-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/50 border-b border-slate-700/80 text-slate-400 text-xs uppercase tracking-wider">
+                            <th class="p-4">Salon Name</th>
+                            <th class="p-4">Owner</th>
+                            <th class="p-4">Phone</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4">Expires On</th>
+                            <th class="p-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50 text-sm">
+                        {% for salon in salons %}
+                        <tr class="hover:bg-slate-700/30 transition-colors">
+                            <td class="p-4 font-semibold text-white">{{ salon.name }}</td>
+                            <td class="p-4 text-slate-300">{{ salon.owner_name }}</td>
+                            <td class="p-4 text-slate-300 font-mono text-xs">{{ salon.phone }}</td>
+                            <td class="p-4">
+                                {% if salon.status == 'pending' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
+                                        Pending
+                                    </span>
+                                {% elif salon.status == 'active' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                                        Active
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase">
+                                        {{ salon.status }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-slate-300 font-mono text-xs">
+                                {{ salon.subscription_expires_at if salon.subscription_expires_at else 'N/A' }}
+                            </td>
+                            <td class="p-4">
+                                <div class="flex items-center justify-center gap-3">
+                                    <!-- Approve / Extend Form -->
+                                    <form action="/admin/approve/{{ salon.id }}" method="post" class="flex items-center gap-2">
+                                        <input type="hidden" name="key" value="{{ admin_key }}">
+                                        <div class="relative flex items-center">
+                                            <input type="number" name="days" value="30" min="1" required 
+                                                   class="w-16 bg-slate-900 border border-slate-600 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-500 text-center">
+                                            <span class="text-[10px] text-slate-400 ml-1">days</span>
+                                        </div>
+                                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm">
+                                            Approve / Extend
+                                        </button>
+                                    </form>
+
+                                    <!-- Suspend Form -->
+                                    <form action="/admin/suspend/{{ salon.id }}" method="post">
+                                        <input type="hidden" name="key" value="{{ admin_key }}">
+                                        <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm"
+                                                onclick="return confirm('Are you sure you want to suspend {{ salon.name }}?')">
+                                            Suspend
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-slate-500">
+                                No salons registered yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

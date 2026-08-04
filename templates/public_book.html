@@ -3,56 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Book Appointment - {{ salon.name }}</title>
+    <title>ቀጠሮ ይያዙ | {{ salon.name }} - Melkegna</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+    </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4 flex justify-center items-center">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
 
-    <div class="bg-white max-w-md w-full rounded-2xl shadow-xl p-6">
-        <h1 class="text-2xl font-bold text-slate-800 text-center mb-1">{{ salon.name }}</h1>
-        <p class="text-slate-500 text-sm text-center mb-6">ቀጠሮ ይያዙ (Book Your Appointment)</p>
-
-        <form action="/public-book-appointment" method="post" class="space-y-4">
-            <input type="hidden" name="salon_id" value="{{ salon.id }}">
-
+    <!-- Header / Brand Banner -->
+    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 backdrop-blur-md z-10">
+        <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">ስም (Full Name)</label>
-                <input type="text" name="customer_name" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                <h1 class="font-bold text-lg text-white leading-tight">{{ salon.name }}</h1>
+                <p class="text-xs text-amber-500 font-medium">በMelkegna የቀረበ (Powered by Melkegna)</p>
+            </div>
+            <a href="tel:{{ salon.phone }}" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition">
+                📞 {{ salon.phone }}
+            </a>
+        </div>
+    </header>
+
+    <!-- Booking Form Container -->
+    <main class="max-w-md w-full mx-auto p-4 flex-grow my-4">
+        
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6">
+            <div class="mb-6">
+                <h2 class="text-xl font-bold text-slate-100">ቀጠሮ ይያዙ (Book Appointment)</h2>
+                <p class="text-xs text-slate-400 mt-1">እባክዎን መረጃዎን ያስገቡና አገልግሎት ይምረጡ</p>
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">ስልክ ቁጥር (Phone Number)</label>
-                <input type="tel" name="customer_phone" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
+            <form action="/public-book-appointment" method="POST" class="space-y-5">
+                <!-- Hidden Salon ID Binding -->
+                <input type="hidden" name="salon_id" value="{{ salon.id }}">
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">አገልግሎት ይምረጡ (Select Service)</label>
-                <select name="service_id" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                    {% for s in services %}
-                        <option value="{{ s.id }}">{{ s.name }} - {{ s.price }} ETB</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <!-- Customer Full Name -->
+                <div>
+                    <label for="customer_name" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                        ሙሉ ስም (Full Name) *
+                    </label>
+                    <input 
+                        type="text" 
+                        id="customer_name" 
+                        name="customer_name" 
+                        required 
+                        placeholder="ለምሳሌ፡ አበበ ከበደ"
+                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    >
+                </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">ሰራተኛ ይምረጡ (Select Specialist)</label>
-                <select name="staff_id" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                    {% for st in staff_members %}
-                        <option value="{{ st.id }}">{{ st.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <!-- Customer Phone -->
+                <div>
+                    <label for="customer_phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                        ስልክ ቁጥር (Phone Number) *
+                    </label>
+                    <input 
+                        type="tel" 
+                        id="customer_phone" 
+                        name="customer_phone" 
+                        required 
+                        placeholder="0911223344"
+                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    >
+                </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">ቀን እና ሰዓት (Date & Time)</label>
-                <input type="datetime-local" name="appointment_time" required class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
+                <!-- Service Selector -->
+                <div>
+                    <label for="service_id" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                        አገልግሎት ይምረጡ (Select Service) *
+                    </label>
+                    <select 
+                        id="service_id" 
+                        name="service_id" 
+                        required 
+                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    >
+                        <option value="" disabled selected>አገልግሎት ይምረጡ...</option>
+                        {% for service in services %}
+                            <option value="{{ service.id }}">
+                                {{ service.name }} — {{ "%.2f"|format(service.price) }} ETB
+                            </option>
+                        {% else %}
+                            <option value="" disabled>ምንም አገልግሎት አልተገኘም</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-md transition">
-                ቀጠሮ አረጋግጥ (Confirm Booking)
-            </button>
-        </form>
-    </div>
+                <!-- Staff Selector -->
+                <div>
+                    <label for="staff_id" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                        ባለሙያ ይምረጡ (Select Specialist) *
+                    </label>
+                    <select 
+                        id="staff_id" 
+                        name="staff_id" 
+                        required 
+                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    >
+                        <option value="" disabled selected>ባለሙያ ይምረጡ...</option>
+                        {% for staff in staff_members %}
+                            <option value="{{ staff.id }}">{{ staff.name }}</option>
+                        {% else %}
+                            <option value="" disabled>ምንም ባለሙያ አልተገኘም</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
+                <!-- Date & Time Picker -->
+                <div>
+                    <label for="appointment_time" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                        ቀን እና ሰዓት (Date & Time) *
+                    </label>
+                    <input 
+                        type="datetime-local" 
+                        id="appointment_time" 
+                        name="appointment_time" 
+                        required 
+                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    >
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    class="w-full py-4 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-base shadow-lg shadow-amber-500/20 transition-all active:scale-[0.99] mt-2"
+                >
+                    ቀጠሮውን አረጋግጥ (Confirm Booking)
+                </button>
+            </form>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+        <p>&copy; Melkegna Digital Appointment Platform. All rights reserved.</p>
+    </footer>
+
+    <!-- Auto-set minimum date/time picker constraint to current moment -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const timeInput = document.getElementById("appointment_time");
+            if (timeInput) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                timeInput.min = now.toISOString().slice(0, 16);
+            }
+        });
+    </script>
 </body>
 </html>
