@@ -1,5 +1,6 @@
 import datetime
 import os
+from contextlib import asynccontextmanager
 from typing import Optional, List
 
 import jwt
@@ -82,13 +83,24 @@ class Appointment(SQLModel, table=True):
     appointment_date: datetime.date = Field(default_factory=datetime.date.today)
     status: str = Field(default="Confirmed")  # Options: Confirmed, Completed, Cancelled
 
-# Dynamic Database URL Configuration (PostgreSQL on Railway / SQLite locally)
+# Dynamic Database URL Configuration (PostgreSQL on Railway/Render vs SQLite locally)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///melkegna.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+is_sqlite = "sqlite" in DATABASE_URL
+connect_args = {"check_same_thread": False} if is_sqlite else {}
+engine_kwargs = {"connect_args": connect_args}
+
+if not is_sqlite:
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_size": 10,
+        "max_overflow": 20
+    })
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 def get_session():
     with Session(engine) as session:
@@ -96,15 +108,18 @@ def get_session():
 
 
 # ==============================================================================
-# 3. APPLICATION & DEPENDENCIES
+# 3. APPLICATION & LIFESPAN MANAGEMENT
 # ==============================================================================
 
-app = FastAPI(title="Melkegna Platform")
-templates = Jinja2Templates(directory="templates")
-
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup sequence
     SQLModel.metadata.create_all(engine)
+    yield
+    # Shutdown sequence (if needed)
+
+app = FastAPI(title="Melkegna Platform", lifespan=lifespan)
+templates = Jinja2Templates(directory="templates")
 
 
 def get_active_salon(request: Request, db: Session = Depends(get_session)) -> Salon:
@@ -119,13 +134,14 @@ def get_active_salon(request: Request, db: Session = Depends(get_session)) -> Sa
 
     today = datetime.date.today()
 
-    # Check auto-expiration of subscription
+    # Auto-expire subscription status if past date
     if salon.subscription_expires_at and salon.subscription_expires_at < today and salon.status == "active":
         salon.status = "suspended"
         db.add(salon)
         db.commit()
+        db.refresh(salon)
 
-    # Redirect to status notification page if not active
+    # Redirect non-active salons to pending status board
     if salon.status != "active":
         raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/pending"})
 
@@ -203,23 +219,27 @@ def post_signup(
             }
         )
 
-    new_salon = Salon(
-        name=salon_name,
-        owner_name=owner_name,
-        phone=phone,
-        password_hash=hash_password(password),
-        status="pending"
-    )
-    db.add(new_salon)
-    db.commit()
-    db.refresh(new_salon)
+    try:
+        new_salon = Salon(
+            name=salon_name,
+            owner_name=owner_name,
+            phone=phone,
+            password_hash=hash_password(password),
+            status="pending"
+        )
+        db.add(new_salon)
+        db.commit()
+        db.refresh(new_salon)
 
-    # Add default service and staff member
-    default_service = Service(salon_id=new_salon.id, name="Hair Styling / የፀጉር ስራ", price=500.0)
-    default_staff = Staff(salon_id=new_salon.id, name="General Staff / ሰራተኛ")
-    db.add(default_service)
-    db.add(default_staff)
-    db.commit()
+        # Seed initial service and staff defaults atomically
+        default_service = Service(salon_id=new_salon.id, name="Hair Styling / የፀጉር ስራ", price=500.0)
+        default_staff = Staff(salon_id=new_salon.id, name="General Staff / ሰራተኛ")
+        db.add(default_service)
+        db.add(default_staff)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error establishing salon profile")
 
     token = create_access_token(new_salon.id)
     response = RedirectResponse(url="/pending", status_code=status.HTTP_303_SEE_OTHER)
@@ -479,103 +499,68 @@ def delete_staff(
 
 
 # ==============================================================================
-# 7. SUPER ADMIN PORTAL
+# 7. SUPER ADMIN PORTAL (SECURE SESSION-BASED)
 # ==============================================================================
+
+@app.get("/admin/login", response_class=HTMLResponse)
+def get_admin_login(request: Request):
+    return templates.TemplateResponse("admin_login.html", {"request": request})
+
+@app.post("/admin/login")
+def post_admin_login(
+    request: Request,
+    password: str = Form(...)
+):
+    if password != ADMIN_SECRET_KEY:
+        return templates.TemplateResponse(
+            "admin_login.html", 
+            {"request": request, "error": "የተሳሳተ የይለፍ ቃል (Invalid Admin Password)"}
+        )
+    
+    response = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(key="admin_auth", value=ADMIN_SECRET_KEY, httponly=True, samesite="lax")
+    return response
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(
     request: Request, 
-    key: str = "", 
     db: Session = Depends(get_session)
 ):
-    if key != ADMIN_SECRET_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized Admin Access")
+    admin_cookie = request.cookies.get("admin_auth")
+    if admin_cookie != ADMIN_SECRET_KEY:
+        return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
 
     salons = db.exec(select(Salon)).all()
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Melkegna Super Admin</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body class="bg-slate-900 text-white p-8">
-        <h1 class="text-3xl font-bold mb-6">Melkegna Platform Admin</h1>
-        <div class="bg-slate-800 rounded-lg p-6 shadow-xl overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-700 text-slate-400">
-                        <th class="p-3">Salon Name</th>
-                        <th class="p-3">Owner</th>
-                        <th class="p-3">Phone</th>
-                        <th class="p-3">Status</th>
-                        <th class="p-3">Expires On</th>
-                        <th class="p-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-    """
-    for s in salons:
-        status_color = "text-yellow-400" if s.status == "pending" else "text-green-400" if s.status == "active" else "text-red-400"
-        html_content += f"""
-                    <tr class="border-b border-slate-700/50">
-                        <td class="p-3 font-semibold">{s.name}</td>
-                        <td class="p-3">{s.owner_name}</td>
-                        <td class="p-3">{s.phone}</td>
-                        <td class="p-3 {status_color} uppercase font-bold">{s.status}</td>
-                        <td class="p-3">{s.subscription_expires_at or 'N/A'}</td>
-                        <td class="p-3 flex gap-2">
-                            <form action="/admin/approve/{s.id}" method="post">
-                                <input type="hidden" name="key" value="{ADMIN_SECRET_KEY}">
-                                <input type="number" name="days" value="30" class="w-16 text-black px-2 py-1 rounded">
-                                <button type="submit" class="bg-green-600 px-3 py-1 rounded text-sm hover:bg-green-500">Approve / Extend</button>
-                            </form>
-                            <form action="/admin/suspend/{s.id}" method="post">
-                                <input type="hidden" name="key" value="{ADMIN_SECRET_KEY}">
-                                <button type="submit" class="bg-red-600 px-3 py-1 rounded text-sm hover:bg-red-500">Suspend</button>
-                            </form>
-                        </td>
-                    </tr>
-        """
-    html_content += """
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+    return templates.TemplateResponse("admin.html", {"request": request, "salons": salons})
 
 @app.post("/admin/approve/{salon_id}")
 def approve_salon_admin(
+    request: Request,
     salon_id: int,
-    key: str = Form(...),
     days: int = Form(30),
     db: Session = Depends(get_session)
 ):
-    if key != ADMIN_SECRET_KEY:
+    if request.cookies.get("admin_auth") != ADMIN_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     salon = db.get(Salon, salon_id)
     if salon:
         today = datetime.date.today()
         base_date = salon.subscription_expires_at if (salon.subscription_expires_at and salon.subscription_expires_at > today) else today
-        
         salon.status = "active"
         salon.subscription_expires_at = base_date + datetime.timedelta(days=days)
         db.add(salon)
         db.commit()
 
-    return RedirectResponse(url=f"/admin?key={ADMIN_SECRET_KEY}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.post("/admin/suspend/{salon_id}")
 def suspend_salon_admin(
+    request: Request,
     salon_id: int,
-    key: str = Form(...),
     db: Session = Depends(get_session)
 ):
-    if key != ADMIN_SECRET_KEY:
+    if request.cookies.get("admin_auth") != ADMIN_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     salon = db.get(Salon, salon_id)
@@ -584,21 +569,14 @@ def suspend_salon_admin(
         db.add(salon)
         db.commit()
 
-    return RedirectResponse(url=f"/admin?key={ADMIN_SECRET_KEY}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
 
-@app.get("/salons-list")
-def list_salons(db: Session = Depends(get_session)):
-    salons = db.exec(select(Salon)).all()
-    return [
-        {
-            "id": s.id, 
-            "name": s.name, 
-            "phone": s.phone, 
-            "status": s.status, 
-            "expires": s.subscription_expires_at
-        } 
-        for s in salons
-    ]
+@app.get("/admin/logout")
+def admin_logout():
+    response = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie(key="admin_auth")
+    return response
+
 
 # ==============================================================================
 # 8. PUBLIC CLIENT BOOKING ROUTES (NO AUTH REQUIRED)
@@ -626,7 +604,6 @@ def get_public_booking_page(
             "staff_members": staff_members
         }
     )
-
 
 @app.post("/public-book-appointment")
 def post_public_appointment(
