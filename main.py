@@ -586,6 +586,20 @@ def suspend_salon_admin(
 
     return RedirectResponse(url=f"/admin?key={ADMIN_SECRET_KEY}", status_code=status.HTTP_303_SEE_OTHER)
 
+@app.get("/salons-list")
+def list_salons(db: Session = Depends(get_session)):
+    salons = db.exec(select(Salon)).all()
+    return [
+        {
+            "id": s.id, 
+            "name": s.name, 
+            "phone": s.phone, 
+            "status": s.status, 
+            "expires": s.subscription_expires_at
+        } 
+        for s in salons
+    ]
+
 # ==============================================================================
 # 8. PUBLIC CLIENT BOOKING ROUTES (NO AUTH REQUIRED)
 # ==============================================================================
