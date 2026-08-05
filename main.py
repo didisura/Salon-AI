@@ -1,4 +1,5 @@
 import datetime
+import hmac
 import os
 from contextlib import asynccontextmanager
 from typing import Optional, List
@@ -43,7 +44,7 @@ def get_current_salon_id(request: Request) -> Optional[int]:
             token = token.split(" ")[1]
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return int(payload.get("sub"))
-    except (jwt.InvalidTokenError, ValueError):
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
 
 
@@ -77,8 +78,8 @@ class Appointment(SQLModel, table=True):
     salon_id: int = Field(foreign_key="salon.id", index=True)
     customer_name: str
     customer_phone: str
-    service_id: int = Field(foreign_key="service.id")
-    staff_id: int = Field(foreign_key="staff.id")
+    service_id: Optional[int] = Field(default=None, foreign_key="service.id")
+    staff_id: Optional[int] = Field(default=None, foreign_key="staff.id")
     appointment_time: str
     appointment_date: datetime.date = Field(default_factory=datetime.date.today)
     status: str = Field(default="Confirmed")  # Options: Confirmed, Completed, Cancelled
@@ -116,7 +117,7 @@ async def lifespan(app: FastAPI):
     # Startup sequence
     SQLModel.metadata.create_all(engine)
     yield
-    # Shutdown sequence (if needed)
+    # Shutdown sequence
 
 app = FastAPI(title="Melkegna Platform", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
@@ -314,8 +315,8 @@ def get_dashboard(
 
     formatted_appts = []
     for appt in schedule_appts:
-        srv = service_map.get(appt.service_id)
-        stf = staff_map.get(appt.staff_id)
+        srv = service_map.get(appt.service_id) if appt.service_id else None
+        stf = staff_map.get(appt.staff_id) if appt.staff_id else None
         formatted_appts.append({
             "id": appt.id,
             "appointment_time": appt.appointment_time,
@@ -336,17 +337,17 @@ def get_dashboard(
     daily_rev = sum(
         service_map[a.service_id].price 
         for a in completed_appts 
-        if a.service_id in service_map and a.appointment_date == today
+        if a.service_id and a.service_id in service_map and a.appointment_date == today
     )
     weekly_rev = sum(
         service_map[a.service_id].price 
         for a in completed_appts 
-        if a.service_id in service_map and a.appointment_date >= start_of_week
+        if a.service_id and a.service_id in service_map and a.appointment_date >= start_of_week
     )
     monthly_rev = sum(
         service_map[a.service_id].price 
         for a in completed_appts 
-        if a.service_id in service_map and a.appointment_date >= start_of_month
+        if a.service_id and a.service_id in service_map and a.appointment_date >= start_of_month
     )
 
     custom_rev = None
@@ -357,7 +358,7 @@ def get_dashboard(
             custom_rev = sum(
                 service_map[a.service_id].price 
                 for a in completed_appts 
-                if a.service_id in service_map and s_date <= a.appointment_date <= e_date
+                if a.service_id and a.service_id in service_map and s_date <= a.appointment_date <= e_date
             )
         except ValueError:
             custom_rev = 0.0
@@ -465,6 +466,12 @@ def delete_service(
 ):
     srv = db.get(Service, service_id)
     if srv and srv.salon_id == salon.id:
+        # Unlink foreign key references from appointments prior to deletion
+        linked_appts = db.exec(select(Appointment).where(Appointment.service_id == service_id)).all()
+        for appt in linked_appts:
+            appt.service_id = None
+            db.add(appt)
+        
         db.delete(srv)
         db.commit()
 
@@ -492,6 +499,12 @@ def delete_staff(
 ):
     stf = db.get(Staff, staff_id)
     if stf and stf.salon_id == salon.id:
+        # Unlink foreign key references from appointments prior to deletion
+        linked_appts = db.exec(select(Appointment).where(Appointment.staff_id == staff_id)).all()
+        for appt in linked_appts:
+            appt.staff_id = None
+            db.add(appt)
+            
         db.delete(stf)
         db.commit()
 
@@ -511,7 +524,7 @@ def post_admin_login(
     request: Request,
     password: str = Form(...)
 ):
-    if password != ADMIN_SECRET_KEY:
+    if not hmac.compare_digest(password, ADMIN_SECRET_KEY):
         return templates.TemplateResponse(
             "admin_login.html", 
             {"request": request, "error": "የተሳሳተ የይለፍ ቃል (Invalid Admin Password)"}
@@ -527,7 +540,7 @@ def admin_dashboard(
     db: Session = Depends(get_session)
 ):
     admin_cookie = request.cookies.get("admin_auth")
-    if admin_cookie != ADMIN_SECRET_KEY:
+    if not admin_cookie or not hmac.compare_digest(admin_cookie, ADMIN_SECRET_KEY):
         return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
 
     salons = db.exec(select(Salon)).all()
@@ -540,7 +553,8 @@ def approve_salon_admin(
     days: int = Form(30),
     db: Session = Depends(get_session)
 ):
-    if request.cookies.get("admin_auth") != ADMIN_SECRET_KEY:
+    admin_cookie = request.cookies.get("admin_auth")
+    if not admin_cookie or not hmac.compare_digest(admin_cookie, ADMIN_SECRET_KEY):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     salon = db.get(Salon, salon_id)
@@ -560,7 +574,8 @@ def suspend_salon_admin(
     salon_id: int,
     db: Session = Depends(get_session)
 ):
-    if request.cookies.get("admin_auth") != ADMIN_SECRET_KEY:
+    admin_cookie = request.cookies.get("admin_auth")
+    if not admin_cookie or not hmac.compare_digest(admin_cookie, ADMIN_SECRET_KEY):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     salon = db.get(Salon, salon_id)
