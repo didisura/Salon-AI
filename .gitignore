@@ -1,47 +1,9 @@
-# Python cache files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
-venv/
-.venv/
-env/
-
-# Environment variables (secrets)
-.env
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# IDE settings
-.vscode/
-.idea/
-
-# Logs
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Test/cache files
-.pytest_cache/
-.mypy_cache/
-
-# Uploaded files (if you add uploads later)
-uploads/
-media/
-
-# Ignore environment variables
-.env
-.env.*
-
-# Ignore Python cache & virtual environments
 __pycache__/
 *.pyc
-.venv/
+*.db
+.env
 venv/
-env/
+.venv/
+smoke.db
+smoke_test.py
+server.log
