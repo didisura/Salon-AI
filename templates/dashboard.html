@@ -729,391 +729,304 @@
     </a>
 </nav>
 
-<!-- MODALS -->
-<div class="modal fade" id="bookModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/book-appointment" method="post">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">አዲስ ቀጠሮ ማስያዝ</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- MODAL: BOOK WALK-IN APPOINTMENT -->
+<div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">አዲስ ቀጠሮ (Book Walk-in)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/book-walkin" method="post">
+                <div class="modal-body d-flex flex-column gap-3">
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">የደንበኛ ስም</label>
+                        <input type="text" name="customer_name" class="form-control" required placeholder="ለምሳሌ፡ አልማዝ ተስፋዬ">
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ስልክ ቁጥር</label>
+                        <input type="tel" name="customer_phone" class="form-control" required placeholder="0911223344">
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">አገልግሎት</label>
+                        <select name="service_id" class="form-select" required>
+                            <option value="">አገልግሎት ይምረጡ...</option>
+                            {% for s in services %}
+                            <option value="{{ s.id }}">{{ s.name }} - {{ s.price }} ETB ({{ s.duration_minutes }} ደቂቃ)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ሰራተኛ / ባለሙያ</label>
+                        <select name="staff_id" class="form-select" required>
+                            <option value="">ባለሙያ ይምረጡ...</option>
+                            {% for st in staff_members %}
+                            <option value="{{ st.id }}">{{ st.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ቀንና ሰዓት</label>
+                        <input type="datetime-local" name="appointment_time" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ዝጋ</button>
+                    <button type="submit" class="btn btn-rose">መዝግብ</button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">የደንበኛ ስም</label>
-            <input type="text" name="customer_name" class="form-control" required placeholder="ምሳሌ፡ አልማዝ አበበ">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ስልክ ቁጥር</label>
-            <input type="tel" name="customer_phone" class="form-control" required placeholder="0911000000">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">አገልግሎት</label>
-            <select name="service_id" class="form-select" required>
-              {% for s in services %}
-                <option value="{{ s.id }}">{{ s.name }} ({{ s.price }} ETB)</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ባለሙያ</label>
-            <select name="staff_id" class="form-select" required>
-              {% for st in staff_members %}
-                <option value="{{ st.id }}">{{ st.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ቀንና ሰዓት</label>
-            <input type="datetime-local" name="appointment_time" class="form-control" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-rose w-100">ቀጠሮ ያዝ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<div class="modal fade" id="addServiceModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/add-service" method="post">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">አዲስ አገልግሎት መጨመር</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- MODAL: ADD TO WAITLIST -->
+<div class="modal fade" id="addWaitlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">ተጠባባቂ ደንበኛ መመዝገቢያ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/add-waitlist" method="post">
+                <div class="modal-body d-flex flex-column gap-3">
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">የደንበኛ ስም</label>
+                        <input type="text" name="customer_name" class="form-control" required placeholder="ለምሳሌ፡ ሀና አበበ">
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ስልክ ቁጥር</label>
+                        <input type="tel" name="customer_phone" class="form-control" required placeholder="0911000000">
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">የሚፈለገው አገልግሎት</label>
+                        <select name="service_id" class="form-select" required>
+                            <option value="">አገልግሎት ይምረጡ...</option>
+                            {% for s in services %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ተመራጭ ባለሙያ (Optional)</label>
+                        <select name="staff_id" class="form-select">
+                            <option value="">ማንኛውም ባለሙያ</option>
+                            {% for st in staff_members %}
+                            <option value="{{ st.id }}">{{ st.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ተመራጭ ቀን</label>
+                        <input type="date" name="preferred_date" class="form-control" value="{{ selected_date or current_date }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ዝጋ</button>
+                    <button type="submit" class="btn btn-rose">መዝግብ</button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">የአገልግሎት ስም</label>
-            <input type="text" name="name" class="form-control" required placeholder="ምሳሌ፡ Keratin Treatment">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ዋጋ (ETB)</label>
-            <input type="number" step="0.01" name="price" class="form-control" required placeholder="1500">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">የሚፈጅበት ጊዜ (ደቂቃ)</label>
-            <input type="number" step="5" min="5" name="duration_minutes" class="form-control" required value="60">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-rose w-100">መዝግብ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<div class="modal fade" id="addStaffModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/add-staff" method="post">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">አዲስ ሰራተኛ መጨመር</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- MODAL: ADD SERVICE -->
+<div class="modal fade" id="addServiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">አዲስ አገልግሎት ጨምር</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/add-service" method="post">
+                <div class="modal-body d-flex flex-column gap-3">
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">የአገልግሎቱ ስም</label>
+                        <input type="text" name="name" class="form-control" required placeholder="ለምሳሌ፡ የፀጉር ትሪትመንት">
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">ዋጋ (ETB)</label>
+                        <input type="number" step="0.01" name="price" class="form-control" required placeholder="500">
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">የሚወስደው ጊዜ (በደቂቃ)</label>
+                        <input type="number" name="duration_minutes" class="form-control" required value="45">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ዝጋ</button>
+                    <button type="submit" class="btn btn-rose">አስገባ</button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">የሰራተኛ ስም</label>
-            <input type="text" name="name" class="form-control" required placeholder="ምሳሌ፡ ሄለን">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-rose w-100">መዝግብ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<div class="modal fade" id="addWaitlistModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/add-waitlist" method="post">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">ተጠባባቂ ዝርዝር ጨምር</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- MODAL: ADD STAFF -->
+<div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">አዲስ ሰራተኛ ጨምር</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/add-staff" method="post">
+                <div class="modal-body d-flex flex-column gap-3">
+                    <div>
+                        <label class="form-label text-muted small fw-semibold">የሰራተኛው/ዋ ሙሉ ስም</label>
+                        <input type="text" name="name" class="form-control" required placeholder="ለምሳሌ፡ ሰለሞን">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ዝጋ</button>
+                    <button type="submit" class="btn btn-rose">አስገባ</button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">የደንበኛ ስም</label>
-            <input type="text" name="customer_name" class="form-control" required placeholder="ምሳሌ፡ አልማዝ አበበ">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ስልክ ቁጥር</label>
-            <input type="tel" name="customer_phone" class="form-control" required placeholder="0911000000">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">አገልግሎት</label>
-            <select name="service_id" class="form-select" required>
-              {% for s in services %}
-                <option value="{{ s.id }}">{{ s.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ባለሙያ (አማራጭ)</label>
-            <select name="staff_id" class="form-select">
-              <option value="">ማንኛውም (Any staff)</option>
-              {% for st in staff_members %}
-                <option value="{{ st.id }}">{{ st.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">የተመረጠ ቀን</label>
-            <input type="date" name="preferred_date" class="form-control" required value="{{ current_date }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-semibold">ማስታወሻ (አማራጭ)</label>
-            <textarea name="note" class="form-control" rows="2" placeholder="ምሳሌ፡ ጠዋት ብቻ ይፈልጋሉ"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-rose w-100">ወደ ዝርዝር ጨምር</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
+<!-- Audio chime for live incoming bookings -->
+<audio id="notificationSound" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+</audio>
+
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-let newWaitlistCount = 0;
-
-// Connect to FastAPI WebSocket Engine
-(function initWebSocketEngine() {
-    const salonId = "{{ salon.id }}";
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/appointments/${salonId}`;
-    
-    const socket = new WebSocket(wsUrl);
-
-    socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.event === "NEW_ONLINE_BOOKING") {
-            handleLiveBooking(message.data);
-        }
-    };
-
-    socket.onclose = () => {
-        // Automatically attempt to reconnect if connection drops
-        setTimeout(initWebSocketEngine, 3000);
-    };
-})();
-
-// Real-Time Online Booking Handler
-function handleLiveBooking(booking) {
-    // 1. Play Soft Haptic and Notification Alert Sound
-    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-
-    // 2. Insert into the Home Tab Schedule (If active view)
-    const tableBody = document.getElementById("appointmentsListTable");
-    const emptyRow = document.getElementById("noAppointmentsRow");
-    if (emptyRow) emptyRow.remove();
-
-    if (tableBody) {
-        const newRowHTML = `
-        <tr class="swipe-row-container p-0">
-          <td colspan="7" class="p-0 border-0">
-            <div class="swipe-card-wrapper new-booking-highlight" id="appt-card-${booking.id}">
-              <div class="swipe-action-bg swipe-action-left bg-success text-white">
-                <i class="fa-solid fa-circle-check fs-4"></i>
-                <span class="fw-bold small ms-2">Completed</span>
-              </div>
-              <div class="swipe-action-bg swipe-action-right bg-dark text-white">
-                <span class="fw-bold small me-2">No-Show</span>
-                <i class="fa-solid fa-user-slash fs-4"></i>
-              </div>
-              <div class="swipe-card-content p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <div>
-                    <span class="fw-bold text-dark fs-6">${booking.appointment_time}</span>
-                    <span class="badge ms-2 status-badge-${booking.id} bg-warning text-dark">
-                      ${booking.status}
-                    </span>
-                  </div>
-                  <span class="fw-bold text-rose">${booking.service_price} ETB</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-end">
-                  <div>
-                    <div class="fw-bold text-dark">${booking.customer_name} <span class="badge bg-danger ms-1">ONLINE</span></div>
-                    <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>${booking.customer_phone}</div>
-                    <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>${booking.service_name} (${booking.staff_name})</div>
-                  </div>
-                  <form action="/update-appointment-status" method="post" id="status-form-${booking.id}">
-                    <input type="hidden" name="appointment_id" value="${booking.id}">
-                    <select name="status" id="status-select-${booking.id}" onchange="submitStatusAjax(this.form, '${booking.id}')" class="form-select form-select-sm fw-semibold">
-                        <option value="Confirmed" selected>Confirmed</option>
-                        <option value="Completed">Completed</option>
-                        <option value="No-Show">No-Show</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </td>
-        </tr>`;
-
-        tableBody.insertAdjacentHTML("afterbegin", newRowHTML);
-
-        // Attach touch swipe listener to the newly rendered DOM card
-        const newCardContent = document.querySelector(`#appt-card-${booking.id} .swipe-card-content`);
-        if (newCardContent) attachSwipeListeners(newCardContent);
-
-        // Increment today's appointment metric counter
-        const metric = document.getElementById("metricTodayApptCount");
-        if (metric) metric.textContent = parseInt(metric.textContent || 0) + 1;
-    }
-
-    // 3. Update Waitlist/Reserve Unread Counter Badges on Sidebar and Mobile Nav
-    newWaitlistCount++;
-    const sidebarCounter = document.getElementById("sidebarReserveCounter");
-    const mobileCounter = document.getElementById("mobileReserveCounter");
-
-    if (sidebarCounter) {
-        sidebarCounter.textContent = newWaitlistCount;
-        sidebarCounter.classList.remove("d-none");
-    }
-    if (mobileCounter) {
-        mobileCounter.textContent = newWaitlistCount;
-        mobileCounter.classList.remove("d-none");
-    }
-}
-
-// Attach Touch Swipe Gestures to individual cards
-function attachSwipeListeners(card) {
-    let startX = 0;
-    let currentX = 0;
-    let isSwiping = false;
-    const parentWrapper = card.closest(".swipe-card-wrapper");
-    if (!parentWrapper) return;
-    
-    const apptId = parentWrapper.id.replace("appt-card-", "");
-    const statusForm = document.getElementById(`status-form-${apptId}`);
-    const statusSelect = document.getElementById(`status-select-${apptId}`);
-
-    card.addEventListener("touchstart", (e) => {
-        startX = e.touches[0].clientX;
-        isSwiping = true;
-        card.style.transition = "none";
-    }, { passive: true });
-
-    card.addEventListener("touchmove", (e) => {
-        if (!isSwiping) return;
-        currentX = e.touches[0].clientX - startX;
-        if (Math.abs(currentX) < 180) {
-            card.style.transform = `translateX(${currentX}px)`;
-        }
-    }, { passive: true });
-
-    card.addEventListener("touchend", () => {
-        if (!isSwiping) return;
-        isSwiping = false;
-        card.style.transition = "transform 0.25s ease-out";
-
-        if (currentX > 90) {
-            card.style.transform = `translateX(0px)`;
-            statusSelect.value = "Completed";
-            if (navigator.vibrate) navigator.vibrate(50);
-            submitStatusAjax(statusForm, apptId);
-        } else if (currentX < -90) {
-            card.style.transform = `translateX(0px)`;
-            statusSelect.value = "No-Show";
-            if (navigator.vibrate) navigator.vibrate(50);
-            submitStatusAjax(statusForm, apptId);
-        } else {
-            card.style.transform = `translateX(0px)`;
-        }
-
-        startX = 0;
-        currentX = 0;
-    });
-}
-
-// Asynchronous Form Submit via Fetch
-async function submitStatusAjax(form, apptId) {
-    const formData = new FormData(form);
-    const selectedStatus = formData.get("status");
-    const badge = document.querySelector(`.status-badge-${apptId}`);
-    
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok && badge) {
-            badge.textContent = selectedStatus;
-            badge.className = `badge ms-2 status-badge-${apptId} ` + 
-                (selectedStatus === 'Completed' ? 'bg-success' : 
-                (selectedStatus === 'Cancelled' ? 'bg-danger' : 
-                (selectedStatus === 'No-Show' ? 'bg-dark' : 'bg-warning text-dark')));
-        }
-    } catch (error) {
-        console.error("Status update error:", error);
-    }
-}
-
-// Copy Public Link
-function copyBookingLink() {
-    const input = document.getElementById("bookingLinkInput");
-    const btn = document.getElementById("copyBookingBtn");
-    input.select();
-    input.setSelectionRange(0, 99999);
-    
-    navigator.clipboard.writeText(input.value).then(() => {
+    // Copy Client Booking Link
+    function copyBookingLink() {
+        const input = document.getElementById('bookingLinkInput');
+        input.select();
+        input.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(input.value);
+        
+        const btn = document.getElementById('copyBookingBtn');
         btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Copied!';
-        btn.classList.replace("btn-rose", "btn-success");
         setTimeout(() => {
             btn.innerHTML = '<i class="fa-solid fa-copy me-1"></i> Copy';
-            btn.classList.replace("btn-success", "btn-rose");
         }, 2000);
+    }
+
+    // AJAX Appointment Status Update
+    function submitStatusAjax(form, apptId) {
+        const formData = new FormData(form);
+        fetch('/update-appointment-status', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                const newStatus = formData.get('status');
+                const badge = document.querySelector(`.status-badge-${apptId}`);
+                if (badge) {
+                    badge.textContent = newStatus;
+                    badge.className = `badge ms-2 status-badge-${apptId} ` + 
+                        (newStatus === 'Completed' ? 'bg-success' : 
+                         newStatus === 'Cancelled' ? 'bg-danger' : 
+                         newStatus === 'No-Show' ? 'bg-dark' : 'bg-warning text-dark');
+                }
+            }
+        })
+        .catch(err => console.error('Status update error:', err));
+    }
+
+    // Mobile Swipe Gesture Recognition on Cards
+    document.addEventListener('DOMContentLoaded', () => {
+        const swipeCards = document.querySelectorAll('.swipe-card-content');
+        
+        swipeCards.forEach(card => {
+            let startX = 0;
+            let currentX = 0;
+            let isSwiping = false;
+            const wrapper = card.closest('.swipe-card-wrapper');
+            const apptId = wrapper.id.replace('appt-card-', '');
+            
+            card.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isSwiping = true;
+                card.style.transition = 'none';
+            }, { passive: true });
+
+            card.addEventListener('touchmove', (e) => {
+                if (!isSwiping) return;
+                currentX = e.touches[0].clientX;
+                const diffX = currentX - startX;
+                
+                // Limit swipe boundary range
+                if (Math.abs(diffX) < 120) {
+                    card.style.transform = `translateX(${diffX}px)`;
+                }
+            }, { passive: true });
+
+            card.addEventListener('touchend', () => {
+                if (!isSwiping) return;
+                isSwiping = false;
+                card.style.transition = 'transform 0.2s ease';
+                
+                const diffX = currentX - startX;
+                const select = document.getElementById(`status-select-${apptId}`);
+                const form = document.getElementById(`status-form-${apptId}`);
+                
+                if (diffX > 75) {
+                    // Swipe Right -> Mark Completed
+                    card.style.transform = 'translateX(0px)';
+                    if (select && select.value !== 'Completed') {
+                        select.value = 'Completed';
+                        submitStatusAjax(form, apptId);
+                    }
+                } else if (diffX < -75) {
+                    // Swipe Left -> Mark No-Show
+                    card.style.transform = 'translateX(0px)';
+                    if (select && select.value !== 'No-Show') {
+                        select.value = 'No-Show';
+                        submitStatusAjax(form, apptId);
+                    }
+                } else {
+                    card.style.transform = 'translateX(0px)';
+                }
+                startX = 0;
+                currentX = 0;
+            });
+        });
+
+        // Touch Pull-to-Refresh Mechanism for Mobile Viewports
+        const mainContent = document.getElementById('mainScrollArea');
+        const ptrIndicator = document.getElementById('ptrIndicator');
+        let ptrStartY = 0;
+        let ptrCurrentY = 0;
+        let isPTR = false;
+
+        mainContent.addEventListener('touchstart', (e) => {
+            if (mainContent.scrollTop === 0) {
+                ptrStartY = e.touches[0].clientY;
+                isPTR = true;
+            }
+        }, { passive: true });
+
+        mainContent.addEventListener('touchmove', (e) => {
+            if (!isPTR) return;
+            ptrCurrentY = e.touches[0].clientY;
+            const diffY = ptrCurrentY - ptrStartY;
+            
+            if (diffY > 0 && mainContent.scrollTop === 0) {
+                const pullDistance = Math.min(diffY * 0.4, 70);
+                ptrIndicator.style.transform = `translate(-50%, ${pullDistance}px) rotate(${pullDistance * 3}deg)`;
+            }
+        }, { passive: true });
+
+        mainContent.addEventListener('touchend', () => {
+            if (!isPTR) return;
+            const diffY = ptrCurrentY - ptrStartY;
+            if (diffY > 120 && mainContent.scrollTop === 0) {
+                ptrIndicator.style.transform = 'translate(-50%, 60px) rotate(180deg)';
+                location.reload();
+            } else {
+                ptrIndicator.style.transform = 'translate(-50%, -50px) rotate(0deg)';
+            }
+            isPTR = false;
+        });
     });
-}
-
-// Touch Pull-To-Refresh Interaction Logic
-(function initPullToRefresh() {
-    let touchStart = 0;
-    let touchY = 0;
-    const scrollArea = document.getElementById("mainScrollArea");
-    const ptrIndicator = document.getElementById("ptrIndicator");
-
-    scrollArea.addEventListener('touchstart', (e) => {
-        if (scrollArea.scrollTop === 0) touchStart = e.touches[0].screenY;
-    }, { passive: true });
-
-    scrollArea.addEventListener('touchmove', (e) => {
-        if (touchStart === 0) return;
-        touchY = e.touches[0].screenY;
-        const diff = touchY - touchStart;
-
-        if (diff > 0 && scrollArea.scrollTop === 0) {
-            const pullDistance = Math.min(diff * 0.4, 80);
-            ptrIndicator.style.transform = `translate(-50%, ${pullDistance}px) rotate(${pullDistance * 3}deg)`;
-        }
-    }, { passive: true });
-
-    scrollArea.addEventListener('touchend', () => {
-        if (touchY - touchStart > 70 && scrollArea.scrollTop === 0) {
-            ptrIndicator.style.transform = `translate(-50%, 70px) rotate(180deg)`;
-            window.location.reload();
-        } else {
-            ptrIndicator.style.transform = `translate(-50%, 0px)`;
-        }
-        touchStart = 0;
-        touchY = 0;
-    });
-})();
-
-// Attach Swipe Handlers to Existing Pre-rendered Schedule Cards
-document.addEventListener("DOMContentLoaded", () => {
-    const existingCards = document.querySelectorAll(".swipe-card-content");
-    existingCards.forEach(card => attachSwipeListeners(card));
-});
 </script>
+
 </body>
 </html>
