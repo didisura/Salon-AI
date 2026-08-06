@@ -33,7 +33,7 @@
                 <p class="text-xs text-slate-500 mt-1">እባክዎን መረጃዎን ያስገቡና አገልግሎት ይምረጡ</p>
             </div>
 
-            <form action="/public-book-appointment" method="POST" class="space-y-5">
+            <form action="/book/{{ salon.id }}" method="POST" class="space-y-5"></form>
                 <!-- Hidden Salon ID Binding -->
                 <input type="hidden" name="salon_id" value="{{ salon.id }}">
 
