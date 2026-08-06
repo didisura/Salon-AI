@@ -33,7 +33,8 @@
                 <p class="text-xs text-slate-500 mt-1">እባክዎን መረጃዎን ያስገቡና አገልግሎት ይምረጡ</p>
             </div>
 
-            <form action="/book/{{ salon.id }}" method="POST" class="space-y-5"></form>
+            <!-- Form starts here -->
+            <form action="/book/{{ salon.id }}" method="POST" class="space-y-5">
                 <!-- Hidden Salon ID Binding -->
                 <input type="hidden" name="salon_id" value="{{ salon.id }}">
 
@@ -131,6 +132,7 @@
                     ቀጠሮውን አረጋግጥ (Confirm Booking)
                 </button>
             </form>
+            <!-- Form ends here -->
         </div>
 
     </main>
