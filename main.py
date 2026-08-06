@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, status, Form, Request, Query
@@ -26,7 +27,13 @@ engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-app = FastAPI(title="Melkegna Salon Platform")
+# Modern FastAPI lifespan events for database initialization
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    SQLModel.metadata.create_all(engine)
+    yield
+
+app = FastAPI(title="Melkegna Salon Platform", lifespan=lifespan)
 
 # Mount templates (assuming dashboard.html is inside 'templates' directory)
 templates = Jinja2Templates(directory="templates")
@@ -75,12 +82,6 @@ class Waitlist(SQLModel, table=True):
     customer_phone: str
     preferred_date: date
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-# Create tables on startup
-@app.on_event("startup")
-def on_startup():
-    SQLModel.metadata.create_all(engine)
 
 
 # ==========================================
@@ -242,7 +243,9 @@ def dashboard(
     today_appt_count = len(raw_appts) if filter_date == today else len(db.exec(select(Appointment).where(Appointment.salon_id == salon.id, Appointment.appointment_time >= today_start, Appointment.appointment_time <= today_end)).all())
     
     total_customers_count = db.exec(select(func.count(func.distinct(Appointment.customer_phone))).where(Appointment.salon_id == salon.id)).one() or 0
-    no_show_count_today = len([a for a in raw_appts if a["status"] == "No-Show"])
+    
+    # FIXED: Accessing attribute `.status` instead of dict lookup `["status"]` on SQLModel object
+    no_show_count_today = len([a for a in raw_appts if a.status == "No-Show"])
 
     # Waitlist Entries
     waitlist_raw = db.exec(select(Waitlist).where(Waitlist.salon_id == salon.id).order_by(Waitlist.created_at.desc())).all()
