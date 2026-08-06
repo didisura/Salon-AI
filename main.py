@@ -1,340 +1,424 @@
 import os
-from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
-from typing import Optional, List
-from fastapi import FastAPI, Depends, HTTPException, status, Form, Request, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+import json
+import asyncio
+from datetime import datetime, date, timedelta
+from typing import Optional, List, Dict
+
+from fastapi import (
+    FastAPI,
+    Request,
+    Response,
+    Form,
+    Depends,
+    HTTPException,
+    status,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlmodel import SQLModel, Field, Session, create_engine, select, func, or_, and_
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+
+from sqlmodel import SQLModel, Field, Session, select, create_engine, Relationship
+from pydantic import BaseModel
+import jwt
 
 # ==========================================
-# CONFIGURATION & SETUP
+# DATABASE & SYSTEM CONFIGURATION
 # ==========================================
-
-SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-change-in-production")
-ALGORITHM = "HS256"
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./melkegna.db")
-
-# Fix for PostgreSQL connection strings on Railway/Render (postgres:// to postgresql://)
+# Adjust Postgres URL for SQLAlchemy compatibility if hosted on Render/Railway
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
+SECRET_KEY = os.getenv("SECRET_KEY", "melkegna-super-secret-key-change-in-prod")
+ALGORITHM = "HS256"
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+)
 
-# Modern FastAPI lifespan events for database initialization
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    SQLModel.metadata.create_all(engine)
-    yield
+app = FastAPI(title="Melkegna Platform", version="2.0.0")
 
-app = FastAPI(title="Melkegna Salon Platform", lifespan=lifespan)
-
-# Mount templates (assuming dashboard.html is inside 'templates' directory)
+# Mount Static and Templates
+os.makedirs("static", exist_ok=True)
+os.makedirs("templates", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
 # ==========================================
-# DATABASE MODELS
+# WEBSOCKET CONNECTION MANAGER
 # ==========================================
+class ConnectionManager:
+    def __init__(self):
+        # Maps salon_id -> List[WebSocket]
+        self.active_connections: Dict[int, List[WebSocket]] = {}
 
+    async def connect(self, websocket: WebSocket, salon_id: int):
+        await websocket.accept()
+        if salon_id not in self.active_connections:
+            self.active_connections[salon_id] = []
+        self.active_connections[salon_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, salon_id: int):
+        if salon_id in self.active_connections:
+            if websocket in self.active_connections[salon_id]:
+                self.active_connections[salon_id].remove(websocket)
+            if not self.active_connections[salon_id]:
+                del self.active_connections[salon_id]
+
+    async def broadcast_to_salon(self, salon_id: int, message: dict):
+        if salon_id in self.active_connections:
+            for connection in self.active_connections[salon_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    # Connection might be dead, handled on disconnect
+                    pass
+
+
+manager = ConnectionManager()
+
+# ==========================================
+# SQLMODEL DATABASE SCHEMAS
+# ==========================================
 class Salon(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
+    name: str = Field(index=True)
     owner_name: str
-    username: str = Field(unique=True, index=True)
+    phone: str = Field(unique=True, index=True)
     password_hash: str
-    slug: str = Field(unique=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    services: List["Service"] = Relationship(back_populates="salon")
+    staff: List["Staff"] = Relationship(back_populates="salon")
+    appointments: List["Appointment"] = Relationship(back_populates="salon")
+    waitlist: List["Waitlist"] = Relationship(back_populates="salon")
+
 
 class Service(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     salon_id: int = Field(foreign_key="salon.id", index=True)
     name: str
     price: float
-    duration_minutes: int = 45
+    duration_minutes: int
+
+    salon: Optional[Salon] = Relationship(back_populates="services")
+
 
 class Staff(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     salon_id: int = Field(foreign_key="salon.id", index=True)
     name: str
 
+    salon: Optional[Salon] = Relationship(back_populates="staff")
+
+
 class Appointment(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     salon_id: int = Field(foreign_key="salon.id", index=True)
     service_id: int = Field(foreign_key="service.id")
-    staff_id: int = Field(foreign_key="staff.id", index=True)
+    staff_id: int = Field(foreign_key="staff.id")
     customer_name: str
     customer_phone: str
     appointment_time: datetime = Field(index=True)
-    status: str = Field(default="Confirmed")  # Confirmed, Completed, Cancelled, No-Show
+    status: str = Field(default="Confirmed")  # Confirmed, Completed, No-Show, Cancelled
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    salon: Optional[Salon] = Relationship(back_populates="appointments")
+
 
 class Waitlist(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     salon_id: int = Field(foreign_key="salon.id", index=True)
-    service_id: int = Field(foreign_key="service.id")
-    staff_id: Optional[int] = Field(default=None, foreign_key="staff.id")
     customer_name: str
     customer_phone: str
+    service_id: int = Field(foreign_key="service.id")
+    staff_id: int = Field(foreign_key="staff.id")
     preferred_date: date
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    salon: Optional[Salon] = Relationship(back_populates="waitlist")
 
-# ==========================================
-# HELPER FUNCTIONS & AUTHENTICATION
-# ==========================================
+
+def init_db():
+    SQLModel.metadata.create_all(engine)
+
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
 
 def get_db():
     with Session(engine) as session:
         yield session
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict):
+# ==========================================
+# AUTHENTICATION HELPERS
+# ==========================================
+def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=7)
+    expire = datetime.utcnow() + timedelta(days=30)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def get_current_salon_from_cookie(request: Request, db: Session = Depends(get_db)) -> Optional[Salon]:
+
+def get_current_salon(request: Request, db: Session = Depends(get_db)) -> Optional[Salon]:
     token = request.cookies.get("access_token")
     if not token:
         return None
     try:
-        if token.startswith("Bearer "):
-            token = token[7:]
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        salon_id: str = payload.get("sub")
+        salon_id: int = payload.get("sub")
         if salon_id is None:
             return None
-    except JWTError:
+    except jwt.PyJWTError:
         return None
-    return db.get(Salon, int(salon_id))
 
-def check_double_booking(db: Session, salon_id: int, staff_id: int, appt_time: datetime, service_duration: int, exclude_appt_id: Optional[int] = None) -> bool:
-    """Returns True if there is a scheduling conflict for the staff member."""
-    new_start = appt_time
-    new_end = appt_time + timedelta(minutes=service_duration)
-
-    query = select(Appointment, Service).join(Service, Appointment.service_id == Service.id).where(
-        Appointment.salon_id == salon_id,
-        Appointment.staff_id == staff_id,
-        Appointment.status == "Confirmed"
-    )
-    if exclude_appt_id:
-        query = query.where(Appointment.id != exclude_appt_id)
-
-    existing_appointments = db.exec(query).all()
-
-    for appt, srv in existing_appointments:
-        existing_start = appt.appointment_time
-        existing_end = appt.appointment_time + timedelta(minutes=srv.duration_minutes)
-
-        if new_start < existing_end and new_end > existing_start:
-            return True  # Conflict detected
-    return False
+    salon = db.get(Salon, salon_id)
+    return salon
 
 
 # ==========================================
-# AUTHENTICATION ROUTES
+# ROUTES & ENDPOINTS
 # ==========================================
+@app.get("/", response_class=HTMLResponse)
+def index_redirect(request: Request, db: Session = Depends(get_db)):
+    salon = get_current_salon(request, db)
+    if salon:
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
-@app.get("/")
-def read_root():
-    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
-@app.post("/login")
-def login(
-    request: Request,
-    username: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    salon = db.exec(select(Salon).where(Salon.username == username)).first()
-    if not salon or not verify_password(password, salon.password_hash):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "የተሳሳተ የተጠቃሚ ስም ወይም የደህንነት ቃል (Invalid credentials)"})
 
-    token = create_access_token({"sub": str(salon.id)})
-    response = RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
+@app.post("/login", response_class=HTMLResponse)
+def login_submit(
+    request: Request,
+    phone: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    statement = select(Salon).where(Salon.phone == phone)
+    salon = db.exec(statement).first()
+
+    # Note: In production, use passlib/bcrypt for password hashing verification
+    if not salon or salon.password_hash != password:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "የስልክ ቁጥር ወይም የፉልቃል ስህተት ነው!"},
+        )
+
+    token = create_access_token({"sub": salon.id})
+    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+    response.set_cookie(key="access_token", value=token, httponly=True)
     return response
+
 
 @app.get("/logout")
 def logout():
-    response = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     response.delete_cookie("access_token")
     return response
 
 
-# ==========================================
-# ADMIN DASHBOARD ROUTES
-# ==========================================
-
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     request: Request,
-    tab: str = Query("home"),
-    selected_date: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    error: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    tab: str = "home",
+    selected_date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    error: Optional[str] = None,
+    db: Session = Depends(get_db),
 ):
-    salon = get_current_salon_from_cookie(request, db)
+    salon = get_current_salon(request, db)
     if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
-    today = date.today()
-    filter_date = datetime.strptime(selected_date, "%Y-%m-%d").date() if selected_date else today
+    today_str = date.today().isoformat()
+    filter_date_str = selected_date if selected_date else today_str
+    try:
+        target_date = date.fromisoformat(filter_date_str)
+    except ValueError:
+        target_date = date.today()
 
-    # Fetch Dashboard Metrics
+    # Base Query for Appointments
+    all_appts = db.exec(
+        select(Appointment).where(Appointment.salon_id == salon.id)
+    ).all()
+
+    # Calculate Revenue Metrics
+    daily_rev = sum(
+        db.get(Service, a.service_id).price
+        for a in all_appts
+        if a.appointment_time.date() == date.today() and a.status == "Completed"
+    )
+
+    week_ago = date.today() - timedelta(days=7)
+    weekly_rev = sum(
+        db.get(Service, a.service_id).price
+        for a in all_appts
+        if a.appointment_time.date() >= week_ago and a.status == "Completed"
+    )
+
+    month_start = date.today().replace(day=1)
+    monthly_rev = sum(
+        db.get(Service, a.service_id).price
+        for a in all_appts
+        if a.appointment_time.date() >= month_start and a.status == "Completed"
+    )
+
+    # Custom Revenue Filter Calculation
+    custom_rev = None
+    if start_date and end_date:
+        try:
+            s_date = date.fromisoformat(start_date)
+            e_date = date.fromisoformat(end_date)
+            custom_rev = sum(
+                db.get(Service, a.service_id).price
+                for a in all_appts
+                if s_date <= a.appointment_time.date() <= e_date
+                and a.status == "Completed"
+            )
+        except ValueError:
+            custom_rev = 0.0
+
+    # Appointments for display table
+    target_appts = [
+        a for a in all_appts if a.appointment_time.date() == target_date
+    ]
+    target_appts.sort(key=lambda x: x.appointment_time)
+
+    # Format appointment dictionaries for Jinja rendering
+    formatted_appointments = []
+    for a in target_appts:
+        srv = db.get(Service, a.service_id)
+        stf = db.get(Staff, a.staff_id)
+        formatted_appointments.append(
+            {
+                "id": a.id,
+                "customer_name": a.customer_name,
+                "customer_phone": a.customer_phone,
+                "appointment_time": a.appointment_time.strftime("%I:%M %p"),
+                "service_name": srv.name if srv else "Unknown",
+                "service_price": f"{srv.price:,.2f}" if srv else "0.00",
+                "staff_name": stf.name if stf else "Unknown",
+                "status": a.status,
+            }
+        )
+
+    # Counts
+    today_appt_count = len(
+        [a for a in all_appts if a.appointment_time.date() == date.today()]
+    )
+    no_show_count_today = len(
+        [
+            a
+            for a in all_appts
+            if a.appointment_time.date() == date.today() and a.status == "No-Show"
+        ]
+    )
+    total_customers = len(set(a.customer_phone for a in all_appts))
+
+    # Waitlist Data
+    raw_waitlist = db.exec(
+        select(Waitlist).where(Waitlist.salon_id == salon.id)
+    ).all()
+    formatted_waitlist = []
+    for w in raw_waitlist:
+        srv = db.get(Service, w.service_id)
+        stf = db.get(Staff, w.staff_id)
+        formatted_waitlist.append(
+            {
+                "id": w.id,
+                "customer_name": w.customer_name,
+                "customer_phone": w.customer_phone,
+                "service_name": srv.name if srv else "Unknown",
+                "staff_name": stf.name if stf else "Unknown",
+                "preferred_date": w.preferred_date.isoformat(),
+            }
+        )
+
     services = db.exec(select(Service).where(Service.salon_id == salon.id)).all()
     staff_members = db.exec(select(Staff).where(Staff.salon_id == salon.id)).all()
 
-    # Base Query for Day Appointments
-    day_start = datetime.combine(filter_date, datetime.min.time())
-    day_end = datetime.combine(filter_date, datetime.max.time())
+    base_url = str(request.base_url).rstrip("/")
+    booking_url = f"{base_url}/book/{salon.id}"
 
-    appts_query = select(Appointment).where(
-        Appointment.salon_id == salon.id,
-        Appointment.appointment_time >= day_start,
-        Appointment.appointment_time <= day_end
-    ).order_by(Appointment.appointment_time.asc())
-    raw_appts = db.exec(appts_query).all()
-
-    # Hydrate Appointments with names for display
-    appointments_list = []
-    for appt in raw_appts:
-        srv = db.get(Service, appt.service_id)
-        stf = db.get(Staff, appt.staff_id)
-        appointments_list.append({
-            "id": appt.id,
-            "appointment_time": appt.appointment_time.strftime("%I:%M %p"),
-            "customer_name": appt.customer_name,
-            "customer_phone": appt.customer_phone,
-            "service_name": srv.name if srv else "N/A",
-            "service_price": srv.price if srv else 0.0,
-            "staff_name": stf.name if stf else "N/A",
-            "status": appt.status
-        })
-
-    # Calculations for Metrics Cards
-    today_start = datetime.combine(today, datetime.min.time())
-    today_end = datetime.combine(today, datetime.max.time())
-    
-    today_completed_appts = db.exec(
-        select(Appointment).where(
-            Appointment.salon_id == salon.id,
-            Appointment.status == "Completed",
-            Appointment.appointment_time >= today_start,
-            Appointment.appointment_time <= today_end
-        )
-    ).all()
-    
-    daily_rev = sum([db.get(Service, a.service_id).price for a in today_completed_appts if db.get(Service, a.service_id)])
-    today_appt_count = len(raw_appts) if filter_date == today else len(db.exec(select(Appointment).where(Appointment.salon_id == salon.id, Appointment.appointment_time >= today_start, Appointment.appointment_time <= today_end)).all())
-    
-    total_customers_count = db.exec(select(func.count(func.distinct(Appointment.customer_phone))).where(Appointment.salon_id == salon.id)).one() or 0
-    
-    no_show_count_today = len([a for a in raw_appts if a.status == "No-Show"])
-
-    # Waitlist Entries
-    waitlist_raw = db.exec(select(Waitlist).where(Waitlist.salon_id == salon.id).order_by(Waitlist.created_at.desc())).all()
-    waitlist_entries = []
-    for w in waitlist_raw:
-        srv = db.get(Service, w.service_id)
-        stf = db.get(Staff, w.staff_id) if w.staff_id else None
-        waitlist_entries.append({
-            "id": w.id,
-            "customer_name": w.customer_name,
-            "customer_phone": w.customer_phone,
-            "service_name": srv.name if srv else "N/A",
-            "staff_name": stf.name if stf else "ማንኛውም (Any)",
-            "preferred_date": w.preferred_date.strftime("%Y-%m-%d")
-        })
-
-    # Revenue Date Filter Calculations
-    weekly_rev = 0.0
-    monthly_rev = 0.0
-    custom_rev = None
-
-    if tab == "revenue":
-        week_ago = datetime.combine(today - timedelta(days=7), datetime.min.time())
-        month_ago = datetime.combine(today - timedelta(days=30), datetime.min.time())
-
-        completed_week = db.exec(select(Appointment).where(Appointment.salon_id == salon.id, Appointment.status == "Completed", Appointment.appointment_time >= week_ago)).all()
-        weekly_rev = sum([db.get(Service, a.service_id).price for a in completed_week if db.get(Service, a.service_id)])
-
-        completed_month = db.exec(select(Appointment).where(Appointment.salon_id == salon.id, Appointment.status == "Completed", Appointment.appointment_time >= month_ago)).all()
-        monthly_rev = sum([db.get(Service, a.service_id).price for a in completed_month if db.get(Service, a.service_id)])
-
-        if start_date and end_date:
-            c_start = datetime.combine(datetime.strptime(start_date, "%Y-%m-%d").date(), datetime.min.time())
-            c_end = datetime.combine(datetime.strptime(end_date, "%Y-%m-%d").date(), datetime.max.time())
-            custom_appts = db.exec(select(Appointment).where(Appointment.salon_id == salon.id, Appointment.status == "Completed", Appointment.appointment_time >= c_start, Appointment.appointment_time <= c_end)).all()
-            custom_rev = sum([db.get(Service, a.service_id).price for a in custom_appts if db.get(Service, a.service_id)])
-
-    booking_url = f"{request.url.scheme}://{request.url.netloc}/book/{salon.slug}"
-
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "salon": salon,
-        "active_tab": tab,
-        "error": error,
-        "selected_date": filter_date.strftime("%Y-%m-%d"),
-        "current_date": today.strftime("%Y-%m-%d"),
-        "daily_rev": daily_rev,
-        "today_appt_count": today_appt_count,
-        "total_customers": total_customers_count,
-        "no_show_count_today": no_show_count_today,
-        "appointments": appointments_list,
-        "waitlist_entries": waitlist_entries,
-        "services": services,
-        "staff_members": staff_members,
-        "weekly_rev": weekly_rev,
-        "monthly_rev": monthly_rev,
-        "start_date": start_date or "",
-        "end_date": end_date or "",
-        "custom_rev": custom_rev,
-        "booking_url": booking_url
-    })
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "salon": salon,
+            "active_tab": tab,
+            "selected_date": filter_date_str,
+            "current_date": today_str,
+            "start_date": start_date or "",
+            "end_date": end_date or "",
+            "error": error,
+            "daily_rev": daily_rev,
+            "weekly_rev": weekly_rev,
+            "monthly_rev": monthly_rev,
+            "custom_rev": custom_rev,
+            "today_appt_count": today_appt_count,
+            "no_show_count_today": no_show_count_today,
+            "total_customers": total_customers,
+            "appointments": formatted_appointments,
+            "waitlist_entries": formatted_waitlist,
+            "services": services,
+            "staff_members": staff_members,
+            "booking_url": booking_url,
+        },
+    )
 
 
 # ==========================================
-# APPOINTMENT & WAITLIST ACTIONS
+# ACTION HANDLERS (POST ENDPOINTS)
 # ==========================================
-
-@app.post("/book-walkin")
-def book_walkin(
+@app.post("/book-appointment")
+async def book_appointment(
     request: Request,
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
     service_id: int = Form(...),
     staff_id: int = Form(...),
     appointment_time: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    salon = get_current_salon_from_cookie(request, db)
+    salon = get_current_salon(request, db)
     if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
-    appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
-    srv = db.get(Service, service_id)
+    try:
+        dt = datetime.fromisoformat(appointment_time)
+    except ValueError:
+        return RedirectResponse(
+            url="/dashboard?tab=home&error=invalid_date",
+            status_code=status.HTTP_302_FOUND,
+        )
 
-    if srv and check_double_booking(db, salon.id, staff_id, appt_dt, srv.duration_minutes):
-        return RedirectResponse(url="/dashboard?tab=home&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
+    # Double Booking Prevention Logic
+    existing = db.exec(
+        select(Appointment).where(
+            Appointment.salon_id == salon.id,
+            Appointment.staff_id == staff_id,
+            Appointment.appointment_time == dt,
+            Appointment.status != "Cancelled",
+        )
+    ).first()
+
+    if existing:
+        return RedirectResponse(
+            url="/dashboard?tab=home&error=conflict", status_code=status.HTTP_302_FOUND
+        )
 
     new_appt = Appointment(
         salon_id=salon.id,
@@ -342,64 +426,115 @@ def book_walkin(
         staff_id=staff_id,
         customer_name=customer_name,
         customer_phone=customer_phone,
-        appointment_time=appt_dt,
-        status="Confirmed"
+        appointment_time=dt,
+        status="Confirmed",
     )
     db.add(new_appt)
     db.commit()
-    return RedirectResponse(url=f"/dashboard?tab=home&selected_date={appt_dt.strftime('%Y-%m-%d')}", status_code=status.HTTP_303_SEE_OTHER)
+    db.refresh(new_appt)
+
+    srv = db.get(Service, service_id)
+    stf = db.get(Staff, staff_id)
+
+    # Broadcast to Connected WebSockets
+    await manager.broadcast_to_salon(
+        salon.id,
+        {
+            "event": "new_booking",
+            "appointment": {
+                "id": new_appt.id,
+                "customer_name": new_appt.customer_name,
+                "customer_phone": new_appt.customer_phone,
+                "appointment_time": new_appt.appointment_time.strftime("%I:%M %p"),
+                "service_name": srv.name if srv else "Unknown",
+                "service_price": f"{srv.price:,.2f}" if srv else "0.00",
+                "staff_name": stf.name if stf else "Unknown",
+                "status": new_appt.status,
+            },
+        },
+    )
+
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_302_FOUND)
 
 
 @app.post("/update-appointment-status")
-def update_appointment_status(
+async def update_appointment_status(
     request: Request,
     appointment_id: int = Form(...),
     status: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    salon = get_current_salon_from_cookie(request, db)
+    salon = get_current_salon(request, db)
     if not salon:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        return JSONResponse(status_code=401, content={"success": False, "error": "Unauthorized"})
 
     appt = db.get(Appointment, appointment_id)
     if appt and appt.salon_id == salon.id:
-        previous_status = appt.status
         appt.status = status
         db.add(appt)
         db.commit()
+        return JSONResponse(content={"success": True, "status": status})
 
-        # If cancelled, check if waitlisted client can be offered this slot
-        if status in ["Cancelled", "No-Show"] and previous_status == "Confirmed":
-            db.refresh(appt)
-            cancelled_date = appt.appointment_time.date()
-            srv = db.get(Service, appt.service_id)
-            
-            # Look for suitable waitlisted customer
-            waitlist_match = db.exec(
-                select(Waitlist).where(
-                    Waitlist.salon_id == salon.id,
-                    Waitlist.service_id == appt.service_id,
-                    Waitlist.preferred_date == cancelled_date,
-                    or_(Waitlist.staff_id == appt.staff_id, Waitlist.staff_id == None)
-                ).order_by(Waitlist.created_at.asc())
-            ).first()
+    return JSONResponse(status_code=400, content={"success": False, "error": "Not Found"})
 
-            if waitlist_match:
-                # Auto convert matching waitlist customer to new booking slot
-                auto_appt = Appointment(
-                    salon_id=salon.id,
-                    service_id=waitlist_match.service_id,
-                    staff_id=appt.staff_id,
-                    customer_name=waitlist_match.customer_name,
-                    customer_phone=waitlist_match.customer_phone,
-                    appointment_time=appt.appointment_time,
-                    status="Confirmed"
-                )
-                db.add(auto_appt)
-                db.delete(waitlist_match)
-                db.commit()
 
-    return {"status": "success", "new_status": status}
+@app.post("/add-service")
+def add_service(
+    request: Request,
+    name: str = Form(...),
+    price: float = Form(...),
+    duration_minutes: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    salon = get_current_salon(request, db)
+    if salon:
+        srv = Service(
+            salon_id=salon.id,
+            name=name,
+            price=price,
+            duration_minutes=duration_minutes,
+        )
+        db.add(srv)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_302_FOUND)
+
+
+@app.post("/delete-service")
+def delete_service(
+    request: Request, service_id: int = Form(...), db: Session = Depends(get_db)
+):
+    salon = get_current_salon(request, db)
+    if salon:
+        srv = db.get(Service, service_id)
+        if srv and srv.salon_id == salon.id:
+            db.delete(srv)
+            db.commit()
+    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_302_FOUND)
+
+
+@app.post("/add-staff")
+def add_staff(
+    request: Request, name: str = Form(...), db: Session = Depends(get_db)
+):
+    salon = get_current_salon(request, db)
+    if salon:
+        stf = Staff(salon_id=salon.id, name=name)
+        db.add(stf)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_302_FOUND)
+
+
+@app.post("/delete-staff")
+def delete_staff(
+    request: Request, staff_id: int = Form(...), db: Session = Depends(get_db)
+):
+    salon = get_current_salon(request, db)
+    if salon:
+        stf = db.get(Staff, staff_id)
+        if stf and stf.salon_id == salon.id:
+            db.delete(stf)
+            db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_302_FOUND)
 
 
 @app.post("/add-waitlist")
@@ -408,28 +543,24 @@ def add_waitlist(
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
     service_id: int = Form(...),
-    staff_id: Optional[str] = Form(None),
+    staff_id: int = Form(...),
     preferred_date: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    salon = get_current_salon_from_cookie(request, db)
-    if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    parsed_date = datetime.strptime(preferred_date, "%Y-%m-%d").date()
-    parsed_staff_id = int(staff_id) if staff_id and staff_id.strip() != "" else None
-
-    w_entry = Waitlist(
-        salon_id=salon.id,
-        service_id=service_id,
-        staff_id=parsed_staff_id,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        preferred_date=parsed_date
-    )
-    db.add(w_entry)
-    db.commit()
-    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
+    salon = get_current_salon(request, db)
+    if salon:
+        p_date = date.fromisoformat(preferred_date)
+        w = Waitlist(
+            salon_id=salon.id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            service_id=service_id,
+            staff_id=staff_id,
+            preferred_date=p_date,
+        )
+        db.add(w)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_302_FOUND)
 
 
 @app.post("/convert-waitlist/{waitlist_id}")
@@ -437,183 +568,52 @@ def convert_waitlist(
     waitlist_id: int,
     request: Request,
     appointment_time: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    salon = get_current_salon_from_cookie(request, db)
+    salon = get_current_salon(request, db)
     if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
-    w_entry = db.get(Waitlist, waitlist_id)
-    if w_entry and w_entry.salon_id == salon.id:
-        appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
-        
-        # Fallback to first available staff if waitlist entry didn't specify one
-        staff_id = w_entry.staff_id
-        if not staff_id:
-            first_staff = db.exec(select(Staff).where(Staff.salon_id == salon.id)).first()
-            if not first_staff:
-                return RedirectResponse(url="/dashboard?tab=reserve&error=nostaff", status_code=status.HTTP_303_SEE_OTHER)
-            staff_id = first_staff.id
-
-        srv = db.get(Service, w_entry.service_id)
-        if srv and check_double_booking(db, salon.id, staff_id, appt_dt, srv.duration_minutes):
-            return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
-
-        new_appt = Appointment(
+    w = db.get(Waitlist, waitlist_id)
+    if w and w.salon_id == salon.id:
+        dt = datetime.fromisoformat(appointment_time)
+        appt = Appointment(
             salon_id=salon.id,
-            service_id=w_entry.service_id,
-            staff_id=staff_id,
-            customer_name=w_entry.customer_name,
-            customer_phone=w_entry.customer_phone,
-            appointment_time=appt_dt,
-            status="Confirmed"
+            service_id=w.service_id,
+            staff_id=w.staff_id,
+            customer_name=w.customer_name,
+            customer_phone=w.customer_phone,
+            appointment_time=dt,
+            status="Confirmed",
         )
-        db.add(new_appt)
-        db.delete(w_entry)
+        db.add(appt)
+        db.delete(w)
         db.commit()
 
-    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_302_FOUND)
 
 
 @app.post("/delete-waitlist")
 def delete_waitlist(
-    request: Request,
-    waitlist_id: int = Form(...),
-    db: Session = Depends(get_db)
+    request: Request, waitlist_id: int = Form(...), db: Session = Depends(get_db)
 ):
-    salon = get_current_salon_from_cookie(request, db)
-    if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    w_entry = db.get(Waitlist, waitlist_id)
-    if w_entry and w_entry.salon_id == salon.id:
-        db.delete(w_entry)
-        db.commit()
-    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
+    salon = get_current_salon(request, db)
+    if salon:
+        w = db.get(Waitlist, waitlist_id)
+        if w and w.salon_id == salon.id:
+            db.delete(w)
+            db.commit()
+    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_302_FOUND)
 
 
 # ==========================================
-# SERVICE & STAFF MANAGEMENT
+# WEBSOCKET ENDPOINT
 # ==========================================
-
-@app.post("/add-service")
-def add_service(
-    request: Request,
-    name: str = Form(...),
-    price: float = Form(...),
-    duration_minutes: int = Form(45),
-    db: Session = Depends(get_db)
-):
-    salon = get_current_salon_from_cookie(request, db)
-    if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    service = Service(salon_id=salon.id, name=name, price=price, duration_minutes=duration_minutes)
-    db.add(service)
-    db.commit()
-    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
-
-
-@app.post("/delete-service")
-def delete_service(
-    request: Request,
-    service_id: int = Form(...),
-    db: Session = Depends(get_db)
-):
-    salon = get_current_salon_from_cookie(request, db)
-    if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    srv = db.get(Service, service_id)
-    if srv and srv.salon_id == salon.id:
-        db.delete(srv)
-        db.commit()
-    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
-
-
-@app.post("/add-staff")
-def add_staff(
-    request: Request,
-    name: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    salon = get_current_salon_from_cookie(request, db)
-    if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    stf = Staff(salon_id=salon.id, name=name)
-    db.add(stf)
-    db.commit()
-    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
-
-
-@app.post("/delete-staff")
-def delete_staff(
-    request: Request,
-    staff_id: int = Form(...),
-    db: Session = Depends(get_db)
-):
-    salon = get_current_salon_from_cookie(request, db)
-    if not salon:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    stf = db.get(Staff, staff_id)
-    if stf and stf.salon_id == salon.id:
-        db.delete(stf)
-        db.commit()
-    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
-
-
-# ==========================================
-# PUBLIC ONLINE CLIENT BOOKING ROUTE
-# ==========================================
-
-@app.get("/book/{slug}", response_class=HTMLResponse)
-def client_booking_page(slug: str, request: Request, db: Session = Depends(get_db)):
-    salon = db.exec(select(Salon).where(Salon.slug == slug)).first()
-    if not salon:
-        raise HTTPException(status_code=404, detail="Salon not found")
-
-    services = db.exec(select(Service).where(Service.salon_id == salon.id)).all()
-    staff_members = db.exec(select(Staff).where(Staff.salon_id == salon.id)).all()
-
-    return templates.TemplateResponse("client_booking.html", {
-        "request": request,
-        "salon": salon,
-        "services": services,
-        "staff_members": staff_members
-    })
-
-@app.post("/book/{slug}")
-def submit_client_booking(
-    slug: str,
-    customer_name: str = Form(...),
-    customer_phone: str = Form(...),
-    service_id: int = Form(...),
-    staff_id: int = Form(...),
-    appointment_time: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    salon = db.exec(select(Salon).where(Salon.slug == slug)).first()
-    if not salon:
-        raise HTTPException(status_code=404, detail="Salon not found")
-
-    appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
-    srv = db.get(Service, service_id)
-
-    if srv and check_double_booking(db, salon.id, staff_id, appt_dt, srv.duration_minutes):
-        return HTMLResponse(content="<h3>እባክዎ ሌላ ሰዓት ይምረጡ - ይህ ሰዓት ተይዟል (Time slot unavailable)</h3><a href='javascript:history.back()'>ተመለስ</a>")
-
-    new_appt = Appointment(
-        salon_id=salon.id,
-        service_id=service_id,
-        staff_id=staff_id,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        appointment_time=appt_dt,
-        status="Confirmed"
-    )
-    db.add(new_appt)
-    db.commit()
-
-    return HTMLResponse(content=f"<h2>ቀጠሮዎ በስኬት ተይዟል!</h2><p>እናመሰግናለን {customer_name}፣ በ {appt_dt.strftime('%Y-%m-%d %I:%M %p')} እንጠብቆታለን።</p>")
+@app.websocket("/ws/salon/{salon_id}")
+async def websocket_endpoint(websocket: WebSocket, salon_id: int):
+    await manager.connect(websocket, salon_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, salon_id)
