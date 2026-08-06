@@ -196,7 +196,10 @@ def index_redirect(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(
+    "index.html",                        # 1st arg: template file name (string)
+    {"request": request, "user": user}   # 2nd arg: context dictionary
+)
 
 
 @app.post("/login", response_class=HTMLResponse)
