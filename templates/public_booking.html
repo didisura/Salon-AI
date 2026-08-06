@@ -9,16 +9,16 @@
         body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
+<body class="bg-pink-50 text-slate-800 min-h-screen flex flex-col justify-between">
 
     <!-- Header / Brand Banner -->
-    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 backdrop-blur-md z-10">
+    <header class="border-b border-pink-100 bg-white/90 sticky top-0 backdrop-blur-md z-10 shadow-sm">
         <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div>
-                <h1 class="font-bold text-lg text-white leading-tight">{{ salon.name }}</h1>
-                <p class="text-xs text-amber-500 font-medium">በMelkegna የቀረበ (Powered by Melkegna)</p>
+                <h1 class="font-bold text-lg text-slate-900 leading-tight">{{ salon.name }}</h1>
+                <p class="text-xs text-rose-500 font-medium">በMelkegna የቀረበ (Powered by Melkegna)</p>
             </div>
-            <a href="tel:{{ salon.phone }}" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition">
+            <a href="tel:{{ salon.phone }}" class="text-xs px-3 py-1.5 rounded-full bg-pink-50 border border-pink-200 text-rose-600 hover:bg-pink-100 transition font-medium">
                 📞 {{ salon.phone }}
             </a>
         </div>
@@ -27,10 +27,10 @@
     <!-- Booking Form Container -->
     <main class="max-w-md w-full mx-auto p-4 flex-grow my-4">
         
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6">
+        <div class="bg-white border border-pink-100 rounded-2xl shadow-xl shadow-pink-100/50 p-6">
             <div class="mb-6">
-                <h2 class="text-xl font-bold text-slate-100">ቀጠሮ ይያዙ (Book Appointment)</h2>
-                <p class="text-xs text-slate-400 mt-1">እባክዎን መረጃዎን ያስገቡና አገልግሎት ይምረጡ</p>
+                <h2 class="text-xl font-bold text-slate-900">ቀጠሮ ይያዙ (Book Appointment)</h2>
+                <p class="text-xs text-slate-500 mt-1">እባክዎን መረጃዎን ያስገቡና አገልግሎት ይምረጡ</p>
             </div>
 
             <form action="/public-book-appointment" method="POST" class="space-y-5">
@@ -39,7 +39,7 @@
 
                 <!-- Customer Full Name -->
                 <div>
-                    <label for="customer_name" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                    <label for="customer_name" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
                         ሙሉ ስም (Full Name) *
                     </label>
                     <input 
@@ -48,13 +48,13 @@
                         name="customer_name" 
                         required 
                         placeholder="ለምሳሌ፡ አበበ ከበደ"
-                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        class="w-full px-4 py-3 rounded-xl bg-pink-50/50 border border-pink-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white focus:border-transparent transition"
                     >
                 </div>
 
                 <!-- Customer Phone -->
                 <div>
-                    <label for="customer_phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                    <label for="customer_phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
                         ስልክ ቁጥር (Phone Number) *
                     </label>
                     <input 
@@ -63,20 +63,20 @@
                         name="customer_phone" 
                         required 
                         placeholder="0911223344"
-                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        class="w-full px-4 py-3 rounded-xl bg-pink-50/50 border border-pink-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white focus:border-transparent transition"
                     >
                 </div>
 
                 <!-- Service Selector -->
                 <div>
-                    <label for="service_id" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                    <label for="service_id" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
                         አገልግሎት ይምረጡ (Select Service) *
                     </label>
                     <select 
                         id="service_id" 
                         name="service_id" 
                         required 
-                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        class="w-full px-4 py-3 rounded-xl bg-pink-50/50 border border-pink-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white focus:border-transparent transition"
                     >
                         <option value="" disabled selected>አገልግሎት ይምረጡ...</option>
                         {% for service in services %}
@@ -91,14 +91,14 @@
 
                 <!-- Staff Selector -->
                 <div>
-                    <label for="staff_id" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                    <label for="staff_id" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
                         ባለሙያ ይምረጡ (Select Specialist) *
                     </label>
                     <select 
                         id="staff_id" 
                         name="staff_id" 
                         required 
-                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        class="w-full px-4 py-3 rounded-xl bg-pink-50/50 border border-pink-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white focus:border-transparent transition"
                     >
                         <option value="" disabled selected>ባለሙያ ይምረጡ...</option>
                         {% for staff in staff_members %}
@@ -111,7 +111,7 @@
 
                 <!-- Date & Time Picker -->
                 <div>
-                    <label for="appointment_time" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                    <label for="appointment_time" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
                         ቀን እና ሰዓት (Date & Time) *
                     </label>
                     <input 
@@ -119,14 +119,14 @@
                         id="appointment_time" 
                         name="appointment_time" 
                         required 
-                        class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                        class="w-full px-4 py-3 rounded-xl bg-pink-50/50 border border-pink-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white focus:border-transparent transition"
                     >
                 </div>
 
                 <!-- Submit Button -->
                 <button 
                     type="submit" 
-                    class="w-full py-4 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-base shadow-lg shadow-amber-500/20 transition-all active:scale-[0.99] mt-2"
+                    class="w-full py-4 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-base shadow-lg shadow-rose-200 transition-all active:scale-[0.99] mt-2"
                 >
                     ቀጠሮውን አረጋግጥ (Confirm Booking)
                 </button>
@@ -136,7 +136,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+    <footer class="border-t border-pink-100 py-6 text-center text-xs text-slate-400">
         <p>&copy; Melkegna Digital Appointment Platform. All rights reserved.</p>
     </footer>
 
