@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta
 import jwt
-from passlib.context import CryptContext
+from passlib.context import 
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
+
+password_hash = PasswordHash((BcryptHasher(),))
 
 
 SECRET_KEY = "your-secret-key-change-this"
@@ -21,8 +25,11 @@ def verify_password(plain_password, hashed_password):
     )
 
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def hash_password(password: str) -> str:
+    return password_hash.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return password_hash.verify(plain_password, hashed_password)
 
 
 def create_access_token(data: dict):
