@@ -9,48 +9,73 @@ import jwt
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from passlib.context import CryptContext
 from sqlalchemy import text
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 # ==============================================================================
 # 1. SECURITY & CONFIGURATION
 # ==============================================================================
 
-SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_MELKEGNA_KEY_CHANGE_THIS_IN_PRODUCTION")
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "MELKEGNA_ADMIN_2026")
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "SUPER_SECRET_MELKEGNA_KEY_CHANGE_THIS_IN_PRODUCTION"
+)
+
+ADMIN_SECRET_KEY = os.getenv(
+    "ADMIN_SECRET_KEY",
+    "MELKEGNA_ADMIN_2026"
+)
+
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_hash = PasswordHash((BcryptHasher(),))
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return password_hash.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return password_hash.verify(plain_password, hashed_password)
 
 
 def create_access_token(salon_id: int) -> str:
     payload = {
         "sub": str(salon_id),
-        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=TOKEN_EXPIRE_HOURS),
+        "exp": datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(hours=TOKEN_EXPIRE_HOURS),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+    return jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
 
 
 def get_current_salon_id(request: Request) -> Optional[int]:
     token = request.cookies.get("access_token")
+
     if not token:
         return None
+
     try:
         if token.startswith("Bearer "):
-            token = token.split(" ")[1]
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return int(payload.get("sub"))
-    except (jwt.InvalidTokenError, ValueError, TypeError):
+            token = token[7:]
+
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+
+        return int(payload["sub"])
+
+    except Exception:
         return None
 
 
@@ -325,8 +350,15 @@ def post_login(
     password: str = Form(...),
     db: Session = Depends(get_session),
 ):
-    salon = db.exec(select(Salon).where(Salon.phone == phone)).first()
-    if not salon or not verify_password(password, salon.password_hash):
+    # Debug (remove after fixing)
+    print("Phone:", phone)
+    print("Password length:", len(password.encode("utf-8")))
+
+    salon = db.exec(
+        select(Salon).where(Salon.phone == phone)
+    ).first()
+
+    if salon is None:
         return templates.TemplateResponse(
             request=request,
             name="auth.html",
@@ -336,16 +368,31 @@ def post_login(
             },
         )
 
-    token = create_access_token(salon.id)
-    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    if not verify_password(password, salon.password_hash):
+        return templates.TemplateResponse(
+            request=request,
+            name="auth.html",
+            context={
+                "mode": "login",
+                "error": "የስልክ ቁጥር ወይም የይለፍ ቃል ተሳስቷል (Invalid phone or password)",
+            },
+        )
+
+    token = create_access_token({"sub": str(salon.id)})
+
+    response = RedirectResponse(
+        url="/dashboard",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
     response.set_cookie(
         key="access_token",
         value=f"Bearer {token}",
         httponly=True,
         samesite="lax",
     )
-    return response
 
+    return response
 
 @app.get("/signup", response_class=HTMLResponse)
 def get_signup(request: Request):
