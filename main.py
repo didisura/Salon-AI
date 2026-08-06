@@ -147,6 +147,10 @@ def check_double_booking(db: Session, salon_id: int, staff_id: int, appt_time: d
 # AUTHENTICATION ROUTES
 # ==========================================
 
+@app.get("/")
+def read_root():
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
@@ -244,7 +248,6 @@ def dashboard(
     
     total_customers_count = db.exec(select(func.count(func.distinct(Appointment.customer_phone))).where(Appointment.salon_id == salon.id)).one() or 0
     
-    # FIXED: Accessing attribute `.status` instead of dict lookup `["status"]` on SQLModel object
     no_show_count_today = len([a for a in raw_appts if a.status == "No-Show"])
 
     # Waitlist Entries
