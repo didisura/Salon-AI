@@ -1,4 +1,4 @@
-[06/08/2026 15:01] Sura: import asyncio
+import asyncio
 import datetime
 import hmac
 import os
@@ -8,6 +8,7 @@ from typing import Optional, List
 import jwt
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from sqlalchemy import text
@@ -48,6 +49,12 @@ def get_current_salon_id(request: Request) -> Optional[int]:
         return int(payload.get("sub"))
     except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
+
+def authenticate_user(session: Session, phone: str, password: str) -> Optional["Salon"]:
+    salon = session.exec(select(Salon).where(Salon.phone == phone)).first()
+    if not salon or not verify_password(password, salon.password_hash):
+        return None
+    return salon
 
 
 # ==============================================================================
@@ -92,7 +99,7 @@ class Waitlist(SQLModel, table=True):
     were bumped by a conflict. Staff convert these into real appointments the
     moment a slot frees up (e.g. after a No-Show or Cancellation)."""
     id: Optional[int] = Field(default=None, primary_key=True)
-[06/08/2026 15:01] Sura: salon_id: int = Field(foreign_key="salon.id", index=True)
+    salon_id: int = Field(foreign_key="salon.id", index=True)
     customer_name: str
     customer_phone: str
     service_id: Optional[int] = Field(default=None, foreign_key="service.id")
@@ -125,11 +132,11 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-
 def run_light_migrations():
     """Adds new columns to already-deployed tables."""
     statements = [
         "ALTER TABLE service ADD COLUMN duration_minutes INTEGER DEFAULT 60",
+        "ALTER TABLE waitlist ADD COLUMN customer_name VARCHAR",
     ]
     with engine.connect() as conn:
         for stmt in statements:
@@ -148,7 +155,7 @@ class ConnectionManager:
     """Tracks live dashboard connections per salon so we can push new online
     bookings to the right salon's screen the instant they come in."""
 
-    def init(self):
+    def __init__(self):
         self.active_connections: dict[int, List[WebSocket]] = {}
 
     async def connect(self, salon_id: int, websocket: WebSocket):
@@ -173,12 +180,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# The public booking routes are plain sync defs (so they run in FastAPI's
-# threadpool), but broadcasting requires an async call into the main event
-# loop. We stash a reference to that loop at startup and hop onto it with
-# run_coroutine_threadsafe whenever a sync route needs to push a message.
 main_event_loop: Optional[asyncio.AbstractEventLoop] = None
-
 
 def broadcast_new_booking(salon_id: int, payload: dict):
     """Fire-and-forget broadcast callable safely from a sync route."""
@@ -199,7 +201,8 @@ async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     run_light_migrations()
     yield
-[06/08/2026 15:01] Sura: app = FastAPI(title="Melkegna Platform", lifespan=lifespan)
+
+app = FastAPI(title="Melkegna Platform", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
 
@@ -307,38 +310,24 @@ def get_login(request: Request):
     return templates.TemplateResponse(request=request, name="auth.html", context={"mode": "login"})
 
 @app.post("/login")
-def post_login(
-    request: Request,
-    phone: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_session)
-):
-    salon = db.exec(select(Salon).where(Salon.phone == phone)).first()
-[06/08/2026 15:01] Sura: if not salon or not verify_password(password, salon.password_hash):
-        return templates.TemplateResponse(
-            request=request,
-            name="auth.html",
-            context={
-                "mode": "login",
-                "error": "የስልክ ቁጥር ወይም የይለፍ ቃል ተሳስቷል (Invalid phone or password)"
-            }
+def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    salon = authenticate_user(session, form_data.username, form_data.password)
+    if not salon:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-
+    
     token = create_access_token(salon.id)
     response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(
         key="access_token",
         value=f"Bearer {token}",
         httponly=True,
-        samesite="lax"
+        samesite="lax",
     )
     return response
-
-@app.get("/signup", response_class=HTMLResponse)
-def get_signup(request: Request):
-    if get_current_salon_id(request):
-        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse(request=request, name="auth.html", context={"mode": "signup"})
 
 @app.post("/signup")
 def post_signup(
@@ -425,7 +414,7 @@ def get_dashboard(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     error: Optional[str] = None,
-[06/08/2026 15:01] Sura: db: Session = Depends(get_session),
+    db: Session = Depends(get_session),
     salon: Salon = Depends(get_active_salon)
 ):
     salon_id = salon.id
@@ -531,7 +520,8 @@ def get_dashboard(
     forwarded_scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("host", request.url.netloc)
     booking_url = f"{forwarded_scheme}://{host}/book/{salon.id}"
-[06/08/2026 15:01] Sura: return templates.TemplateResponse(
+
+    return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={
@@ -640,7 +630,8 @@ def add_service(
     db.commit()
 
     return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
-[06/08/2026 15:01] Sura: @app.post("/delete-service")
+
+@app.post("/delete-service")
 def delete_service(
     request: Request,
     service_id: int = Form(...),
@@ -757,7 +748,8 @@ def convert_waitlist(
         conflict = find_conflict(db, salon.id, entry.staff_id, appt_date, start_dt, duration, service_map)
         if conflict:
             return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
-[06/08/2026 15:01] Sura: new_appt = Appointment(
+
+    new_appt = Appointment(
         salon_id=salon.id,
         customer_name=entry.customer_name,
         customer_phone=entry.customer_phone,
@@ -873,7 +865,9 @@ def admin_logout():
     response = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(key="admin_auth")
     return response
-[06/08/2026 15:01] Sura: # ==============================================================================
+
+
+# ==============================================================================
 # 7.5 WEBSOCKET ROUTE (Dashboard subscribes for live online bookings)
 # ==============================================================================
 
@@ -882,8 +876,6 @@ async def websocket_appointments(websocket: WebSocket, salon_id: int):
     await manager.connect(salon_id, websocket)
     try:
         while True:
-            # Dashboard doesn't send anything meaningful; this just keeps
-            # the connection open and lets us detect disconnects.
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(salon_id, websocket)
@@ -894,11 +886,7 @@ async def websocket_appointments(websocket: WebSocket, salon_id: int):
 # ==============================================================================
 
 @app.get("/book/{salon_id}", response_class=HTMLResponse)
-def get_public_booking_page(
-    salon_id: int, 
-    request: Request, 
-    db: Session = Depends(get_session)
-):
+def get_public_booking(request: Request, salon_id: int, error: Optional[str] = None, db: Session = Depends(get_session)):
     salon = db.get(Salon, salon_id)
     if not salon or salon.status != "active":
         raise HTTPException(status_code=404, detail="Salon not found or inactive")
@@ -908,18 +896,18 @@ def get_public_booking_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="public_booking.html",
+        name="client_booking.html",
         context={
             "salon": salon,
             "services": services,
-            "staff_members": staff_members
+            "staff_members": staff_members,
+            "error": error
         }
     )
 
-@app.post("/book/{salon_id}")
-def post_public_booking(
+@app.post("/book/{salon_id}/submit")
+def submit_public_booking(
     salon_id: int,
-    request: Request,
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
     service_id: int = Form(...),
@@ -948,29 +936,9 @@ def post_public_booking(
     conflict = find_conflict(db, salon_id, staff_id, appt_date, start_dt, duration, service_map)
 
     if conflict:
-        # Save to waitlist if requested time slot conflicts with existing booking
-        waitlist_entry = Waitlist(
-            salon_id=salon_id,
-            customer_name=customer_name,
-            customer_phone=customer_phone,
-            service_id=service_id,
-            staff_id=staff_id,
-            preferred_date=appt_date,
-            note=f"Requested slot {appointment_time} was booked.",
-            status="Waiting"
-        )
-        db.add(waitlist_entry)
-        db.commit()
-
-        return templates.TemplateResponse(
-            request=request,
-            name="public_booking.html",
-            context={
-                "salon": salon,
-                "services": services,
-                "staff_members": db.exec(select(Staff).where(Staff.salon_id == salon_id)).all(),
-                "error": "ይህ ሰዓት ስለተያዘ ጥቆማዎ ወደ ተጠባባቂ ዝርዝር (Waitlist) ገብቷል። (Slot busy, added to waitlist)."
-            }
+        return RedirectResponse(
+            url=f"/book/{salon_id}?error=conflict",
+            status_code=status.HTTP_303_SEE_OTHER
         )
 
     new_appt = Appointment(
@@ -985,31 +953,13 @@ def post_public_booking(
     )
     db.add(new_appt)
     db.commit()
-    db.refresh(new_appt)
-[06/08/2026 15:01] Sura: # Push this booking to the salon's live dashboard (if one is open) so it
-    # shows up instantly without a page refresh.
-    staff_members_all = db.exec(select(Staff).where(Staff.salon_id == salon_id)).all()
-    staff_map = {st.id: st for st in staff_members_all}
-    staff = staff_map.get(staff_id)
 
     broadcast_new_booking(salon_id, {
-        "id": new_appt.id,
-        "appointment_time": new_appt.appointment_time,
-        "status": new_appt.status,
-        "customer_name": new_appt.customer_name,
-        "customer_phone": new_appt.customer_phone,
-        "service_name": service.name if service else "N/A",
-        "service_price": service.price if service else 0.0,
-        "staff_name": staff.name if staff else "N/A",
+        "customer_name": customer_name,
+        "customer_phone": customer_phone,
+        "appointment_time": appointment_time,
+        "appointment_date": appt_date.strftime("%Y-%m-%d"),
+        "service_name": service.name if service else "N/A"
     })
 
-    return templates.TemplateResponse(
-        request=request,
-        name="public_booking.html",
-        context={
-            "salon": salon,
-            "services": services,
-            "staff_members": staff_members_all,
-            "success": "ቀጠሮዎ በስኬት ተይዟል! (Appointment successfully booked!)"
-        }
-    )
+    return HTMLResponse("<h2>ቀጠሮዎ በተሳካ ሁኔታ ተይዟል! አመሰግናለሁ:: (Your appointment has been successfully booked!)</h2>")
