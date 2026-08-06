@@ -1,3 +1,4 @@
+[06/08/2026 15:01] Sura: import asyncio
 import datetime
 import hmac
 import os
@@ -5,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import Optional, List
 
 import jwt
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
@@ -91,7 +92,7 @@ class Waitlist(SQLModel, table=True):
     were bumped by a conflict. Staff convert these into real appointments the
     moment a slot frees up (e.g. after a No-Show or Cancellation)."""
     id: Optional[int] = Field(default=None, primary_key=True)
-    salon_id: int = Field(foreign_key="salon.id", index=True)
+[06/08/2026 15:01] Sura: salon_id: int = Field(foreign_key="salon.id", index=True)
     customer_name: str
     customer_phone: str
     service_id: Optional[int] = Field(default=None, foreign_key="service.id")
@@ -140,16 +141,65 @@ def run_light_migrations():
 
 
 # ==============================================================================
+# 2.5 REAL-TIME WEBSOCKET ENGINE (Live Online Booking Notifications)
+# ==============================================================================
+
+class ConnectionManager:
+    """Tracks live dashboard connections per salon so we can push new online
+    bookings to the right salon's screen the instant they come in."""
+
+    def init(self):
+        self.active_connections: dict[int, List[WebSocket]] = {}
+
+    async def connect(self, salon_id: int, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.setdefault(salon_id, []).append(websocket)
+
+    def disconnect(self, salon_id: int, websocket: WebSocket):
+        conns = self.active_connections.get(salon_id)
+        if conns and websocket in conns:
+            conns.remove(websocket)
+            if not conns:
+                del self.active_connections[salon_id]
+
+    async def broadcast(self, salon_id: int, message: dict):
+        conns = list(self.active_connections.get(salon_id, []))
+        for ws in conns:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                self.disconnect(salon_id, ws)
+
+
+manager = ConnectionManager()
+
+# The public booking routes are plain sync defs (so they run in FastAPI's
+# threadpool), but broadcasting requires an async call into the main event
+# loop. We stash a reference to that loop at startup and hop onto it with
+# run_coroutine_threadsafe whenever a sync route needs to push a message.
+main_event_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def broadcast_new_booking(salon_id: int, payload: dict):
+    """Fire-and-forget broadcast callable safely from a sync route."""
+    if main_event_loop is None:
+        return
+    message = {"event": "NEW_ONLINE_BOOKING", "data": payload}
+    asyncio.run_coroutine_threadsafe(manager.broadcast(salon_id, message), main_event_loop)
+
+
+# ==============================================================================
 # 3. APPLICATION & LIFESPAN MANAGEMENT
 # ==============================================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global main_event_loop
+    main_event_loop = asyncio.get_running_loop()
     SQLModel.metadata.create_all(engine)
     run_light_migrations()
     yield
-
-app = FastAPI(title="Melkegna Platform", lifespan=lifespan)
+[06/08/2026 15:01] Sura: app = FastAPI(title="Melkegna Platform", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
 
@@ -264,8 +314,7 @@ def post_login(
     db: Session = Depends(get_session)
 ):
     salon = db.exec(select(Salon).where(Salon.phone == phone)).first()
-
-    if not salon or not verify_password(password, salon.password_hash):
+[06/08/2026 15:01] Sura: if not salon or not verify_password(password, salon.password_hash):
         return templates.TemplateResponse(
             request=request,
             name="auth.html",
@@ -376,7 +425,7 @@ def get_dashboard(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     error: Optional[str] = None,
-    db: Session = Depends(get_session),
+[06/08/2026 15:01] Sura: db: Session = Depends(get_session),
     salon: Salon = Depends(get_active_salon)
 ):
     salon_id = salon.id
@@ -482,8 +531,7 @@ def get_dashboard(
     forwarded_scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("host", request.url.netloc)
     booking_url = f"{forwarded_scheme}://{host}/book/{salon.id}"
-
-    return templates.TemplateResponse(
+[06/08/2026 15:01] Sura: return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={
@@ -592,8 +640,7 @@ def add_service(
     db.commit()
 
     return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
-
-@app.post("/delete-service")
+[06/08/2026 15:01] Sura: @app.post("/delete-service")
 def delete_service(
     request: Request,
     service_id: int = Form(...),
@@ -710,8 +757,7 @@ def convert_waitlist(
         conflict = find_conflict(db, salon.id, entry.staff_id, appt_date, start_dt, duration, service_map)
         if conflict:
             return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
-
-    new_appt = Appointment(
+[06/08/2026 15:01] Sura: new_appt = Appointment(
         salon_id=salon.id,
         customer_name=entry.customer_name,
         customer_phone=entry.customer_phone,
@@ -827,6 +873,20 @@ def admin_logout():
     response = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(key="admin_auth")
     return response
+[06/08/2026 15:01] Sura: # ==============================================================================
+# 7.5 WEBSOCKET ROUTE (Dashboard subscribes for live online bookings)
+# ==============================================================================
+
+@app.websocket("/ws/appointments/{salon_id}")
+async def websocket_appointments(websocket: WebSocket, salon_id: int):
+    await manager.connect(salon_id, websocket)
+    try:
+        while True:
+            # Dashboard doesn't send anything meaningful; this just keeps
+            # the connection open and lets us detect disconnects.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(salon_id, websocket)
 
 
 # ==============================================================================
@@ -925,6 +985,23 @@ def post_public_booking(
     )
     db.add(new_appt)
     db.commit()
+    db.refresh(new_appt)
+[06/08/2026 15:01] Sura: # Push this booking to the salon's live dashboard (if one is open) so it
+    # shows up instantly without a page refresh.
+    staff_members_all = db.exec(select(Staff).where(Staff.salon_id == salon_id)).all()
+    staff_map = {st.id: st for st in staff_members_all}
+    staff = staff_map.get(staff_id)
+
+    broadcast_new_booking(salon_id, {
+        "id": new_appt.id,
+        "appointment_time": new_appt.appointment_time,
+        "status": new_appt.status,
+        "customer_name": new_appt.customer_name,
+        "customer_phone": new_appt.customer_phone,
+        "service_name": service.name if service else "N/A",
+        "service_price": service.price if service else 0.0,
+        "staff_name": staff.name if staff else "N/A",
+    })
 
     return templates.TemplateResponse(
         request=request,
@@ -932,7 +1009,7 @@ def post_public_booking(
         context={
             "salon": salon,
             "services": services,
-            "staff_members": db.exec(select(Staff).where(Staff.salon_id == salon_id)).all(),
+            "staff_members": staff_members_all,
             "success": "ቀጠሮዎ በስኬት ተይዟል! (Appointment successfully booked!)"
         }
     )
