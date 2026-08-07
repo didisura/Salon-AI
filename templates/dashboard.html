@@ -1,772 +1,574 @@
 <!DOCTYPE html>
-<html lang="am">
+<html lang="am" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ salon.name }} - መልከኛ Admin</title>
-    
-    <!-- Bootstrap 5, FontAwesome & Custom Fonts -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-
+    <title>Melkegna - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --bg-cream: #FFFDF9;
-            --sidebar-pink: #F7EBE8;
-            --card-pink: #FAF0ED;
-            --accent-rose: #C87A76;
-            --accent-rose-hover: #B56864;
-            --text-dark: #2D2424;
-            --text-muted: #7A6E6E;
-            --border-soft: #EADCDA;
-            --status-green: #2E7D32;
-            --status-orange: #ED6C02;
-            --font-main: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', sans-serif;
-            --bottom-nav-height: 65px;
-        }
-
-        body { 
-            background: var(--bg-cream); 
-            color: var(--text-dark); 
-            font-family: var(--font-main); 
-            min-height: 100vh;
-            touch-action: manipulation;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .wrapper { display: flex; min-height: 100vh; }
-
-        /* Desktop Sidebar Navigation */
-        .sidebar { 
-            width: 260px; 
-            background: var(--sidebar-pink); 
-            border-right: 1px solid var(--border-soft);
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            padding: 32px 20px; 
-            flex-shrink: 0; 
-        }
-
-        .logo { text-align: center; margin-bottom: 32px; }
-        .logo i { color: var(--accent-rose); font-size: 2rem; margin-bottom: 6px; }
-        .logo h2 { color: var(--text-dark); font-size: 1.3rem; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
-        .logo small { color: var(--accent-rose); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
-
-        .nav-menu { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-        .nav-menu li a { 
-            display: flex; 
-            align-items: center; 
-            gap: 14px; 
-            padding: 12px 18px; 
-            color: var(--text-dark); 
-            text-decoration: none; 
-            border-radius: 14px; 
-            font-size: 0.95rem; 
-            font-weight: 500;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        .nav-menu li.active a, .nav-menu li a:hover { 
-            background: var(--accent-rose); 
-            color: #FFFFFF; 
-            font-weight: 600; 
-            box-shadow: 0 4px 12px rgba(200, 122, 118, 0.2);
-        }
-        .nav-menu li a i { width: 20px; text-align: center; }
-
-        /* Mobile Bottom App Navigation */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: var(--bottom-nav-height);
-            background: #FFFFFF;
-            border-top: 1px solid var(--border-soft);
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            z-index: 1030;
-            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        .bottom-nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.72rem;
-            font-weight: 600;
-            width: 20%;
-            height: 100%;
-            transition: color 0.2s ease;
-            position: relative;
-        }
-
-        .bottom-nav-item i {
-            font-size: 1.25rem;
-            margin-bottom: 2px;
-        }
-
-        .bottom-nav-item.active {
-            color: var(--accent-rose);
-        }
-
-        /* Pull to Refresh Indicator */
-        .ptr-indicator {
-            position: absolute;
-            top: -50px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #FFFFFF;
-            border: 1px solid var(--border-soft);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease;
-            z-index: 1000;
-        }
-
-        /* Main Viewport Container */
-        .main-content { 
-            flex: 1; 
-            padding: 24px 20px 90px 20px; 
-            overflow-y: auto; 
-            position: relative;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        @media (min-width: 768px) {
-            .main-content {
-                padding: 35px 40px;
-            }
-        }
-
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .topbar h2 { font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-dark); }
-
-        @media (min-width: 768px) {
-            .topbar h2 { font-size: 1.75rem; }
-        }
-
-        /* Metrics Cards */
-        .metrics-grid { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 14px; 
-            margin-bottom: 24px; 
-        }
-
-        @media (min-width: 992px) {
-            .metrics-grid { 
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-                gap: 20px; 
-            }
-        }
-
-        .metric-card { 
-            background: #FFFFFF; 
-            border-radius: 18px; 
-            padding: 16px; 
-            border: 1px solid var(--border-soft); 
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015);
-        }
-
-        .icon-box { 
-            width: 38px; 
-            height: 38px; 
-            border-radius: 10px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 1rem; 
-        }
-        .icon-rose { background: var(--card-pink); color: var(--accent-rose); }
-        .icon-green { background: #E8F5E9; color: var(--status-green); }
-        .icon-orange { background: #FFF3E0; color: var(--status-orange); }
-        .icon-dark { background: #ECECEC; color: #3A3A3A; }
-
-        .content-panel { 
-            background: #FFFFFF; 
-            border-radius: 18px; 
-            padding: 20px; 
-            border: 1px solid var(--border-soft); 
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015); 
-        }
-
-        @media (min-width: 768px) {
-            .content-panel { padding: 28px; }
-        }
-
-        .btn-rose { 
-            background: var(--accent-rose); 
-            color: #FFFFFF; 
-            border: none; 
-            font-weight: 600; 
-            padding: 12px 20px; 
-            border-radius: 12px; 
-            min-height: 44px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-        }
-        .btn-rose:hover, .btn-rose:active { background: var(--accent-rose-hover); color: #FFFFFF; }
-
-        /* Swipe Card Styles */
-        .swipe-row-container {
-            background: transparent !important;
-        }
-
-        .swipe-card-wrapper {
-            position: relative;
-            overflow: hidden;
-            border-radius: 14px;
-            margin-bottom: 12px;
-            background-color: var(--bg-cream);
-            border: 1px solid var(--border-soft);
-        }
-
-        .swipe-card-content {
-            background: #FFFFFF;
-            position: relative;
-            z-index: 2;
-            transition: transform 0.1s linear;
-            touch-action: pan-y;
-        }
-
-        .swipe-action-bg {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 50%;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            z-index: 1;
-        }
-
-        .swipe-action-left { left: 0; justify-content: flex-start; }
-        .swipe-action-right { right: 0; justify-content: flex-end; }
-
-        /* Pulse Highlight Animation for Incoming Live Online Bookings */
-        @keyframes pulseNewBooking {
-            0% { background-color: rgba(200, 122, 118, 0.3); }
-            100% { background-color: #FFFFFF; }
-        }
-
-        .new-booking-highlight {
-            animation: pulseNewBooking 3s ease-out forwards;
-        }
-
-        /* Badge Counters */
-        .badge-counter {
-            background-color: #D32F2F;
-            color: #FFFFFF;
-            border-radius: 50px;
-            padding: 2px 7px;
-            font-size: 0.7rem;
-            font-weight: 700;
-        }
-
-        @media (max-width: 767.98px) {
-            .table-responsive-stack table, 
-            .table-responsive-stack tbody, 
-            .table-responsive-stack tr, 
-            .table-responsive-stack td { 
-                display: block; 
-                width: 100%; 
-            }
-            .table-responsive-stack thead { display: none; }
-            .table-responsive-stack tr:not(.swipe-row-container) {
-                background: var(--bg-cream);
-                border: 1px solid var(--border-soft);
-                border-radius: 14px;
-                padding: 14px;
-                margin-bottom: 12px;
-            }
-            .table-responsive-stack tr:not(.swipe-row-container) td {
-                padding: 6px 0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border: none;
-            }
-            .table-responsive-stack tr:not(.swipe-row-container) td::before {
-                content: attr(data-label);
-                font-weight: 600;
-                color: var(--text-muted);
-                font-size: 0.85rem;
-                padding-right: 10px;
-            }
-        }
-
-        .form-control, .form-select {
-            border-radius: 10px;
-            border: 1px solid var(--border-soft);
-            background-color: var(--bg-cream);
-            padding: 12px 14px;
-            min-height: 44px;
-        }
-        .form-control:focus, .form-select:focus {
-            border-color: var(--accent-rose);
-            box-shadow: 0 0 0 0.25rem rgba(200, 122, 118, 0.15);
-        }
-
-        .modal-content { border-radius: 20px; border: 1px solid var(--border-soft); }
-        .modal-header { border-bottom: 1px solid var(--border-soft); }
-        .modal-footer { border-top: 1px solid var(--border-soft); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
-<body>
+<body class="h-full flex flex-col font-sans antialiased text-slate-800">
 
-<div class="wrapper">
-    <!-- Desktop Sidebar Navigation -->
-    <aside class="sidebar d-none d-md-flex">
-        <div>
-            <div class="logo">
-                <i class="fa-solid fa-spa"></i>
-                <h2>መልከኛ</h2>
-                <small>MELKEGNA PLATFORM</small>
-            </div>
-            
-            <ul class="nav-menu">
-                <li class="{% if active_tab == 'home' %}active{% endif %}">
-                    <a href="/dashboard?tab=home">
-                        <i class="fa-solid fa-house"></i> <span>ዋና ገጽ</span>
+    <!-- Top Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">
+                        M
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-900 leading-tight">{{ salon.name }}</h1>
+                        <p class="text-xs text-slate-500 font-medium">Melkegna Platform</p>
+                    </div>
+                </div>
+
+                <!-- Desktop Action Items -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <button onclick="copyBookingUrl()" class="inline-flex items-center space-x-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg hover:bg-indigo-100 transition">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>Copy Public Link</span>
+                    </button>
+                    <a href="/logout" class="text-slate-500 hover:text-slate-800 text-sm font-medium transition">
+                        <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Logout
                     </a>
-                </li>
-                <li class="{% if active_tab == 'reserve' %}active{% endif %}">
-                    <a href="/dashboard?tab=reserve">
-                        <i class="fa-solid fa-clock-rotate-left"></i> <span>ተጠባባቂ ዝርዝር</span>
-                        <span class="badge-counter ms-auto d-none" id="sidebarReserveCounter">0</span>
-                    </a>
-                </li>
-                <li class="{% if active_tab == 'revenue' %}active{% endif %}">
-                    <a href="/dashboard?tab=revenue"><i class="fa-solid fa-chart-pie"></i> <span>ገቢ (Revenue)</span></a>
-                </li>
-                <li class="{% if active_tab == 'services' %}active{% endif %}">
-                    <a href="/dashboard?tab=services"><i class="fa-solid fa-scissors"></i> <span>አገልግሎቶች</span></a>
-                </li>
-                <li class="{% if active_tab == 'staff' %}active{% endif %}">
-                    <a href="/dashboard?tab=staff"><i class="fa-solid fa-users"></i> <span>ሰራተኞች</span></a>
-                </li>
-            </ul>
-        </div>
-        
-        <a href="/logout" class="text-decoration-none px-3 fw-semibold" style="color: var(--accent-rose);">
-            <i class="fa-solid fa-right-from-bracket me-2"></i> ውጣ (Logout)
-        </a>
-    </aside>
+                </div>
 
-    <!-- Main Viewport Canvas -->
-    <main class="main-content" id="mainScrollArea">
-        <div class="ptr-indicator" id="ptrIndicator">
-            <i class="fa-solid fa-rotate-right text-muted"></i>
-        </div>
-
-        <!-- Header -->
-        <header class="topbar">
-            <div>
-                <h2>{{ salon.name }}</h2>
-                <p class="text-muted mb-0 small">እንኳን ደህና መጡ {{ salon.owner_name }} 👋</p>
-            </div>
-            
-            {% if active_tab == 'home' %}
-            <button class="btn btn-rose btn-sm d-md-none" data-bs-toggle="modal" data-bs-target="#bookModal">
-                <i class="fa-solid fa-plus me-1"></i> አዲስ
-            </button>
-            <button class="btn btn-rose d-none d-md-inline-flex" data-bs-toggle="modal" data-bs-target="#bookModal">
-                <i class="fa-solid fa-plus me-1"></i> አዲስ ቀጠሮ (Book Walk-in)
-            </button>
-            {% endif %}
-        </header>
-
-        {% if error == 'conflict' %}
-        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
-            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
-            <div>
-                <strong>ድርብ ቀጠሮ (Double-Booking Blocked):</strong>
-                ይህ ሰዓት ለተመረጠው ባለሙያ አስቀድሞ ተይዟል። እባክዎ ሌላ ሰዓት ወይም ሌላ ባለሙያ ይምረጡ።
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- TAB 1: HOME (DAILY DASHBOARD & LIVE ONLINE APPOINTMENTS) -->
-        {% if active_tab == 'home' %}
-        <div class="content-panel mb-4" style="background: var(--card-pink); border-color: var(--border-soft);">
-            <p class="fw-semibold small mb-2" style="color: var(--text-dark);">የደንበኛ ቀጠሮ መያዣ ሊንክ (Client Link):</p>
-            <div class="d-flex align-items-center gap-2">
-                <input type="text" id="bookingLinkInput" readonly value="{{ booking_url }}" class="form-control form-control-sm" style="background:#FFFFFF; font-family: monospace;">
-                <button type="button" onclick="copyBookingLink()" class="btn btn-rose btn-sm text-nowrap" id="copyBookingBtn">
-                    <i class="fa-solid fa-copy me-1"></i> Copy
+                <!-- Mobile Menu Button -->
+                <button onclick="toggleMobileDrawer()" class="md:hidden p-2 text-slate-600 hover:text-slate-900 focus:outline-none">
+                    <i class="fa-solid fa-bars text-xl"></i>
                 </button>
             </div>
         </div>
+    </header>
 
-        <section class="metrics-grid">
-            <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">የዕለቱ ገቢ</span>
-                    <div class="icon-box icon-rose"><i class="fa-solid fa-receipt"></i></div>
+    <!-- Main Container -->
+    <div class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Error Banner -->
+        {% if error == "conflict" %}
+        <div class="p-4 bg-rose-50 border-l-4 border-rose-500 text-rose-800 rounded-lg shadow-sm flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
+                <div>
+                    <p class="text-sm font-bold">የሰዓት መደራረብ ተከስቷል! (Time Conflict)</p>
+                    <p class="text-xs">The selected staff is already booked for this timeframe.</p>
                 </div>
-                <div class="h5 fw-bold mb-0 mt-1">{{ "{:,.2f}".format(daily_rev) }} ETB</div>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-rose-400 hover:text-rose-600">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- Navigation Tabs (Scrollable on Mobile) -->
+        <nav class="flex space-x-2 border-b border-slate-200 overflow-x-auto no-scrollbar pb-1">
+            <button onclick="switchTab('home')" id="tab-btn-home" class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg transition whitespace-nowrap text-indigo-600 border-b-2 border-indigo-600">
+                <i class="fa-solid fa-calendar-day mr-2"></i> Schedule
+            </button>
+            <button onclick="switchTab('services')" id="tab-btn-services" class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg transition whitespace-nowrap text-slate-500 hover:text-slate-700">
+                <i class="fa-solid fa-scissors mr-2"></i> Services
+            </button>
+            <button onclick="switchTab('staff')" id="tab-btn-staff" class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg transition whitespace-nowrap text-slate-500 hover:text-slate-700">
+                <i class="fa-solid fa-user-gear mr-2"></i> Staff
+            </button>
+            <button onclick="switchTab('reserve')" id="tab-btn-reserve" class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg transition whitespace-nowrap text-slate-500 hover:text-slate-700">
+                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Waitlist 
+                {% if waitlist_count > 0 %}
+                <span class="ml-1.5 px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded-full font-bold">{{ waitlist_count }}</span>
+                {% endif %}
+            </button>
+            <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-lg transition whitespace-nowrap text-slate-500 hover:text-slate-700">
+                <i class="fa-solid fa-chart-line mr-2"></i> Revenue
+            </button>
+        </nav>
+
+        <!-- Tab 1: Schedule Home -->
+        <div id="tab-home" class="tab-content active space-y-6">
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase">Today's Revenue</p>
+                    <p class="text-xl font-bold text-slate-900 mt-1">{{ "%.2f"|format(daily_rev) }} ETB</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase">Appointments</p>
+                    <p class="text-xl font-bold text-slate-900 mt-1">{{ today_appt_count }}</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase">Total Clients</p>
+                    <p class="text-xl font-bold text-slate-900 mt-1">{{ total_customers }}</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase">No-Shows</p>
+                    <p class="text-xl font-bold text-rose-600 mt-1">{{ no_show_count_today }}</p>
+                </div>
             </div>
 
-            <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">የዕለቱ ቀጠሮዎች</span>
-                    <div class="icon-box icon-green"><i class="fa-solid fa-calendar-check"></i></div>
-                </div>
-                <div class="h5 fw-bold mb-0 mt-1" id="metricTodayApptCount">{{ today_appt_count }}</div>
-            </div>
-
-            <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">ጠቅላላ ደንበኞች</span>
-                    <div class="icon-box icon-orange"><i class="fa-solid fa-user-group"></i></div>
-                </div>
-                <div class="h5 fw-bold mb-0 mt-1">{{ total_customers }}</div>
-            </div>
-
-            <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">ያልመጡ (No-Show)</span>
-                    <div class="icon-box icon-dark"><i class="fa-solid fa-user-clock"></i></div>
-                </div>
-                <div class="h5 fw-bold mb-0 mt-1">{{ no_show_count_today }}</div>
-            </div>
-        </section>
-
-        <section class="content-panel">
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
-                <h5 class="fw-bold mb-0">የቀጠሮዎች ሰሌዳ</h5>
-                <form action="/dashboard" method="get" class="d-flex align-items-center gap-2 w-100 w-sm-auto">
+            <!-- Schedule Header & Actions -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200">
+                <form method="GET" action="/dashboard" class="flex items-center gap-2">
                     <input type="hidden" name="tab" value="home">
-                    <input type="date" id="selected_date" name="selected_date" value="{{ selected_date or current_date }}" class="form-control form-control-sm w-100" onchange="this.form.submit()">
+                    <input type="date" name="selected_date" value="{{ selected_date }}" onchange="this.form.submit()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    {% if selected_date != current_date %}
+                    <a href="/dashboard?tab=home" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">Today</a>
+                    {% endif %}
                 </form>
-            </div>
 
-            <div class="table-responsive-stack">
-                <table class="table align-middle mb-0">
-                    <thead class="d-none d-md-table-header-group">
-                        <tr class="text-muted">
-                            <th>ቀንና ሰዓት</th>
-                            <th>ደንበኛ</th>
-                            <th>ስልክ</th>
-                            <th>አገልግሎት</th>
-                            <th>ሰራተኛ</th>
-                            <th>ዋጋ</th>
-                            <th>ሁኔታ (Status)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="appointmentsListTable">
-                        {% for appt in appointments %}
-                        <tr class="swipe-row-container p-0">
-                          <td colspan="7" class="p-0 border-0">
-                            <div class="swipe-card-wrapper" id="appt-card-{{ appt.id }}">
-                              
-                              <div class="swipe-action-bg swipe-action-left bg-success text-white">
-                                <i class="fa-solid fa-circle-check fs-4"></i>
-                                <span class="fw-bold small ms-2">Completed</span>
-                              </div>
-                              <div class="swipe-action-bg swipe-action-right bg-dark text-white">
-                                <span class="fw-bold small me-2">No-Show</span>
-                                <i class="fa-solid fa-user-slash fs-4"></i>
-                              </div>
-
-                              <div class="swipe-card-content p-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                  <div>
-                                    <span class="fw-bold text-dark fs-6">{{ appt.appointment_time }}</span>
-                                    <span class="badge ms-2 status-badge-{{ appt.id }} {% if appt.status == 'Completed' %}bg-success{% elif appt.status == 'Cancelled' %}bg-danger{% elif appt.status == 'No-Show' %}bg-dark{% else %}bg-warning text-dark{% endif %}">
-                                      {{ appt.status }}
-                                    </span>
-                                  </div>
-                                  <span class="fw-bold text-rose" style="color: var(--accent-rose);">{{ appt.service_price }} ETB</span>
-                                </div>
-
-                                <div class="d-flex justify-content-between align-items-end">
-                                  <div>
-                                    <div class="fw-bold text-dark">{{ appt.customer_name }}</div>
-                                    <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>{{ appt.customer_phone }}</div>
-                                    <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>{{ appt.service_name }} ({{ appt.staff_name }})</div>
-                                  </div>
-
-                                  <form action="/update-appointment-status" method="post" id="status-form-{{ appt.id }}">
-                                    <input type="hidden" name="appointment_id" value="{{ appt.id }}">
-                                    <select name="status" id="status-select-{{ appt.id }}" onchange="submitStatusAjax(this.form, '{{ appt.id }}')" class="form-select form-select-sm fw-semibold">
-                                        <option value="Confirmed" {% if appt.status == 'Confirmed' %}selected{% endif %}>Confirmed</option>
-                                        <option value="Completed" {% if appt.status == 'Completed' %}selected{% endif %}>Completed</option>
-                                        <option value="No-Show" {% if appt.status == 'No-Show' %}selected{% endif %}>No-Show</option>
-                                        <option value="Cancelled" {% if appt.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
-                                    </select>
-                                  </form>
-                                </div>
-                              </div>
-
-                            </div>
-                          </td>
-                        </tr>
-                        {% else %}
-                        <tr id="noAppointmentsRow">
-                            <td colspan="7" class="text-center text-muted py-4">በዚህ ቀን ምንም የተቀጠረ ቀጠሮ የለም።</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-        {% endif %}
-
-        <!-- TAB 2: RESERVE LIST -->
-        {% if active_tab == 'reserve' %}
-        <section class="content-panel mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0">ተጠባባቂ ደንበኞች</h5>
-                <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addWaitlistModal">
-                    <i class="fa-solid fa-plus me-1"></i> ጨምር
+                <button onclick="openModal('new-appt-modal')" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow hover:bg-indigo-700 transition">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>New Appointment</span>
                 </button>
             </div>
 
-            <div class="table-responsive-stack">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr class="text-muted">
-                            <th>ደንበኛ</th>
-                            <th>ስልክ</th>
-                            <th>አገልግሎት</th>
-                            <th>ባለሙያ</th>
-                            <th>ቀን</th>
-                            <th>ቀጠሮ ስጠው</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="reserveTableBody">
-                        {% for w in waitlist_entries %}
-                        <tr>
-                            <td data-label="ደንበኛ" class="fw-bold">{{ w.customer_name }}</td>
-                            <td data-label="ስልክ">{{ w.customer_phone }}</td>
-                            <td data-label="አገልግሎት">{{ w.service_name }}</td>
-                            <td data-label="ባለሙያ">{{ w.staff_name }}</td>
-                            <td data-label="ቀን">{{ w.preferred_date }}</td>
-                            <td data-label="ቦታ ስጠው">
-                                <form action="/convert-waitlist/{{ w.id }}" method="post" class="d-flex gap-1 align-items-center w-100">
-                                    <input type="datetime-local" name="appointment_time" class="form-control form-control-sm" required style="min-width: 140px;">
-                                    <button type="submit" class="btn btn-sm btn-rose text-nowrap">ስጠው</button>
-                                </form>
-                            </td>
-                            <td data-label="ሰርዝ" class="text-end">
-                                <form action="/delete-waitlist" method="post" onsubmit="return confirm('ከዝርዝሩ ማጥፋት እርግጠኛ ነዎት?')">
-                                    <input type="hidden" name="waitlist_id" value="{{ w.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i></button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="7" class="text-center text-muted py-4">ምንም ተጠባባቂ ደንበኛ የለም።</td>
-                        </tr>
+            <!-- Appointment List/Cards -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {% if appointments|length == 0 %}
+                <div class="p-12 text-center">
+                    <i class="fa-regular fa-calendar-xmark text-4xl text-slate-300"></i>
+                    <p class="mt-2 text-sm font-medium text-slate-500">No appointments scheduled for this date.</p>
+                </div>
+                {% else %}
+                <div class="divide-y divide-slate-100">
+                    {% for appt in appointments %}
+                    <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition">
+                        <div class="flex items-start space-x-4">
+                            <div class="px-3 py-2 bg-slate-100 rounded-lg text-center min-w-[70px]">
+                                <span class="text-xs font-bold text-slate-600 block uppercase">Time</span>
+                                <span class="text-sm font-extrabold text-slate-900">{{ appt.appointment_time }}</span>
+                            </div>
+                            <div>
+                                <h4 class="text-base font-bold text-slate-900">{{ appt.customer_name }}</h4>
+                                <p class="text-xs text-slate-500 font-medium">{{ appt.customer_phone }}</p>
+                                <div class="mt-1 flex flex-wrap gap-2 text-xs">
+                                    <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-medium rounded">{{ appt.service_name }} ({{ appt.service_price }} ETB)</span>
+                                    <span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-medium rounded">Staff: {{ appt.staff_name }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Quick Action Controls -->
+                        <div class="flex items-center justify-end space-x-2">
+                            <select onchange="updateAppointmentStatus({{ appt.id }}, this.value)" class="text-xs font-bold rounded-lg border-slate-300 py-1.5 px-2 bg-slate-50 text-slate-700 focus:ring-indigo-500">
+                                <option value="Confirmed" {% if appt.status == 'Confirmed' %}selected{% endif %}>Confirmed</option>
+                                <option value="Completed" {% if appt.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                <option value="Cancelled" {% if appt.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                                <option value="No-Show" {% if appt.status == 'No-Show' %}selected{% endif %}>No-Show</option>
+                            </select>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab 2: Services -->
+        <div id="tab-services" class="tab-content space-y-6">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-slate-900">Manage Menu & Services</h3>
+                <button onclick="openModal('add-service-modal')" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 shadow transition">
+                    + Add Service
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for s in services %}
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-slate-900">{{ s.name }}</h4>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ s.duration_minutes }} mins • <span class="font-bold text-slate-800">{{ s.price }} ETB</span></p>
+                    </div>
+                    <form method="POST" action="/delete-service" onsubmit="return confirm('Remove service?')">
+                        <input type="hidden" name="service_id" value="{{ s.id }}">
+                        <button type="submit" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tab 3: Staff -->
+        <div id="tab-staff" class="tab-content space-y-6">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-slate-900">Staff Team Members</h3>
+                <button onclick="openModal('add-staff-modal')" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 shadow transition">
+                    + Add Staff
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for st in staff_members %}
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xs">
+                            {{ st.name[0] }}
+                        </div>
+                        <span class="font-bold text-slate-900 text-sm">{{ st.name }}</span>
+                    </div>
+                    <form method="POST" action="/delete-staff" onsubmit="return confirm('Remove team member?')">
+                        <input type="hidden" name="staff_id" value="{{ st.id }}">
+                        <button type="submit" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tab 4: Waitlist -->
+        <div id="tab-reserve" class="tab-content space-y-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Waitlist Queue</h3>
+                    <p class="text-xs text-slate-500">Clients pending booking conversions</p>
+                </div>
+                <button onclick="openModal('add-waitlist-modal')" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 shadow transition">
+                    + Add to Waitlist
+                </button>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+                {% if waitlist_entries|length == 0 %}
+                <div class="p-8 text-center text-slate-500 text-sm">Waitlist is currently empty.</div>
+                {% else %}
+                {% for w in waitlist_entries %}
+                <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h4 class="font-bold text-slate-900 text-sm">{{ w.customer_name }} ({{ w.customer_phone }})</h4>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Service: <span class="font-semibold text-slate-700">{{ w.service_name }}</span> • 
+                            Preferred Date: <span class="font-semibold text-slate-700">{{ w.preferred_date }}</span>
+                        </p>
+                        {% if w.note %}<p class="text-xs italic text-slate-400 mt-0.5">Note: {{ w.note }}</p>{% endif %}
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openConvertModal({{ w.id }})" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg hover:bg-emerald-100 transition">
+                            Convert to Appt
+                        </button>
+                        <form method="POST" action="/delete-waitlist" class="inline">
+                            <input type="hidden" name="waitlist_id" value="{{ w.id }}">
+                            <button type="submit" class="p-1.5 text-slate-400 hover:text-rose-600 transition">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab 5: Revenue & Analytics -->
+        <div id="tab-analytics" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Today</p>
+                    <p class="text-2xl font-black text-slate-900 mt-2">{{ "%.2f"|format(daily_rev) }} ETB</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">This Week</p>
+                    <p class="text-2xl font-black text-slate-900 mt-2">{{ "%.2f"|format(weekly_rev) }} ETB</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">This Month</p>
+                    <p class="text-2xl font-black text-slate-900 mt-2">{{ "%.2f"|format(monthly_rev) }} ETB</p>
+                </div>
+            </div>
+
+            <!-- Custom Filter -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h4 class="text-sm font-bold text-slate-900 mb-3">Custom Range Calculation</h4>
+                <form method="GET" action="/dashboard" class="flex flex-col sm:flex-row gap-3 items-end">
+                    <input type="hidden" name="tab" value="analytics">
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Start Date</label>
+                        <input type="date" name="start_date" value="{{ start_date }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold">
+                    </div>
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">End Date</label>
+                        <input type="date" name="end_date" value="{{ end_date }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold">
+                    </div>
+                    <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition">
+                        Calculate
+                    </button>
+                </form>
+
+                {% if custom_rev is not none %}
+                <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-600">Total for Selected Period:</span>
+                    <span class="text-lg font-black text-indigo-600">{{ "%.2f"|format(custom_rev) }} ETB</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Modal: New Appointment -->
+    <div id="new-appt-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-bold text-slate-900">New Appointment</h3>
+                <button onclick="closeModal('new-appt-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form method="POST" action="/book-appointment" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Customer Name</label>
+                    <input type="text" name="customer_name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Customer Phone</label>
+                    <input type="tel" name="customer_phone" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Service</label>
+                    <select name="service_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        {% for s in services %}
+                        <option value="{{ s.id }}">{{ s.name }} ({{ s.price }} ETB)</option>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-        {% endif %}
-
-        <!-- TAB 3: REVENUE -->
-        {% if active_tab == 'revenue' %}
-        <section class="row g-3 mb-4">
-            <div class="col-6 col-md-4">
-                <div class="metric-card">
-                    <span class="text-muted small">የዛሬ ገቢ</span>
-                    <h4 class="fw-bold mt-2" style="color: var(--accent-rose);">{{ "{:,.2f}".format(daily_rev) }} ETB</h4>
+                    </select>
                 </div>
-            </div>
-            <div class="col-6 col-md-4">
-                <div class="metric-card">
-                    <span class="text-muted small">የዚህ ሳምንት ገቢ</span>
-                    <h4 class="fw-bold mt-2 text-success">{{ "{:,.2f}".format(weekly_rev) }} ETB</h4>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Staff Member</label>
+                    <select name="staff_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        {% for st in staff_members %}
+                        <option value="{{ st.id }}">{{ st.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="metric-card">
-                    <span class="text-muted small">የዚህ ወር ገቢ</span>
-                    <h4 class="fw-bold mt-2 text-primary">{{ "{:,.2f}".format(monthly_rev) }} ETB</h4>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Date & Time</label>
+                    <input type="datetime-local" name="appointment_time" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                 </div>
-            </div>
-        </section>
-
-        <section class="content-panel mb-4">
-            <h5 class="fw-bold mb-3">በቀን ክልል ገቢ መፈለጊያ</h5>
-            <form action="/dashboard" method="get" class="row g-2 align-items-end">
-                <input type="hidden" name="tab" value="revenue">
-                <div class="col-12 col-md-4">
-                    <label class="form-label text-muted small fw-semibold">መነሻ ቀን</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ start_date }}" required>
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="form-label text-muted small fw-semibold">መድረሻ ቀን</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ end_date }}" required>
-                </div>
-                <div class="col-12 col-md-4">
-                    <button type="submit" class="btn btn-rose w-100"><i class="fa-solid fa-filter me-1"></i> ገቢ አሳይ</button>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('new-appt-modal')" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700">Save Booking</button>
                 </div>
             </form>
-            {% if custom_rev is not none %}
-            <div class="mt-3 p-3 rounded" style="background-color: var(--card-pink); border: 1px solid var(--border-soft);">
-                <span class="text-muted small fw-semibold">የተመረጠው ጊዜ ገቢ:</span>
-                <h3 class="fw-bold mb-0 text-dark mt-1">{{ "{:,.2f}".format(custom_rev) }} ETB</h3>
-            </div>
-            {% endif %}
-        </section>
-        {% endif %}
+        </div>
+    </div>
 
-        <!-- TAB 4: SERVICES -->
-        {% if active_tab == 'services' %}
-        <section class="content-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0">አገልግሎቶች</h5>
-                <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addServiceModal"><i class="fa-solid fa-plus me-1"></i> አዲስ</button>
+    <!-- Modal: Add Service -->
+    <div id="add-service-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-bold text-slate-900">Add New Service</h3>
+                <button onclick="closeModal('add-service-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="table-responsive-stack">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr class="text-muted">
-                            <th>ስም</th>
-                            <th>ዋጋ</th>
-                            <th>ርዝመት</th>
-                            <th>ተግባር</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <form method="POST" action="/add-service" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Service Title</label>
+                    <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Price (ETB)</label>
+                    <input type="number" step="0.01" name="price" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Duration (Minutes)</label>
+                    <input type="number" name="duration_minutes" value="60" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('add-service-modal')" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700">Add Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Staff -->
+    <div id="add-staff-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-bold text-slate-900">Add Staff Member</h3>
+                <button onclick="closeModal('add-staff-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form method="POST" action="/add-staff" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Staff Member Name</label>
+                    <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('add-staff-modal')" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700">Save Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Waitlist -->
+    <div id="add-waitlist-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-bold text-slate-900">Add to Waitlist</h3>
+                <button onclick="closeModal('add-waitlist-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form method="POST" action="/add-waitlist" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Customer Name</label>
+                    <input type="text" name="customer_name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Customer Phone</label>
+                    <input type="tel" name="customer_phone" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Requested Service</label>
+                    <select name="service_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                         {% for s in services %}
-                        <tr>
-                            <td data-label="ስም" class="fw-bold">{{ s.name }}</td>
-                            <td data-label="ዋጋ">{{ s.price }} ETB</td>
-                            <td data-label="ርዝመት">{{ s.duration_minutes }} ደቂቃ</td>
-                            <td data-label="ተግባር" class="text-end">
-                                <form action="/delete-service" method="post" onsubmit="return confirm('አገልግሎቱን ማጥፋት እርግጠኛ ነዎት?')">
-                                    <input type="hidden" name="service_id" value="{{ s.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i> ሰርዝ</button>
-                                </form>
-                            </td>
-                        </tr>
+                        <option value="{{ s.id }}">{{ s.name }}</option>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-        {% endif %}
-
-        <!-- TAB 5: STAFF -->
-        {% if active_tab == 'staff' %}
-        <section class="content-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0">ሰራተኞች</h5>
-                <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addStaffModal"><i class="fa-solid fa-plus me-1"></i> አዲስ</button>
-            </div>
-            <div class="table-responsive-stack">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr class="text-muted">
-                            <th>ስም</th>
-                            <th>ተግባር</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Preferred Staff (Optional)</label>
+                    <select name="staff_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <option value="">Any Available Staff</option>
                         {% for st in staff_members %}
-                        <tr>
-                            <td data-label="ስም" class="fw-bold">{{ st.name }}</td>
-                            <td data-label="ተግባር" class="text-end">
-                                <form action="/delete-staff" method="post" onsubmit="return confirm('ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
-                                    <input type="hidden" name="staff_id" value="{{ st.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i> ሰርዝ</button>
-                                </form>
-                            </td>
-                        </tr>
+                        <option value="{{ st.id }}">{{ st.name }}</option>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Preferred Date</label>
+                    <input type="date" name="preferred_date" value="{{ current_date }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Notes</label>
+                    <textarea name="note" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" rows="2"></textarea>
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('add-waitlist-modal')" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Convert Waitlist Entry -->
+    <div id="convert-waitlist-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-bold text-slate-900">Convert Waitlist Entry</h3>
+                <button onclick="closeModal('convert-waitlist-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
-        </section>
-        {% endif %}
+            <form id="convert-waitlist-form" method="POST" action="" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Set Confirmed Time</label>
+                    <input type="datetime-local" name="appointment_time" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('convert-waitlist-modal')" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700">Confirm Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    </main>
-</div>
+    <!-- Mobile Drawer Overlay -->
+    <div id="mobile-drawer" class="fixed inset-0 bg-slate-900/50 z-40 hidden" onclick="toggleMobileDrawer()">
+        <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl p-6 flex flex-col justify-between" onclick="event.stopPropagation()">
+            <div class="space-y-6">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">M</div>
+                    <span class="font-bold text-slate-900 text-sm">Melkegna Platform</span>
+                </div>
+                <button onclick="copyBookingUrl()" class="w-full py-2 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg">
+                    <i class="fa-regular fa-copy mr-2"></i> Copy Booking Link
+                </button>
+            </div>
+            <a href="/logout" class="py-2 text-rose-600 text-xs font-bold flex items-center">
+                <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i> Logout
+            </a>
+        </div>
+    </div>
 
-<!-- Mobile Bottom Navigation Bar -->
-<nav class="bottom-nav d-md-none">
-    <a href="/dashboard?tab=home" class="bottom-nav-item {% if active_tab == 'home' %}active{% endif %}">
-        <i class="fa-solid fa-house"></i>
-        <span>ዋና ገጽ</span>
-    </a>
-    <a href="/dashboard?tab=reserve" class="bottom-nav-item {% if active_tab == 'reserve' %}active{% endif %}">
-        <i class="fa-solid fa-clock-rotate-left"></i>
-        <span>ተጠባባቂ</span>
-        <span class="badge-counter position-absolute top-0 start-50 translate-middle-x d-none" id="mobileReserveCounter" style="margin-top: 4px;">0</span>
-    </a>
-    <a href="/dashboard?tab=revenue" class="bottom-nav-item {% if active_tab == 'revenue' %}active{% endif %}">
-        <i class="fa-solid fa-chart-pie"></i>
-        <span>ገቢ</span>
-    </a>
-    <a href="/dashboard?tab=services" class="bottom-nav-item {% if active_tab == 'services' %}active{% endif %}">
-        <i class="fa-solid fa-scissors"></i>
-        <span>አገልግሎቶች</span>
-    </a>
-    <a href="/dashboard?tab=staff" class="bottom-nav-item {% if active_tab == 'staff' %}active{% endif %}">
-        <i class="fa-solid fa-users"></i>
-        <span>ሰራተኞች</span>
-    </a>
-</nav>
+    <!-- Client Script -->
+    <script>
+        // Tab Handler
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600');
+                el.classList.add('text-slate-500');
+            });
 
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function copyBookingLink() {
-        const copyInput = document.getElementById("bookingLinkInput");
-        copyInput.select();
-        copyInput.setSelectionRange(0, 99999);
-        navigator.clipboard.writeText(copyInput.value);
+            document.getElementById('tab-' + tabId).classList.add('active');
+            const targetBtn = document.getElementById('tab-btn-' + tabId);
+            targetBtn.classList.remove('text-slate-500');
+            targetBtn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600');
+            
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabId);
+            window.history.pushState({}, '', url);
+        }
+
+        // Modal Handlers
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         
-        const btn = document.getElementById("copyBookingBtn");
-        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Copied!';
-        setTimeout(() => {
-            btn.innerHTML = '<i class="fa-solid fa-copy me-1"></i> Copy';
-        }, 2000);
-    }
+        function openConvertModal(id) {
+            document.getElementById('convert-waitlist-form').action = '/convert-waitlist/' + id;
+            openModal('convert-waitlist-modal');
+        }
 
-    function submitStatusAjax(formElement, apptId) {
-        const formData = new FormData(formElement);
-        fetch(formElement.action, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (response.ok) {
-                const selectElement = document.getElementById(`status-select-${apptId}`);
-                const badgeElement = document.querySelector(`.status-badge-${apptId}`);
-                if (badgeElement && selectElement) {
-                    const status = selectElement.value;
-                    badgeElement.textContent = status;
-                    badgeElement.className = `badge ms-2 status-badge-${apptId} ` + 
-                        (status === 'Completed' ? 'bg-success' : 
-                         status === 'Cancelled' ? 'bg-danger' : 
-                         status === 'No-Show' ? 'bg-dark' : 'bg-warning text-dark');
-                }
+        function toggleMobileDrawer() {
+            document.getElementById('mobile-drawer').classList.toggle('hidden');
+        }
+
+        function copyBookingUrl() {
+            navigator.clipboard.writeText("{{ booking_url }}");
+            alert("Booking URL copied to clipboard!");
+        }
+
+        // Status Update Call
+        async function updateAppointmentStatus(apptId, newStatus) {
+            const formData = new FormData();
+            formData.append('appointment_id', apptId);
+            formData.append('status', newStatus);
+
+            try {
+                const res = await fetch('/update-appointment-status', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' },
+                    body: formData
+                });
+                if (!res.ok) throw new Error("Update failed");
+            } catch (err) {
+                alert("Could not update status");
             }
-        })
-        .catch(error => console.error('Error updating status:', error));
-    }
-</script>
+        }
+
+        // WebSocket Integration
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/dashboard`);
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.event === 'new_booking') {
+                window.location.reload();
+            }
+        };
+
+        // Initialize Active Tab
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const tab = params.get('tab') || '{{ active_tab }}' || 'home';
+            switchTab(tab);
+        });
+    </script>
 </body>
 </html>

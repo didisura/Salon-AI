@@ -49,17 +49,11 @@ def create_access_token(salon_id: int) -> str:
         "exp": datetime.datetime.now(datetime.timezone.utc)
         + datetime.timedelta(hours=TOKEN_EXPIRE_HOURS),
     }
-
-    return jwt.encode(
-        payload,
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def get_current_salon_id(request: Request) -> Optional[int]:
     token = request.cookies.get("access_token")
-
     if not token:
         return None
 
@@ -72,9 +66,7 @@ def get_current_salon_id(request: Request) -> Optional[int]:
             SECRET_KEY,
             algorithms=[ALGORITHM],
         )
-
         return int(payload["sub"])
-
     except Exception:
         return None
 
@@ -121,21 +113,18 @@ class Appointment(SQLModel, table=True):
 
 
 class Waitlist(SQLModel, table=True):
-    """Customers waiting for a slot (fully booked or conflict). Staff convert
-    these into real appointments when a slot frees up."""
     id: Optional[int] = Field(default=None, primary_key=True)
     salon_id: int = Field(foreign_key="salon.id", index=True)
-    customer_name: str
+    customer_name: str = Field(default="")
     customer_phone: str
     service_id: Optional[int] = Field(default=None, foreign_key="service.id")
-    staff_id: Optional[int] = Field(default=None, foreign_key="staff.id")  # None = any staff
+    staff_id: Optional[int] = Field(default=None, foreign_key="staff.id")
     preferred_date: datetime.date = Field(default_factory=datetime.date.today)
     note: Optional[str] = None
     status: str = Field(default="Waiting")  # Waiting, Converted, Cancelled
     created_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
 
-# Dynamic Database URL (PostgreSQL on Railway/Render vs SQLite locally)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///melkegna.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -161,7 +150,6 @@ def get_session():
 
 
 def run_light_migrations():
-    """Adds new columns to already-deployed tables (safe no-ops if present)."""
     statements = [
         "ALTER TABLE service ADD COLUMN duration_minutes INTEGER DEFAULT 60",
         "ALTER TABLE waitlist ADD COLUMN customer_name VARCHAR DEFAULT ''",
@@ -176,13 +164,10 @@ def run_light_migrations():
 
 
 # ==============================================================================
-# 2.5 REAL-TIME WEBSOCKET ENGINE (Live Online Booking Notifications)
+# 2.5 REAL-TIME WEBSOCKET ENGINE
 # ==============================================================================
 
 class ConnectionManager:
-    """Tracks live dashboard connections per salon so we can push new online
-    bookings to the right salon's screen the instant they come in."""
-
     def __init__(self):
         self.active_connections: dict[int, List[WebSocket]] = {}
 
@@ -207,14 +192,10 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-
-# Public booking routes are sync (threadpool). Broadcasting needs the main
-# event loop. We stash it at startup and hop onto it with run_coroutine_threadsafe.
 main_event_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 def broadcast_new_booking(salon_id: int, payload: dict):
-    """Fire-and-forget broadcast callable safely from a sync route."""
     if main_event_loop is None:
         return
     message = {"event": "new_booking", "appointment": payload}
@@ -248,7 +229,6 @@ def get_active_salon(request: Request, db: Session = Depends(get_session)) -> Sa
         raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
 
     today = datetime.date.today()
-
     if salon.subscription_expires_at and salon.subscription_expires_at < today and salon.status == "active":
         salon.status = "suspended"
         db.add(salon)
@@ -350,15 +330,9 @@ def post_login(
     password: str = Form(...),
     db: Session = Depends(get_session),
 ):
-    # Debug (remove after fixing)
-    print("Phone:", phone)
-    print("Password length:", len(password.encode("utf-8")))
+    salon = db.exec(select(Salon).where(Salon.phone == phone)).first()
 
-    salon = db.exec(
-        select(Salon).where(Salon.phone == phone)
-    ).first()
-
-    if salon is None:
+    if salon is None or not verify_password(password, salon.password_hash):
         return templates.TemplateResponse(
             request=request,
             name="auth.html",
@@ -368,31 +342,16 @@ def post_login(
             },
         )
 
-    if not verify_password(password, salon.password_hash):
-        return templates.TemplateResponse(
-            request=request,
-            name="auth.html",
-            context={
-                "mode": "login",
-                "error": "የስልክ ቁጥር ወይም የይለፍ ቃል ተሳስቷል (Invalid phone or password)",
-            },
-        )
-
-    token = create_access_token({"sub": str(salon.id)})
-
-    response = RedirectResponse(
-        url="/dashboard",
-        status_code=status.HTTP_303_SEE_OTHER,
-    )
-
+    token = create_access_token(salon.id)
+    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(
         key="access_token",
         value=f"Bearer {token}",
         httponly=True,
         samesite="lax",
     )
-
     return response
+
 
 @app.get("/signup", response_class=HTMLResponse)
 def get_signup(request: Request):
@@ -482,8 +441,23 @@ def logout():
 
 
 # ==============================================================================
-# 5. DASHBOARD ROUTE
+# 5. DASHBOARD & WEBSOCKET ROUTES
 # ==============================================================================
+
+@app.websocket("/ws/dashboard")
+async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_session)):
+    salon_id = get_current_salon_id(websocket)
+    if not salon_id:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await manager.connect(salon_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(salon_id, websocket)
+
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def get_dashboard(
@@ -684,37 +658,25 @@ def book_appointment(
 def update_status(
     request: Request,
     appointment_id: int = Form(...),
-    new_status: str = Form(..., alias="status"),
+    status_val: str = Form(..., alias="status"),
     db: Session = Depends(get_session),
     salon: Salon = Depends(get_active_salon),
 ):
-    """Supports both AJAX (JSON) and classic form posts (redirect)."""
     appt = db.get(Appointment, appointment_id)
+    accept = request.headers.get("accept", "")
+    is_ajax = "application/json" in accept or request.headers.get("x-requested-with") == "XMLHttpRequest"
+
     if not appt or appt.salon_id != salon.id:
-        # Prefer JSON for fetch() callers
-        accept = request.headers.get("accept", "")
-        if "application/json" in accept or request.headers.get("x-requested-with") == "XMLHttpRequest":
+        if is_ajax:
             return JSONResponse({"success": False, "error": "Not found"}, status_code=404)
         return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
 
-    appt.status = new_status
+    appt.status = status_val
     db.add(appt)
     db.commit()
 
-    # Detect AJAX / fetch requests
-    accept = request.headers.get("accept", "")
-    is_ajax = (
-        "application/json" in accept
-        or request.headers.get("x-requested-with") == "XMLHttpRequest"
-        or request.headers.get("content-type", "").startswith("multipart/form-data") is False
-        and "fetch" in (request.headers.get("sec-fetch-mode") or "")
-    )
-
-    # Most modern fetch() from the dashboard send FormData and expect JSON
-    if request.headers.get("accept") == "*/*" or "application/json" in accept or True:
-        # Always return JSON when the client is using the dashboard AJAX path.
-        # The dashboard JS always calls fetch() and does .json().
-        return JSONResponse({"success": True, "status": new_status, "id": appt.id})
+    if is_ajax:
+        return JSONResponse({"success": True, "status": status_val, "id": appt.id})
 
     return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -791,10 +753,6 @@ def delete_staff(
 
     return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
 
-
-# ==============================================================================
-# 6.5 WAITLIST / RESERVE LIST ROUTES
-# ==============================================================================
 
 @app.post("/add-waitlist")
 def add_waitlist(
@@ -899,7 +857,7 @@ def delete_waitlist(
 
 
 # ==============================================================================
-# 7. SUPER ADMIN PORTAL (SECURE SESSION-BASED)
+# 7. SUPER ADMIN PORTAL
 # ==============================================================================
 
 @app.get("/admin/login", response_class=HTMLResponse)
@@ -944,185 +902,9 @@ def approve_salon_admin(
 
     salon = db.get(Salon, salon_id)
     if salon:
-        today = datetime.date.today()
-        base_date = (
-            salon.subscription_expires_at
-            if (salon.subscription_expires_at and salon.subscription_expires_at > today)
-            else today
-        )
         salon.status = "active"
-        salon.subscription_expires_at = base_date + datetime.timedelta(days=days)
+        salon.subscription_expires_at = datetime.date.today() + datetime.timedelta(days=days)
         db.add(salon)
         db.commit()
 
     return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
-
-
-@app.post("/admin/suspend/{salon_id}")
-def suspend_salon_admin(
-    request: Request,
-    salon_id: int,
-    db: Session = Depends(get_session),
-):
-    admin_cookie = request.cookies.get("admin_auth")
-    if not admin_cookie or not hmac.compare_digest(admin_cookie, ADMIN_SECRET_KEY):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    salon = db.get(Salon, salon_id)
-    if salon:
-        salon.status = "suspended"
-        db.add(salon)
-        db.commit()
-
-    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
-
-
-@app.get("/admin/logout")
-def admin_logout():
-    response = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
-    response.delete_cookie(key="admin_auth")
-    return response
-
-
-# ==============================================================================
-# 7.5 WEBSOCKET ROUTE (Dashboard subscribes for live online bookings)
-# ==============================================================================
-
-@app.websocket("/ws/salon/{salon_id}")
-async def websocket_appointments(websocket: WebSocket, salon_id: int):
-    await manager.connect(salon_id, websocket)
-    try:
-        while True:
-            # Keep-alive / detect disconnect. Dashboard sends nothing meaningful.
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(salon_id, websocket)
-
-
-# ==============================================================================
-# 8. PUBLIC CLIENT BOOKING ROUTES (NO AUTH REQUIRED)
-# ==============================================================================
-
-@app.get("/book/{salon_id}", response_class=HTMLResponse)
-def get_public_booking_page(
-    salon_id: int,
-    request: Request,
-    db: Session = Depends(get_session),
-):
-    salon = db.get(Salon, salon_id)
-    if not salon or salon.status != "active":
-        raise HTTPException(status_code=404, detail="Salon not found or inactive")
-
-    services = db.exec(select(Service).where(Service.salon_id == salon_id)).all()
-    staff_members = db.exec(select(Staff).where(Staff.salon_id == salon_id)).all()
-
-    return templates.TemplateResponse(
-        request=request,
-        name="public_booking.html",
-        context={
-            "salon": salon,
-            "services": services,
-            "staff_members": staff_members,
-        },
-    )
-
-
-@app.post("/book/{salon_id}")
-def post_public_booking(
-    salon_id: int,
-    request: Request,
-    customer_name: str = Form(...),
-    customer_phone: str = Form(...),
-    service_id: int = Form(...),
-    staff_id: int = Form(...),
-    appointment_time: str = Form(...),
-    db: Session = Depends(get_session),
-):
-    salon = db.get(Salon, salon_id)
-    if not salon or salon.status != "active":
-        raise HTTPException(status_code=404, detail="Salon not found or inactive")
-
-    appt_date = datetime.date.today()
-    if "T" in appointment_time:
-        try:
-            date_part = appointment_time.split("T")[0]
-            appt_date = datetime.datetime.strptime(date_part, "%Y-%m-%d").date()
-        except ValueError:
-            pass
-
-    services = db.exec(select(Service).where(Service.salon_id == salon_id)).all()
-    service_map = {s.id: s for s in services}
-    service = service_map.get(service_id)
-    duration = service.duration_minutes if service else 60
-
-    start_dt = parse_appt_datetime(appt_date, appointment_time)
-    conflict = find_conflict(db, salon_id, staff_id, appt_date, start_dt, duration, service_map)
-
-    staff_members_all = db.exec(select(Staff).where(Staff.salon_id == salon_id)).all()
-
-    if conflict:
-        # Save to waitlist if requested time slot conflicts
-        waitlist_entry = Waitlist(
-            salon_id=salon_id,
-            customer_name=customer_name,
-            customer_phone=customer_phone,
-            service_id=service_id,
-            staff_id=staff_id,
-            preferred_date=appt_date,
-            note=f"Requested slot {appointment_time} was booked.",
-            status="Waiting",
-        )
-        db.add(waitlist_entry)
-        db.commit()
-
-        return templates.TemplateResponse(
-            request=request,
-            name="public_booking.html",
-            context={
-                "salon": salon,
-                "services": services,
-                "staff_members": staff_members_all,
-                "error": "ይህ ሰዓት ስለተያዘ ጥቆማዎ ወደ ተጠባባቂ ዝርዝር (Waitlist) ገብቷል። (Slot busy, added to waitlist).",
-            },
-        )
-
-    new_appt = Appointment(
-        salon_id=salon_id,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        service_id=service_id,
-        staff_id=staff_id,
-        appointment_time=appointment_time,
-        appointment_date=appt_date,
-        status="Confirmed",
-    )
-    db.add(new_appt)
-    db.commit()
-    db.refresh(new_appt)
-
-    # Push live update to any open dashboard for this salon
-    staff_map = {st.id: st for st in staff_members_all}
-    staff = staff_map.get(staff_id)
-
-    broadcast_new_booking(salon_id, {
-        "id": new_appt.id,
-        "appointment_time": new_appt.appointment_time,
-        "status": new_appt.status,
-        "customer_name": new_appt.customer_name,
-        "customer_phone": new_appt.customer_phone,
-        "service_name": service.name if service else "N/A",
-        "service_price": service.price if service else 0.0,
-        "staff_name": staff.name if staff else "N/A",
-    })
-
-    return templates.TemplateResponse(
-        request=request,
-        name="public_booking.html",
-        context={
-            "salon": salon,
-            "services": services,
-            "staff_members": staff_members_all,
-            "success": "ቀጠሮዎ በስኬት ተይዟል! (Appointment successfully booked!)",
-        },
-    )
-
