@@ -117,7 +117,7 @@ def root():
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request, error: Optional[str] = None):
-    return templates.TemplateResponse("register.html", {"request": request, "error": error})
+    return templates.TemplateResponse(request, "register.html", {"error": error})
 
 
 @app.post("/register")
@@ -146,7 +146,7 @@ def register_salon(
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: Optional[str] = None, registered: Optional[str] = None):
     return templates.TemplateResponse(
-        "login.html", {"request": request, "error": error, "registered": registered}
+        request, "login.html", {"error": error, "registered": registered}
     )
 
 
@@ -235,7 +235,6 @@ def dashboard(
     )
 
     context = {
-        "request": request,
         "salon": salon,
         "active_tab": tab,
         "current_date": current_date,
@@ -293,7 +292,7 @@ def dashboard(
             )
         context["custom_rev"] = custom_rev
 
-    return templates.TemplateResponse("dashboard.html", context)
+    return templates.TemplateResponse(request, "dashboard.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -510,9 +509,9 @@ def public_booking_page(
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
     return templates.TemplateResponse(
+        request,
         "public_booking.html",
         {
-            "request": request,
             "salon": salon,
             "services": services,
             "staff_members": staff_members,
