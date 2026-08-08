@@ -13,6 +13,8 @@
         .card-box { background:#fff; border:1px solid #EADCDA; border-radius:20px; padding:28px; }
         .btn-rose { background:#C87A76; color:#fff; border:none; font-weight:600; min-height:44px; border-radius:12px; width:100%; }
         .btn-rose:hover { background:#B56864; color:#fff; }
+        .btn-outline-rose { background:#fff; color:#C87A76; border:1px solid #C87A76; font-weight:600; border-radius:10px; }
+        .btn-outline-rose:hover { background:#FAF0ED; color:#C87A76; }
         .form-control, .form-select { border-radius:10px; border:1px solid #EADCDA; background:#FFFDF9; min-height:44px; }
         .header-spa { text-align:center; margin-bottom:24px; }
         .header-spa i { color:#C87A76; font-size:2rem; }
@@ -34,27 +36,77 @@
             </div>
             {% endif %}
 
+            {% if waitlisted %}
+            <div class="alert alert-success d-flex align-items-center gap-2">
+                <i class="fa-solid fa-circle-check"></i>
+                <div>ወደ ተጠባባቂ ዝርዝር ገብተዋል! ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</div>
+            </div>
+            {% endif %}
+
             {% if error == 'conflict' %}
-            <div class="alert alert-danger d-flex align-items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <div>ይህ ሰዓት ተይዟል፣ እባክዎ ሌላ ሰዓት ይምረጡ።</div>
+            <div class="alert alert-danger mb-3">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div>ይህ ሰዓት ለ{{ conflict_staff_name }} ተይዟል። ከታች ካሉ አማራጮች ይምረጡ፦</div>
+                </div>
+
+                {% if next_slot %}
+                <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-2 mb-2">
+                    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                    <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                    <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                    <input type="hidden" name="appointment_time" value="{{ next_slot }}">
+                    <button type="submit" class="btn btn-sm btn-outline-rose">
+                        <i class="fa-solid fa-clock me-1"></i> በ{{ next_slot_display }} ያዙ
+                    </button>
+                </form>
+                {% endif %}
+
+                {% for alt in alt_staff %}
+                <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-2 mb-2">
+                    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                    <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                    <input type="hidden" name="staff_id" value="{{ alt.id }}">
+                    <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
+                    <button type="submit" class="btn btn-sm btn-outline-rose">
+                        <i class="fa-solid fa-user me-1"></i> {{ alt.name }} ጋር ተመሳሳይ ሰዓት
+                    </button>
+                </form>
+                {% endfor %}
+
+                <form action="/book/{{ salon.id }}/waitlist" method="post" class="d-inline-block mb-2">
+                    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                    <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                    <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                    <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
+                    <button type="submit" class="btn btn-sm btn-outline-rose">
+                        <i class="fa-solid fa-list-check me-1"></i> ለዛሬ ተጠባባቂ ዝርዝር ላይ ጨምረኝ
+                    </button>
+                </form>
+
+                {% if not next_slot and not alt_staff %}
+                <p class="small text-muted mb-0 mt-2">ዛሬ ምንም ክፍት ሰዓት አልተገኘም። ተጠባባቂ ዝርዝር ላይ ብቻ መጨመር ይችላሉ።</p>
+                {% endif %}
             </div>
             {% endif %}
 
             <form action="/book/{{ salon.id }}" method="post">
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ሙሉ ስም</label>
-                    <input type="text" name="customer_name" class="form-control" required>
+                    <input type="text" name="customer_name" class="form-control" value="{{ conflict_name or '' }}" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ስልክ ቁጥር</label>
-                    <input type="tel" name="customer_phone" class="form-control" required placeholder="0911223344">
+                    <input type="tel" name="customer_phone" class="form-control" value="{{ conflict_phone or '' }}" required placeholder="0911223344">
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">አገልግሎት</label>
                     <select name="service_id" class="form-select" required>
                         {% for s in services %}
-                        <option value="{{ s.id }}">{{ s.name }} ({{ s.price }} ETB)</option>
+                        <option value="{{ s.id }}" {% if conflict_service and s.id == conflict_service %}selected{% endif %}>{{ s.name }} ({{ s.price }} ETB)</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -62,13 +114,13 @@
                     <label class="form-label small text-muted fw-semibold">ባለሙያ</label>
                     <select name="staff_id" class="form-select" required>
                         {% for st in staff_members %}
-                        <option value="{{ st.id }}">{{ st.name }}</option>
+                        <option value="{{ st.id }}" {% if conflict_staff and st.id == conflict_staff %}selected{% endif %}>{{ st.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ቀንና ሰዓት</label>
-                    <input type="datetime-local" name="appointment_time" class="form-control" required>
+                    <input type="datetime-local" name="appointment_time" class="form-control" value="{{ conflict_time or '' }}" required>
                 </div>
                 <button type="submit" class="btn btn-rose mt-2">
                     <i class="fa-solid fa-calendar-check me-1"></i> ቀጠሮ ያዝ

@@ -380,12 +380,55 @@
         </header>
 
         {% if error == 'conflict' %}
-        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
-            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
-            <div>
-                <strong>ድርብ ቀጠሮ (Double-Booking Blocked):</strong>
-                ይህ ሰዓት ለተመረጠው ባለሙያ አስቀድሞ ተይዟል። እባክዎ ሌላ ሰዓት ወይም ሌላ ባለሙያ ይምረጡ።
+        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
+            <div class="d-flex align-items-start gap-2 mb-3">
+                <i class="fa-solid fa-triangle-exclamation mt-1" style="color: #dc3545;"></i>
+                <div>
+                    <strong style="color: #842029;">ድርብ ቀጠሮ (Double-Booking Blocked):</strong>
+                    <span style="color: #842029;">ይህ ሰዓት ለ{{ conflict_staff_name }} አስቀድሞ ተይዟል ({{ conflict_time.split('T')[1] if conflict_time else '' }})።</span>
+                </div>
             </div>
+
+            {% if next_slot %}
+            <form action="/book-appointment" method="post" class="d-inline-block me-2 mb-2">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                <input type="hidden" name="appointment_time" value="{{ next_slot }}">
+                <button type="submit" class="btn btn-sm btn-rose">
+                    <i class="fa-solid fa-clock me-1"></i> {{ conflict_staff_name }} በ{{ next_slot_display }} ያዙ
+                </button>
+            </form>
+            {% endif %}
+
+            {% for alt in alt_staff %}
+            <form action="/book-appointment" method="post" class="d-inline-block me-2 mb-2">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ alt.id }}">
+                <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
+                <button type="submit" class="btn btn-sm btn-outline-dark">
+                    <i class="fa-solid fa-user me-1"></i> በ{{ alt.name }} በተመሳሳይ ሰዓት
+                </button>
+            </form>
+            {% endfor %}
+
+            <form action="/add-waitlist" method="post" class="d-inline-block mb-2">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i class="fa-solid fa-list-check me-1"></i> ለዛሬ ተጠባባቂ ዝርዝር ላይ ጨምር
+                </button>
+            </form>
+
+            {% if not next_slot and not alt_staff %}
+            <p class="small text-muted mb-0 mt-2">ዛሬ ምንም ክፍት ሰዓት አልተገኘም። ተጠባባቂ ዝርዝር ላይ ብቻ መጨመር ይችላሉ።</p>
+            {% endif %}
         </div>
         {% endif %}
 

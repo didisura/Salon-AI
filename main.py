@@ -1,5 +1,6 @@
 from datetime import datetime, date, timedelta
 from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import (
     FastAPI, Request, Depends, Form, WebSocket, WebSocketDisconnect, status
@@ -94,6 +95,8 @@ def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: dat
 
 
 def _has_conflict(db: Session, salon_id: int, staff_id: int, appt_dt: datetime) -> bool:
+    """Deprecated: exact-timestamp check kept only for reference.
+    Use _staff_has_overlap instead, which accounts for service duration."""
     return (
         db.query(Appointment.id)
         .filter(
@@ -105,6 +108,90 @@ def _has_conflict(db: Session, salon_id: int, staff_id: int, appt_dt: datetime) 
         .first()
         is not None
     )
+
+
+# How long the salon is assumed to be open for slot-suggestion purposes.
+# (No per-salon business-hours model exists yet, so this is a sane default.)
+BUSINESS_START_HOUR = 8
+BUSINESS_END_HOUR = 20
+SLOT_STEP_MINUTES = 15
+
+
+def _service_duration(db: Session, service_id: int) -> int:
+    duration = db.query(Service.duration_minutes).filter(Service.id == service_id).scalar()
+    return duration or 30
+
+
+def _staff_has_overlap(
+    db: Session,
+    salon_id: int,
+    staff_id: int,
+    start_dt: datetime,
+    end_dt: datetime,
+    exclude_appointment_id: Optional[int] = None,
+) -> bool:
+    """True if this staff member already has an appointment (of any
+    duration) whose time range overlaps [start_dt, end_dt)."""
+    day_start = datetime.combine(start_dt.date(), datetime.min.time())
+    day_end = day_start + timedelta(days=1)
+
+    q = (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.staff_id == staff_id,
+            Appointment.status.notin_([AppointmentStatus.cancelled, AppointmentStatus.no_show]),
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime < day_end,
+        )
+    )
+    if exclude_appointment_id:
+        q = q.filter(Appointment.id != exclude_appointment_id)
+
+    for existing in q.all():
+        existing_start = existing.appointment_datetime
+        existing_duration = existing.service.duration_minutes if existing.service else 30
+        existing_end = existing_start + timedelta(minutes=existing_duration)
+        if existing_start < end_dt and existing_end > start_dt:
+            return True
+    return False
+
+
+def _available_staff_for_slot(
+    db: Session,
+    salon_id: int,
+    start_dt: datetime,
+    end_dt: datetime,
+    exclude_staff_id: Optional[int] = None,
+):
+    """Every staff member at this salon who is free for the whole
+    [start_dt, end_dt) window, excluding the one already tried."""
+    staff_list = db.query(Staff).filter(Staff.salon_id == salon_id).order_by(Staff.name).all()
+    return [
+        st for st in staff_list
+        if st.id != exclude_staff_id and not _staff_has_overlap(db, salon_id, st.id, start_dt, end_dt)
+    ]
+
+
+def _next_available_slot(
+    db: Session,
+    salon_id: int,
+    staff_id: int,
+    duration_minutes: int,
+    requested_dt: datetime,
+) -> Optional[datetime]:
+    """Search forward in SLOT_STEP_MINUTES increments, same day only,
+    within business hours, for the next free slot for this staff member."""
+    day = requested_dt.date()
+    business_end = datetime.combine(day, datetime.min.time()) + timedelta(hours=BUSINESS_END_HOUR)
+
+    slot_start = requested_dt + timedelta(minutes=SLOT_STEP_MINUTES)
+    while slot_start + timedelta(minutes=duration_minutes) <= business_end:
+        slot_end = slot_start + timedelta(minutes=duration_minutes)
+        if not _staff_has_overlap(db, salon_id, staff_id, slot_start, slot_end):
+            return slot_start
+        slot_start += timedelta(minutes=SLOT_STEP_MINUTES)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +278,11 @@ def dashboard(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     error: Optional[str] = None,
+    conflict_name: Optional[str] = None,
+    conflict_phone: Optional[str] = None,
+    conflict_service: Optional[int] = None,
+    conflict_staff: Optional[int] = None,
+    conflict_time: Optional[str] = None,
     salon: Salon = Depends(get_current_salon),
     db: Session = Depends(get_db),
 ):
@@ -265,6 +357,28 @@ def dashboard(
         context["appointments"] = appointments
         context["selected_date"] = sel_date.isoformat()
 
+        if error == "conflict" and conflict_time and conflict_service and conflict_staff:
+            conflict_dt = datetime.strptime(conflict_time, "%Y-%m-%dT%H:%M")
+            c_duration = _service_duration(db, conflict_service)
+            c_end = conflict_dt + timedelta(minutes=c_duration)
+
+            alt_staff = _available_staff_for_slot(db, salon.id, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+            next_slot = _next_available_slot(db, salon.id, conflict_staff, c_duration, conflict_dt)
+            conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+
+            context.update({
+                "conflict_name": conflict_name,
+                "conflict_phone": conflict_phone,
+                "conflict_service": conflict_service,
+                "conflict_staff": conflict_staff,
+                "conflict_staff_name": conflict_staff_obj.name if conflict_staff_obj else "",
+                "conflict_time": conflict_time,
+                "conflict_date": conflict_dt.date().isoformat(),
+                "alt_staff": alt_staff,
+                "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
+                "next_slot_display": next_slot.strftime("%I:%M %p") if next_slot else None,
+            })
+
     elif tab == "reserve":
         context["waitlist_entries"] = (
             db.query(Waitlist)
@@ -309,9 +423,21 @@ def book_appointment(
     db: Session = Depends(get_db),
 ):
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+    duration = _service_duration(db, service_id)
+    end_dt = appt_dt + timedelta(minutes=duration)
 
-    if _has_conflict(db, salon.id, staff_id, appt_dt):
-        return RedirectResponse(url="/dashboard?tab=home&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
+    if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
+        params = urlencode({
+            "tab": "home",
+            "error": "conflict",
+            "selected_date": appt_dt.date().isoformat(),
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/dashboard?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     db.add(Appointment(
         salon_id=salon.id,
@@ -418,8 +544,10 @@ def convert_waitlist(
 
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
     staff_id = entry.staff_id or db.query(Staff.id).filter(Staff.salon_id == salon.id).scalar()
+    c_duration = _service_duration(db, entry.service_id)
+    c_end = appt_dt + timedelta(minutes=c_duration)
 
-    if staff_id and _has_conflict(db, salon.id, staff_id, appt_dt):
+    if staff_id and _staff_has_overlap(db, salon.id, staff_id, appt_dt, c_end):
         return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
 
     db.add(Appointment(
@@ -499,6 +627,12 @@ def public_booking_page(
     salon_id: int,
     error: Optional[str] = None,
     success: Optional[str] = None,
+    waitlisted: Optional[str] = None,
+    conflict_name: Optional[str] = None,
+    conflict_phone: Optional[str] = None,
+    conflict_service: Optional[int] = None,
+    conflict_staff: Optional[int] = None,
+    conflict_time: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
@@ -508,18 +642,39 @@ def public_booking_page(
     services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
-    return templates.TemplateResponse(
-        request,
-        "public_booking.html",
-        {
-            "salon": salon,
-            "services": services,
-            "staff_members": staff_members,
-            "current_date": date.today().isoformat(),
-            "error": error,
-            "success": success,
-        },
-    )
+    context = {
+        "salon": salon,
+        "services": services,
+        "staff_members": staff_members,
+        "current_date": date.today().isoformat(),
+        "error": error,
+        "success": success,
+        "waitlisted": waitlisted,
+    }
+
+    if error == "conflict" and conflict_time and conflict_service and conflict_staff:
+        conflict_dt = datetime.strptime(conflict_time, "%Y-%m-%dT%H:%M")
+        c_duration = _service_duration(db, conflict_service)
+        c_end = conflict_dt + timedelta(minutes=c_duration)
+
+        alt_staff = _available_staff_for_slot(db, salon.id, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+        next_slot = _next_available_slot(db, salon.id, conflict_staff, c_duration, conflict_dt)
+        conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+
+        context.update({
+            "conflict_name": conflict_name,
+            "conflict_phone": conflict_phone,
+            "conflict_service": conflict_service,
+            "conflict_staff": conflict_staff,
+            "conflict_staff_name": conflict_staff_obj.name if conflict_staff_obj else "",
+            "conflict_time": conflict_time,
+            "conflict_date": conflict_dt.date().isoformat(),
+            "alt_staff": alt_staff,
+            "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
+            "next_slot_display": next_slot.strftime("%I:%M %p") if next_slot else None,
+        })
+
+    return templates.TemplateResponse(request, "public_booking.html", context)
 
 
 @app.post("/book/{salon_id}")
@@ -537,9 +692,19 @@ async def public_booking_submit(
         return HTMLResponse("Salon not found", status_code=404)
 
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+    duration = _service_duration(db, service_id)
+    end_dt = appt_dt + timedelta(minutes=duration)
 
-    if _has_conflict(db, salon.id, staff_id, appt_dt):
-        return RedirectResponse(url=f"/book/{salon_id}?error=conflict", status_code=status.HTTP_303_SEE_OTHER)
+    if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
+        params = urlencode({
+            "error": "conflict",
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     appt = Appointment(
         salon_id=salon.id,
@@ -571,3 +736,33 @@ async def public_booking_submit(
     })
 
     return RedirectResponse(url=f"/book/{salon_id}?success=1", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/book/{salon_id}/waitlist")
+def public_join_waitlist(
+    salon_id: int,
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    service_id: int = Form(...),
+    staff_id: Optional[int] = Form(None),
+    preferred_date: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Lets a customer join today's waitlist directly from the public
+    booking page when their preferred slot is unavailable — no login
+    required, unlike the admin /add-waitlist route."""
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if not salon:
+        return HTMLResponse("Salon not found", status_code=404)
+
+    db.add(Waitlist(
+        salon_id=salon.id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        service_id=service_id,
+        staff_id=staff_id or None,
+        preferred_date=_parse_date(preferred_date) or date.today(),
+    ))
+    db.commit()
+
+    return RedirectResponse(url=f"/book/{salon_id}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)     
