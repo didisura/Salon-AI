@@ -1,79 +1,114 @@
-from typing import Optional, List
-from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+import enum
 
-class User(SQLModel, table=True):
-    __tablename__ = "users"
+from sqlalchemy import (
+    Column, Integer, String, Numeric, DateTime, Date, ForeignKey, Enum, func
+)
+from sqlalchemy.orm import relationship
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    telegram_id: int = Field(unique=True, index=True)
-    full_name: str
-    phone_number: Optional[str] = None
-    role: str = Field(default="customer")  # "customer", "salon_owner", "admin"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    # Relationships
-    salons: List["Salon"] = Relationship(back_populates="owner")
-    appointments: List["Appointment"] = Relationship(back_populates="user")
+from database import Base
 
 
-class Salon(SQLModel, table=True):
+class AppointmentStatus(str, enum.Enum):
+    confirmed = "Confirmed"
+    completed = "Completed"
+    no_show = "No-Show"
+    cancelled = "Cancelled"
+
+
+class Salon(Base):
     __tablename__ = "salons"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
-    location: str
-    phone_number: str
-    owner_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(120), nullable=False)
+    owner_name = Column(String(120), nullable=False)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationships
-    owner: Optional[User] = Relationship(back_populates="salons")
-    services: List["Service"] = Relationship(back_populates="salon")
-    staff_members: List["Staff"] = Relationship(back_populates="salon")
-    appointments: List["Appointment"] = Relationship(back_populates="salon")
+    services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
+    staff_members = relationship("Staff", back_populates="salon", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="salon", cascade="all, delete-orphan")
+    waitlist_entries = relationship("Waitlist", back_populates="salon", cascade="all, delete-orphan")
 
 
-class Service(SQLModel, table=True):
+class Service(Base):
     __tablename__ = "services"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    salon_id: int = Field(foreign_key="salons.id")
-    name: str
-    price_etb: float
-    duration_min: int
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    name = Column(String(120), nullable=False)
+    price = Column(Numeric(10, 2), nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
 
-    # Relationships
-    salon: Salon = Relationship(back_populates="services")
-    appointments: List["Appointment"] = Relationship(back_populates="service")
+    salon = relationship("Salon", back_populates="services")
 
 
-class Staff(SQLModel, table=True):
+class Staff(Base):
     __tablename__ = "staff"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    salon_id: int = Field(foreign_key="salons.id")
-    name: str
-    role: str
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    name = Column(String(120), nullable=False)
 
-    # Relationships
-    salon: Salon = Relationship(back_populates="staff_members")
-    appointments: List["Appointment"] = Relationship(back_populates="staff")
+    salon = relationship("Salon", back_populates="staff_members")
 
 
-class Appointment(SQLModel, table=True):
+class Appointment(Base):
     __tablename__ = "appointments"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")
-    salon_id: int = Field(foreign_key="salons.id")
-    service_id: int = Field(foreign_key="services.id")
-    staff_id: Optional[int] = Field(default=None, foreign_key="staff.id")
-    appointment_time: str
-    status: str = Field(default="pending")  # "pending", "confirmed", "cancelled"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    customer_name = Column(String(120), nullable=False)
+    customer_phone = Column(String(30), nullable=False, index=True)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    appointment_datetime = Column(DateTime, nullable=False, index=True)
+    status = Column(Enum(AppointmentStatus), default=AppointmentStatus.confirmed, nullable=False)
+    source = Column(String(20), default="walk-in")  # "walk-in" (admin) or "online" (public link)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationships
-    user: User = Relationship(back_populates="appointments")
-    salon: Salon = Relationship(back_populates="appointments")
-    service: Service = Relationship(back_populates="appointments")
-    staff: Optional[Staff] = Relationship(back_populates="appointments")
+    salon = relationship("Salon", back_populates="appointments")
+    service = relationship("Service")
+    staff = relationship("Staff")
+
+    # ---- flattened accessors so the Jinja template can use appt.xxx directly ----
+    @property
+    def appointment_time(self):
+        return self.appointment_datetime.strftime("%I:%M %p")
+
+    @property
+    def service_name(self):
+        return self.service.name if self.service else ""
+
+    @property
+    def service_price(self):
+        return float(self.service.price) if self.service else 0.0
+
+    @property
+    def staff_name(self):
+        return self.staff.name if self.staff else ""
+
+
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    customer_name = Column(String(120), nullable=False)
+    customer_phone = Column(String(30), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    preferred_date = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    salon = relationship("Salon", back_populates="waitlist_entries")
+    service = relationship("Service")
+    staff = relationship("Staff")
+
+    @property
+    def service_name(self):
+        return self.service.name if self.service else ""
+
+    @property
+    def staff_name(self):
+        return self.staff.name if self.staff else "Any"
