@@ -52,7 +52,7 @@ class SalonNotActiveException(Exception):
 @app.exception_handler(SalonNotActiveException)
 async def salon_not_active_handler(request: Request, exc: SalonNotActiveException):
     return templates.TemplateResponse(
-        request, "account_status.html", {"salon": exc.salon}, status_code=status.HTTP_403_FORBIDDEN
+        request, "pending.html", {"salon": exc.salon}, status_code=status.HTTP_403_FORBIDDEN
     )
 
 
@@ -254,7 +254,7 @@ def get_active_salon(
 # Auth here is a single shared secret (ADMIN_SECRET_KEY), not a salon
 # login. After /admin/login succeeds it's carried forward as `key` in
 # the URL and in a hidden form field on every approve/suspend button,
-# matching how admin_salons.html is already built. Anyone who obtains
+# matching how admin.html is already built. Anyone who obtains
 # that key has full admin access, so keep it private and rotate it in
 # Railway if you ever suspect it's leaked.
 # ---------------------------------------------------------------------------
@@ -281,7 +281,7 @@ def admin_dashboard(request: Request, key: Optional[str] = None, db: Session = D
             status_code=status.HTTP_303_SEE_OTHER,
         )
     salons = db.query(Salon).order_by(Salon.id.desc()).all()
-    return templates.TemplateResponse(request, "admin_salons.html", {"salons": salons, "admin_key": key})
+    return templates.TemplateResponse(request, "admin.html", {"salons": salons, "admin_key": key})
 
 
 @app.post("/admin/approve/{salon_id}")
