@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, date, timedelta
 from typing import Optional
 from urllib.parse import urlencode
@@ -7,7 +8,7 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
@@ -25,10 +26,34 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Melkegna Salon Platform")
 templates = Jinja2Templates(directory="templates")
 
+# Set this in Railway's environment variables (Project -> Variables).
+# Whoever knows this string can approve/suspend any salon, so keep it long
+# and random, and never commit a real value to source control.
+ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
+
+
+def _valid_admin_key(key: Optional[str]) -> bool:
+    return bool(key) and key == ADMIN_SECRET_KEY
+
 
 @app.exception_handler(NotAuthenticatedException)
 async def not_authenticated_handler(request: Request, exc: NotAuthenticatedException):
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+class SalonNotActiveException(Exception):
+    """Raised when a logged-in salon isn't approved / has an expired
+    subscription. Lets every protected route redirect to the same
+    account-status page without repeating the check everywhere."""
+    def __init__(self, salon: Salon):
+        self.salon = salon
+
+
+@app.exception_handler(SalonNotActiveException)
+async def salon_not_active_handler(request: Request, exc: SalonNotActiveException):
+    return templates.TemplateResponse(
+        request, "account_status.html", {"salon": exc.salon}, status_code=status.HTTP_403_FORBIDDEN
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +219,118 @@ def _next_available_slot(
     return None
 
 
+def _normalize_phone(raw: str) -> str:
+    """Keep only digits and a leading +, so '09 11 22 33 44' and
+    '0911223344' are treated as the same login/lookup key."""
+    raw = raw.strip()
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    return digits
+
+
+def get_active_salon(
+    salon: Salon = Depends(get_current_salon),
+    db: Session = Depends(get_db),
+) -> Salon:
+    """Use this instead of get_current_salon on every route a salon
+    shouldn't reach until a super admin has approved them and their
+    subscription is still current."""
+    now = datetime.utcnow()
+
+    # Auto-expire: if the paid period has quietly run out, flip an
+    # "active" salon to "expired" so they lose dashboard access without
+    # an admin having to manually suspend them every month.
+    if salon.status == "active" and salon.subscription_expires_at and salon.subscription_expires_at < now:
+        salon.status = "expired"
+        db.commit()
+
+    if salon.status != "active":
+        raise SalonNotActiveException(salon)
+
+    return salon
+
+
+# ---------------------------------------------------------------------------
+# Super Admin — approve new salons, extend/suspend subscriptions.
+# Auth here is a single shared secret (ADMIN_SECRET_KEY), not a salon
+# login. After /admin/login succeeds it's carried forward as `key` in
+# the URL and in a hidden form field on every approve/suspend button,
+# matching how admin_salons.html is already built. Anyone who obtains
+# that key has full admin access, so keep it private and rotate it in
+# Railway if you ever suspect it's leaked.
+# ---------------------------------------------------------------------------
+@app.get("/admin/login", response_class=HTMLResponse)
+def admin_login_page(request: Request, error: Optional[str] = None):
+    return templates.TemplateResponse(request, "admin_login.html", {"error": error})
+
+
+@app.post("/admin/login")
+def admin_login(password: str = Form(...)):
+    if not _valid_admin_key(password):
+        return RedirectResponse(
+            url="/admin/login?error=የተሳሳተ ቁልፍ (Invalid admin key)",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return RedirectResponse(url=f"/admin?key={password}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_dashboard(request: Request, key: Optional[str] = None, db: Session = Depends(get_db)):
+    if not _valid_admin_key(key):
+        return RedirectResponse(
+            url="/admin/login?error=Session expired, please log in again",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    salons = db.query(Salon).order_by(Salon.id.desc()).all()
+    return templates.TemplateResponse(request, "admin_salons.html", {"salons": salons, "admin_key": key})
+
+
+@app.post("/admin/approve/{salon_id}")
+def admin_approve(
+    salon_id: int,
+    key: str = Form(...),
+    days: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    if not _valid_admin_key(key):
+        return RedirectResponse(
+            url="/admin/login?error=Session expired, please log in again",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        now = datetime.utcnow()
+        # Extend from the current expiry if it's still in the future
+        # (renewing early doesn't lose the days already paid for);
+        # otherwise start the new period from today.
+        base = salon.subscription_expires_at if (salon.subscription_expires_at and salon.subscription_expires_at > now) else now
+        salon.subscription_expires_at = base + timedelta(days=days)
+        salon.status = "active"
+        db.commit()
+
+    return RedirectResponse(url=f"/admin?key={key}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/admin/suspend/{salon_id}")
+def admin_suspend(
+    salon_id: int,
+    key: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    if not _valid_admin_key(key):
+        return RedirectResponse(
+            url="/admin/login?error=Session expired, please log in again",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        salon.status = "suspended"
+        db.commit()
+
+    return RedirectResponse(url=f"/admin?key={key}", status_code=status.HTTP_303_SEE_OTHER)
+
+
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
@@ -211,18 +348,24 @@ def register_page(request: Request, error: Optional[str] = None):
 def register_salon(
     name: str = Form(...),
     owner_name: str = Form(...),
-    email: str = Form(...),
+    phone: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    if db.query(Salon.id).filter(Salon.email == email).first():
+    phone_clean = _normalize_phone(phone)
+    if len(phone_clean) < 9:
+        return RedirectResponse(url="/register?error=invalid_phone", status_code=status.HTTP_303_SEE_OTHER)
+
+    if db.query(Salon.id).filter(Salon.phone == phone_clean).first():
         return RedirectResponse(url="/register?error=exists", status_code=status.HTTP_303_SEE_OTHER)
 
     salon = Salon(
         name=name,
         owner_name=owner_name,
-        email=email,
+        phone=phone_clean,
         hashed_password=hash_password(password),
+        status="pending",
+        subscription_expires_at=None,
     )
     db.add(salon)
     db.commit()
@@ -239,11 +382,12 @@ def login_page(request: Request, error: Optional[str] = None, registered: Option
 
 @app.post("/login")
 def login(
-    email: str = Form(...),
+    phone: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    salon = db.query(Salon).filter(Salon.email == email).first()
+    phone_clean = _normalize_phone(phone)
+    salon = db.query(Salon).filter(Salon.phone == phone_clean).first()
     if not salon or not verify_password(password, salon.hashed_password):
         return RedirectResponse(url="/login?error=invalid", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -283,7 +427,7 @@ def dashboard(
     conflict_service: Optional[int] = None,
     conflict_staff: Optional[int] = None,
     conflict_time: Optional[str] = None,
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     today = date.today()
@@ -410,6 +554,54 @@ def dashboard(
 
 
 # ---------------------------------------------------------------------------
+# Customer search (by phone number or name) — used by the dashboard's
+# search modal so reception can quickly find someone to call/text back.
+# ---------------------------------------------------------------------------
+@app.get("/search-customer")
+def search_customer(
+    q: str,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    q = q.strip()
+    if not q:
+        return JSONResponse({"results": []})
+
+    q_digits = _normalize_phone(q)
+    filters = [Appointment.customer_name.ilike(f"%{q}%")]
+    if q_digits:
+        filters.append(Appointment.customer_phone.ilike(f"%{q_digits}%"))
+    else:
+        filters.append(Appointment.customer_phone.ilike(f"%{q}%"))
+
+    matches = (
+        db.query(Appointment)
+        .filter(Appointment.salon_id == salon.id, or_(*filters))
+        .order_by(Appointment.appointment_datetime.desc())
+        .limit(25)
+        .all()
+    )
+
+    # Collapse to one card per phone number (most recent visit first) so
+    # reception isn't scrolling through the same customer's whole history.
+    seen_phones = set()
+    results = []
+    for a in matches:
+        if a.customer_phone in seen_phones:
+            continue
+        seen_phones.add(a.customer_phone)
+        results.append({
+            "customer_name": a.customer_name,
+            "customer_phone": a.customer_phone,
+            "service_name": a.service_name,
+            "appointment_time": a.appointment_time,
+            "status": a.status.value,
+        })
+
+    return JSONResponse({"results": results})
+
+
+# ---------------------------------------------------------------------------
 # Appointments (admin / walk-in)
 # ---------------------------------------------------------------------------
 @app.post("/book-appointment")
@@ -419,7 +611,7 @@ def book_appointment(
     service_id: int = Form(...),
     staff_id: int = Form(...),
     appointment_time: str = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
@@ -462,7 +654,7 @@ async def update_appointment_status(
     request: Request,
     appointment_id: int = Form(...),
     status_value: str = Form(..., alias="status"),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
@@ -501,7 +693,7 @@ def add_waitlist(
     service_id: int = Form(...),
     staff_id: Optional[int] = Form(None),
     preferred_date: str = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     db.add(Waitlist(
@@ -519,7 +711,7 @@ def add_waitlist(
 @app.post("/delete-waitlist")
 def delete_waitlist(
     waitlist_id: int = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     db.query(Waitlist).filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id).delete()
@@ -531,7 +723,7 @@ def delete_waitlist(
 def convert_waitlist(
     waitlist_id: int,
     appointment_time: str = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     entry = (
@@ -574,7 +766,7 @@ def add_service(
     name: str = Form(...),
     price: float = Form(...),
     duration_minutes: int = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     db.add(Service(salon_id=salon.id, name=name, price=price, duration_minutes=duration_minutes))
@@ -585,7 +777,7 @@ def add_service(
 @app.post("/delete-service")
 def delete_service(
     service_id: int = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).delete()
@@ -599,7 +791,7 @@ def delete_service(
 @app.post("/add-staff")
 def add_staff(
     name: str = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     db.add(Staff(salon_id=salon.id, name=name))
@@ -610,7 +802,7 @@ def add_staff(
 @app.post("/delete-staff")
 def delete_staff(
     staff_id: int = Form(...),
-    salon: Salon = Depends(get_current_salon),
+    salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
     db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).delete()
@@ -732,6 +924,7 @@ async def public_booking_submit(
             "service_price": appt.service_price,
             "staff_name": appt.staff_name,
             "status": appt.status.value,
+            "source": appt.source,
         },
     })
 
@@ -765,4 +958,4 @@ def public_join_waitlist(
     ))
     db.commit()
 
-    return RedirectResponse(url=f"/book/{salon_id}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)     
+    return RedirectResponse(url=f"/book/{salon_id}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)

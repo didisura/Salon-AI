@@ -20,7 +20,10 @@
         <p class="text-muted text-center small mb-4">በመልከኛ ላይ አካውንት ይክፈቱ</p>
 
         {% if error == 'exists' %}
-        <div class="alert alert-danger py-2 small">ይህ ኢሜይል አስቀድሞ ተመዝግቧል።</div>
+        <div class="alert alert-danger py-2 small">ይህ ስልክ ቁጥር አስቀድሞ ተመዝግቧል።</div>
+        {% endif %}
+        {% if error == 'invalid_phone' %}
+        <div class="alert alert-danger py-2 small">ትክክለኛ የስልክ ቁጥር ያስገቡ (ለምሳሌ፡ 0911223344)።</div>
         {% endif %}
 
         <form action="/register" method="post">
@@ -33,8 +36,8 @@
                 <input type="text" name="owner_name" class="form-control" required>
             </div>
             <div class="mb-3">
-                <label class="form-label small text-muted fw-semibold">ኢሜይል</label>
-                <input type="email" name="email" class="form-control" required>
+                <label class="form-label small text-muted fw-semibold">ስልክ ቁጥር</label>
+                <input type="tel" name="phone" class="form-control" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
             </div>
             <div class="mb-3">
                 <label class="form-label small text-muted fw-semibold">የይለፍ ቃል</label>

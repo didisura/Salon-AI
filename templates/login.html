@@ -20,7 +20,7 @@
         <p class="text-muted text-center small mb-4">ወደ ሳሎን ዳሽቦርድዎ ይግቡ</p>
 
         {% if error == 'invalid' %}
-        <div class="alert alert-danger py-2 small">ኢሜይል ወይም የይለፍ ቃል ትክክል አይደለም።</div>
+        <div class="alert alert-danger py-2 small">ስልክ ቁጥር ወይም የይለፍ ቃል ትክክል አይደለም።</div>
         {% endif %}
         {% if registered %}
         <div class="alert alert-success py-2 small">ተመዝግበዋል! አሁን ይግቡ።</div>
@@ -28,8 +28,8 @@
 
         <form action="/login" method="post">
             <div class="mb-3">
-                <label class="form-label small text-muted fw-semibold">ኢሜይል</label>
-                <input type="email" name="email" class="form-control" required>
+                <label class="form-label small text-muted fw-semibold">ስልክ ቁጥር</label>
+                <input type="tel" name="phone" class="form-control" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
             </div>
             <div class="mb-3">
                 <label class="form-label small text-muted fw-semibold">የይለፍ ቃል</label>

@@ -21,9 +21,16 @@ class Salon(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
     owner_name = Column(String(120), nullable=False)
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(30), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Super-admin approval + subscription control.
+    # status: "pending" (just signed up, awaiting approval) -> "active"
+    # (approved, can use the dashboard) -> "suspended" (admin turned them
+    # off) or "expired" (subscription date passed, set automatically).
+    status = Column(String(20), default="pending", nullable=False)
+    subscription_expires_at = Column(DateTime, nullable=True)
 
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
     staff_members = relationship("Staff", back_populates="salon", cascade="all, delete-orphan")

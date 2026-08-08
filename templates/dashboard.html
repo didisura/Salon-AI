@@ -145,7 +145,7 @@
             .main-content { padding: 35px 40px; }
         }
 
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 10px; }
         .topbar h2 { font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-dark); }
 
         @media (min-width: 768px) {
@@ -331,6 +331,7 @@
                 <li class="{% if active_tab == 'home' %}active{% endif %}">
                     <a href="/dashboard?tab=home">
                         <i class="fa-solid fa-house"></i> <span>ዋና ገጽ</span>
+                        <span class="badge-counter ms-auto d-none" id="sidebarNewBookingBadge">0</span>
                     </a>
                 </li>
                 <li class="{% if active_tab == 'reserve' %}active{% endif %}">
@@ -369,14 +370,24 @@
                 <p class="text-muted mb-0 small">እንኳን ደህና መጡ {{ salon.owner_name }} 👋</p>
             </div>
 
-            {% if active_tab == 'home' %}
-            <button class="btn btn-rose btn-sm d-md-none" data-bs-toggle="modal" data-bs-target="#bookModal">
-                <i class="fa-solid fa-plus me-1"></i> አዲስ
-            </button>
-            <button class="btn btn-rose d-none d-md-inline-flex" data-bs-toggle="modal" data-bs-target="#bookModal">
-                <i class="fa-solid fa-plus me-1"></i> አዲስ ቀጠሮ (Book Walk-in)
-            </button>
-            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#searchCustomerModal" title="ደንበኛ ፈልግ በስልክ">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+
+                {% if active_tab == 'home' %}
+                <button class="btn btn-rose btn-sm d-md-none" data-bs-toggle="modal" data-bs-target="#bookModal">
+                    <i class="fa-solid fa-plus me-1"></i> አዲስ
+                </button>
+                <button class="btn btn-rose d-none d-md-inline-flex" data-bs-toggle="modal" data-bs-target="#bookModal">
+                    <i class="fa-solid fa-plus me-1"></i> አዲስ ቀጠሮ (Book Walk-in)
+                </button>
+                {% endif %}
+
+                <a href="/logout" class="btn btn-outline-danger btn-sm d-md-none" title="ውጣ (Logout)" onclick="return confirm('ውጣ ይፈልጋሉ?')">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </header>
 
         {% if error == 'conflict' %}
@@ -740,6 +751,7 @@
     <a href="/dashboard?tab=home" class="bottom-nav-item {% if active_tab == 'home' %}active{% endif %}">
         <i class="fa-solid fa-house"></i>
         <span>ዋና ገጽ</span>
+        <span class="badge-counter position-absolute top-0 start-50 translate-middle-x d-none" id="mobileNewBookingBadge" style="margin-top: 4px;">0</span>
     </a>
     <a href="/dashboard?tab=reserve" class="bottom-nav-item {% if active_tab == 'reserve' %}active{% endif %}">
         <i class="fa-solid fa-clock-rotate-left"></i>
@@ -890,6 +902,28 @@
   </div>
 </div>
 
+<!-- 5. Search Customer By Phone Modal -->
+<div class="modal fade" id="searchCustomerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-header-title fw-bold m-0">ደንበኛ ፈልግ (Search by Phone)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 mb-3">
+          <input type="tel" id="customerSearchInput" class="form-control" placeholder="ስልክ ቁጥር ወይም ስም ያስገቡ" autocomplete="off">
+          <button type="button" class="btn btn-rose text-nowrap" onclick="searchCustomer()">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </div>
+        <div id="customerSearchStatus" class="text-muted small mb-2"></div>
+        <div id="customerSearchResults" class="d-flex flex-column gap-2" style="max-height: 55vh; overflow-y: auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 4. Add Staff Modal -->
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -930,6 +964,75 @@
             }, 2000);
         });
     }
+
+    // Search customer by phone number (or name) — calls backend /search-customer
+    function searchCustomer() {
+        const q = document.getElementById('customerSearchInput').value.trim();
+        const statusEl = document.getElementById('customerSearchStatus');
+        const resultsEl = document.getElementById('customerSearchResults');
+        resultsEl.innerHTML = '';
+
+        if (!q) {
+            statusEl.textContent = 'ስልክ ቁጥር ወይም ስም ያስገቡ።';
+            return;
+        }
+
+        statusEl.textContent = 'በመፈለግ ላይ...';
+
+        fetch(`/search-customer?q=${encodeURIComponent(q)}`, {
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            const results = data.results || [];
+            if (results.length === 0) {
+                statusEl.textContent = 'ምንም ውጤት አልተገኘም።';
+                return;
+            }
+            statusEl.textContent = `${results.length} ውጤት(ት) ተገኝቷል`;
+
+            results.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'p-3 rounded-3';
+                card.style.background = 'var(--bg-cream)';
+                card.style.border = '1px solid var(--border-soft)';
+                card.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-bold text-dark">${c.customer_name || ''}</div>
+                            <div class="text-muted small">${c.customer_phone || ''}</div>
+                            ${c.service_name ? `<div class="text-muted small mt-1"><i class="fa-solid fa-scissors me-1"></i>${c.service_name} ${c.appointment_time ? '— ' + c.appointment_time : ''}</div>` : ''}
+                            ${c.status ? `<span class="badge bg-secondary mt-1">${c.status}</span>` : ''}
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            <a href="tel:${c.customer_phone}" class="btn btn-sm btn-rose"><i class="fa-solid fa-phone"></i></a>
+                            <a href="sms:${c.customer_phone}" class="btn btn-sm btn-outline-dark"><i class="fa-solid fa-comment-sms"></i></a>
+                        </div>
+                    </div>`;
+                resultsEl.appendChild(card);
+            });
+        })
+        .catch(err => {
+            console.error('Error searching customer:', err);
+            statusEl.textContent = 'ስህተት ተፈጥሯል፣ እንደገና ይሞክሩ።';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('customerSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchCustomer();
+                }
+            });
+        }
+        const searchModal = document.getElementById('searchCustomerModal');
+        if (searchModal) {
+            searchModal.addEventListener('shown.bs.modal', () => searchInput && searchInput.focus());
+        }
+    });
 
     // Dynamic AJAX Status Update (expects JSON from backend)
     function submitStatusAjax(formElement, appointmentId) {
@@ -1042,6 +1145,7 @@
 
         // WebSocket Live Updates — path + event name aligned with backend
         const salonId = {{ salon.id }};
+        const currentTab = "{{ active_tab }}";
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/salon/${salonId}`);
 
@@ -1049,6 +1153,20 @@
             const data = JSON.parse(event.data);
             if (data.event === 'new_booking') {
                 const appt = data.appointment;
+
+                // Red-dot reminder: only for bookings placed by the customer online
+                // (backend should send appt.source = "online" vs "staff"; if the
+                // field is missing we default to showing the dot for every new booking).
+                const isOnlineBooking = !appt.source || appt.source === 'online';
+                if (isOnlineBooking && currentTab !== 'home') {
+                    ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
+                        const badge = document.getElementById(id);
+                        if (badge) {
+                            badge.textContent = (parseInt(badge.textContent || '0') || 0) + 1;
+                            badge.classList.remove('d-none');
+                        }
+                    });
+                }
 
                 const counterEl = document.getElementById('metricTodayApptCount');
                 if (counterEl) {
