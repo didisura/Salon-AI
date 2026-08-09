@@ -12,14 +12,14 @@
 
     <style>
         :root {
-            --bg-cream: #FFFDF9;
-            --sidebar-pink: #F7EBE8;
-            --card-pink: #FAF0ED;
-            --accent-rose: #C87A76;
-            --accent-rose-hover: #B56864;
+            --bg-cream: #FFFFFF;
+            --sidebar-pink: #F1E4D6;
+            --card-pink: #F6ECE1;
+            --accent-rose: #9C6B3F;
+            --accent-rose-hover: #7E5530;
             --text-dark: #2D2424;
             --text-muted: #7A6E6E;
-            --border-soft: #EADCDA;
+            --border-soft: #E3D3C0;
             --status-green: #2E7D32;
             --status-orange: #ED6C02;
             --font-main: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', sans-serif;
@@ -71,7 +71,7 @@
             background: var(--accent-rose);
             color: #FFFFFF;
             font-weight: 600;
-            box-shadow: 0 4px 12px rgba(200, 122, 118, 0.2);
+            box-shadow: 0 4px 12px rgba(156, 107, 63, 0.2);
         }
         .nav-menu li a i { width: 20px; text-align: center; }
 
@@ -249,7 +249,7 @@
         .swipe-action-right { right: 0; justify-content: flex-end; }
 
         @keyframes pulseNewBooking {
-            0% { background-color: rgba(200, 122, 118, 0.3); }
+            0% { background-color: rgba(156, 107, 63, 0.3); }
             100% { background-color: #FFFFFF; }
         }
 
@@ -307,7 +307,7 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--accent-rose);
-            box-shadow: 0 0 0 0.25rem rgba(200, 122, 118, 0.15);
+            box-shadow: 0 0 0 0.25rem rgba(156, 107, 63, 0.15);
         }
 
         .modal-content { border-radius: 20px; border: 1px solid var(--border-soft); }
@@ -1154,9 +1154,6 @@
             if (data.event === 'new_booking') {
                 const appt = data.appointment;
 
-                // Red-dot reminder: only for bookings placed by the customer online
-                // (backend should send appt.source = "online" vs "staff"; if the
-                // field is missing we default to showing the dot for every new booking).
                 const isOnlineBooking = !appt.source || appt.source === 'online';
                 if (isOnlineBooking && currentTab !== 'home') {
                     ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
