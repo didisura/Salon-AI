@@ -9,6 +9,7 @@ from fastapi import (
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
@@ -794,8 +795,18 @@ def add_staff(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    db.add(Staff(salon_id=salon.id, name=name))
-    db.commit()
+    try:
+        db.add(Staff(salon_id=salon.id, name=name))
+        db.commit()
+    except IntegrityError:
+        # The salon this cookie points to no longer exists in the DB
+        # (e.g. stale session after a DB reset). Force a clean re-login
+        # instead of showing a raw 500 error.
+        db.rollback()
+        redirect = RedirectResponse(url="/login?error=session_expired", status_code=status.HTTP_303_SEE_OTHER)
+        redirect.delete_cookie("access_token")
+        return redirect
+
     return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
 
 
