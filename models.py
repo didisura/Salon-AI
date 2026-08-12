@@ -1,7 +1,8 @@
 import enum
+import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Numeric, DateTime, Date, ForeignKey, Enum, func
+    Column, Integer, String, Numeric, DateTime, Date, Time, ForeignKey, Enum, func
 )
 from sqlalchemy.orm import relationship
 
@@ -25,17 +26,34 @@ class Salon(Base):
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Super-admin approval + subscription control.
-    # status: "pending" (just signed up, awaiting approval) -> "active"
-    # (approved, can use the dashboard) -> "suspended" (admin turned them
-    # off) or "expired" (subscription date passed, set automatically).
     status = Column(String(20), default="pending", nullable=False)
     subscription_expires_at = Column(DateTime, nullable=True)
+
+    opening_time = Column(Time, nullable=False, default=datetime.time(8, 0))
+    closing_time = Column(Time, nullable=False, default=datetime.time(20, 0))
+    working_days = Column(String(20), nullable=False, default="0,1,2,3,4,5")
 
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
     staff_members = relationship("Staff", back_populates="salon", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="salon", cascade="all, delete-orphan")
     waitlist_entries = relationship("Waitlist", back_populates="salon", cascade="all, delete-orphan")
+
+    @property
+    def working_days_set(self) -> set[int]:
+        raw = (self.working_days or "").strip()
+        if not raw:
+            return {0, 1, 2, 3, 4, 5, 6}
+        return {int(d) for d in raw.split(",") if d.strip().isdigit()}
+
+    @property
+    def hours_label(self) -> str:
+        return f"{self.opening_time.strftime('%H:%M')} - {self.closing_time.strftime('%H:%M')}"
+
+    @property
+    def working_days_label(self) -> str:
+        names = ["ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ", "እሁድ"]
+        days = sorted(self.working_days_set)
+        return "፣ ".join(names[d] for d in days if 0 <= d <= 6)
 
 
 class Service(Base):
@@ -57,7 +75,50 @@ class Staff(Base):
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     name = Column(String(120), nullable=False)
 
+    # NULL = inherit the salon's hours/days. Set = staff-specific override.
+    opening_time = Column(Time, nullable=True)
+    closing_time = Column(Time, nullable=True)
+    working_days = Column(String(20), nullable=True)
+
     salon = relationship("Salon", back_populates="staff_members")
+    day_offs = relationship(
+        "StaffDayOff", back_populates="staff", cascade="all, delete-orphan",
+        order_by="StaffDayOff.off_date"
+    )
+
+    def effective_hours(self, salon: "Salon"):
+        open_t = self.opening_time or salon.opening_time
+        close_t = self.closing_time or salon.closing_time
+        return open_t, close_t
+
+    def effective_working_days(self, salon: "Salon") -> set[int]:
+        if not self.working_days:
+            return salon.working_days_set
+        return {int(d) for d in self.working_days.split(",") if d.strip().isdigit()}
+
+    @property
+    def hours_label(self) -> str:
+        if self.opening_time and self.closing_time:
+            return f"{self.opening_time.strftime('%H:%M')} - {self.closing_time.strftime('%H:%M')}"
+        return "እንደ ሳሎኑ (Same as salon)"
+
+    @property
+    def working_days_label(self) -> str:
+        if not self.working_days:
+            return "እንደ ሳሎኑ (Same as salon)"
+        names = ["ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ", "እሁድ"]
+        days = sorted({int(d) for d in self.working_days.split(",") if d.strip().isdigit()})
+        return "፣ ".join(names[d] for d in days if 0 <= d <= 6)
+
+
+class StaffDayOff(Base):
+    __tablename__ = "staff_day_off"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    off_date = Column(Date, nullable=False)
+
+    staff = relationship("Staff", back_populates="day_offs")
 
 
 class Appointment(Base):
@@ -71,14 +132,13 @@ class Appointment(Base):
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
     appointment_datetime = Column(DateTime, nullable=False, index=True)
     status = Column(Enum(AppointmentStatus), default=AppointmentStatus.confirmed, nullable=False)
-    source = Column(String(20), default="walk-in")  # "walk-in" (admin) or "online" (public link)
+    source = Column(String(20), default="walk-in")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     salon = relationship("Salon", back_populates="appointments")
     service = relationship("Service")
     staff = relationship("Staff")
 
-    # ---- flattened accessors so the Jinja template can use appt.xxx directly ----
     @property
     def appointment_time(self):
         return self.appointment_datetime.strftime("%I:%M %p")

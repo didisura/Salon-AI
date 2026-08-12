@@ -18,6 +18,19 @@
         .form-control, .form-select { border-radius:10px; border:1px solid #E3D3C0; background:#FFFFFF; min-height:44px; }
         .header-spa { text-align:center; margin-bottom:24px; }
         .header-spa i { color:#9C6B3F; font-size:2rem; }
+        .hours-strip {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            background:#F6ECE1;
+            border:1px solid #E3D3C0;
+            border-radius:12px;
+            padding:10px 14px;
+            margin-bottom:20px;
+            font-size:.85rem;
+            color:#5A4936;
+        }
+        .hours-strip i { color:#9C6B3F; }
     </style>
 </head>
 <body>
@@ -26,6 +39,11 @@
             <i class="fa-solid fa-spa"></i>
             <h3 class="fw-bold mt-2 mb-0">{{ salon.name }}</h3>
             <p class="text-muted small">ቀጠሮዎን በቀላሉ ይያዙ</p>
+        </div>
+
+        <div class="hours-strip">
+            <i class="fa-solid fa-clock"></i>
+            <span>የስራ ሰዓት፡ {{ hours_label }} &nbsp;•&nbsp; የስራ ቀናት፡ {{ days_label }}</span>
         </div>
 
         <div class="card-box">
@@ -40,6 +58,13 @@
             <div class="alert alert-success d-flex align-items-center gap-2">
                 <i class="fa-solid fa-circle-check"></i>
                 <div>ወደ ተጠባባቂ ዝርዝር ገብተዋል! ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</div>
+            </div>
+            {% endif %}
+
+            {% if error == 'outside_hours' %}
+            <div class="alert alert-danger d-flex align-items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>የመረጡት ሰዓት ከተመረጠው ባለሙያ የስራ ሰዓት/ቀን ውጪ ነው። እባክዎ ከላይ ያለውን የባለሙያ ሰዓት ይመልከቱ እና እንደገና ይሞክሩ።</div>
             </div>
             {% endif %}
 
@@ -112,15 +137,20 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ባለሙያ</label>
-                    <select name="staff_id" class="form-select" required>
+                    <select name="staff_id" class="form-select" id="staffSelect" required>
                         {% for st in staff_members %}
-                        <option value="{{ st.id }}" {% if conflict_staff and st.id == conflict_staff %}selected{% endif %}>{{ st.name }}</option>
+                        <option value="{{ st.id }}"
+                            data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
+                            data-close="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}"
+                            data-days="{{ st.working_days if st.working_days else salon.working_days }}"
+                            {% if conflict_staff and st.id == conflict_staff %}selected{% endif %}>{{ st.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ቀንና ሰዓት</label>
                     <input type="datetime-local" name="appointment_time" class="form-control" value="{{ conflict_time or '' }}" required>
+                    <p class="small text-muted mt-1 mb-0" id="staffHoursHint">የስራ ሰዓት፡ {{ hours_label }} • የስራ ቀናት፡ {{ days_label }}</p>
                 </div>
                 <button type="submit" class="btn btn-rose mt-2">
                     <i class="fa-solid fa-calendar-check me-1"></i> ቀጠሮ ያዝ
@@ -128,5 +158,29 @@
             </form>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const dayNames = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
+
+        function updateStaffHint() {
+            const sel = document.getElementById('staffSelect');
+            const hint = document.getElementById('staffHoursHint');
+            if (!sel || !hint) return;
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt) return;
+            const open = opt.dataset.open, close = opt.dataset.close, days = opt.dataset.days || '';
+            const dayLabels = days.split(',').filter(d => d !== '').map(d => dayNames[parseInt(d)]).join('፣ ');
+            hint.textContent = `የስራ ሰዓት፡ ${open} - ${close} • የስራ ቀናት፡ ${dayLabels}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const sel = document.getElementById('staffSelect');
+            if (sel) {
+                sel.addEventListener('change', updateStaffHint);
+                updateStaffHint();
+            }
+        });
+    </script>
 </body>
 </html>

@@ -313,6 +313,40 @@
         .modal-content { border-radius: 20px; border: 1px solid var(--border-soft); }
         .modal-header { border-bottom: 1px solid var(--border-soft); }
         .modal-footer { border-top: 1px solid var(--border-soft); }
+
+        /* ---------- Working-hours editor (Home tab) ---------- */
+        .hours-row { display: flex; gap: 14px; flex-wrap: wrap; }
+        .hours-row > div { flex: 1; min-width: 140px; }
+
+        .day-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+        .day-toggle { position: relative; }
+        .day-toggle input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            cursor: pointer;
+        }
+        .day-toggle span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            border: 1px solid var(--border-soft);
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: #FFFFFF;
+            transition: all 0.15s ease;
+        }
+        .day-toggle input:checked + span {
+            background: var(--accent-rose);
+            border-color: var(--accent-rose);
+            color: #FFFFFF;
+        }
     </style>
 </head>
 <body>
@@ -443,6 +477,33 @@
         </div>
         {% endif %}
 
+        {% if error == 'outside_hours' %}
+        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545;"></i>
+                <span style="color: #842029;">የመረጡት ሰዓት ከሳሎኑ የስራ ሰዓት/ቀን ውጪ ነው። የስራ ሰዓትዎን ከታች ማስተካከል ይችላሉ።</span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if error == 'invalid_hours' and active_tab == 'home' %}
+        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545;"></i>
+                <span style="color: #842029;">የስራ መጨረሻ ሰዓት ከመጀመሪያ ሰዓት በኋላ መሆን አለበት።</span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if error == 'invalid_days' and active_tab == 'home' %}
+        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545;"></i>
+                <span style="color: #842029;">ቢያንስ አንድ የስራ ቀን ይምረጡ።</span>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- TAB 1: HOME (DAILY DASHBOARD & LIVE ONLINE APPOINTMENTS) -->
         {% if active_tab == 'home' %}
         <div class="content-panel mb-4" style="background: var(--card-pink); border-color: var(--border-soft);">
@@ -454,6 +515,64 @@
                 </button>
             </div>
         </div>
+
+        <!-- Working hours / working days editor -->
+        <section class="content-panel mb-4">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="fa-solid fa-clock" style="color: var(--accent-rose);"></i>
+                <h5 class="fw-bold mb-0">የስራ ሰዓት እና ቀናት</h5>
+            </div>
+            <form action="/update-hours" method="post">
+                <div class="hours-row mb-3">
+                    <div>
+                        <label class="form-label small text-muted fw-semibold">የስራ መጀመሪያ ሰዓት</label>
+                        <input type="time" name="opening_time" class="form-control" value="{{ salon.opening_time.strftime('%H:%M') }}" required>
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted fw-semibold">የስራ መጨረሻ ሰዓት</label>
+                        <input type="time" name="closing_time" class="form-control" value="{{ salon.closing_time.strftime('%H:%M') }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-semibold d-block">የስራ ቀናት</label>
+                    <div class="day-picker">
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="0" {% if 0 in salon.working_days_set %}checked{% endif %}>
+                            <span>ሰኞ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="1" {% if 1 in salon.working_days_set %}checked{% endif %}>
+                            <span>ማክሰ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="2" {% if 2 in salon.working_days_set %}checked{% endif %}>
+                            <span>ረቡዕ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="3" {% if 3 in salon.working_days_set %}checked{% endif %}>
+                            <span>ሐሙስ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="4" {% if 4 in salon.working_days_set %}checked{% endif %}>
+                            <span>ዓርብ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="5" {% if 5 in salon.working_days_set %}checked{% endif %}>
+                            <span>ቅዳሜ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="6" {% if 6 in salon.working_days_set %}checked{% endif %}>
+                            <span>እሁድ</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-rose">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> አስቀምጥ
+                </button>
+            </form>
+        </section>
 
         <section class="metrics-grid">
             <div class="metric-card">
@@ -717,30 +836,143 @@
                 <h5 class="fw-bold mb-0">ሰራተኞች</h5>
                 <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addStaffModal"><i class="fa-solid fa-plus me-1"></i> አዲስ</button>
             </div>
-            <div class="table-responsive-stack">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr class="text-muted">
-                            <th>ስም</th>
-                            <th>ተግባር</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for st in staff_members %}
-                        <tr>
-                            <td data-label="ስም" class="fw-bold">{{ st.name }}</td>
-                            <td data-label="ተግባር" class="text-end">
-                                <form action="/delete-staff" method="post" onsubmit="return confirm('ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
-                                    <input type="hidden" name="staff_id" value="{{ st.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i> ሰርዝ</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+
+            {% if error == 'invalid_hours' %}
+            <div class="alert alert-danger py-2 small">የስራ መጨረሻ ሰዓት ከመጀመሪያ ሰዓት በኋላ መሆን አለበት።</div>
+            {% endif %}
+            {% if error == 'invalid_days' %}
+            <div class="alert alert-danger py-2 small">ቢያንስ አንድ የስራ ቀን ይምረጡ።</div>
+            {% endif %}
+
+            <div class="d-flex flex-column gap-3">
+                {% for st in staff_members %}
+                <div class="p-3 rounded-3" style="border: 1px solid var(--border-soft); background: var(--bg-cream);">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                        <div>
+                            <div class="fw-bold fs-6 text-dark">{{ st.name }}</div>
+                            <div class="text-muted small mt-1"><i class="fa-solid fa-clock me-1"></i>{{ st.hours_label }}</div>
+                            <div class="text-muted small"><i class="fa-solid fa-calendar-days me-1"></i>{{ st.working_days_label }}</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#editStaffModal-{{ st.id }}">
+                                <i class="fa-solid fa-pen"></i> ሰዓት
+                            </button>
+                            <form action="/delete-staff" method="post" onsubmit="return confirm('ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
+                                <input type="hidden" name="staff_id" value="{{ st.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% if st.day_offs %}
+                    <div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-soft);">
+                        <span class="text-muted small fw-semibold d-block mb-1">የፈቃድ ቀናት (Day Off):</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for off in st.day_offs %}
+                            <form action="/delete-staff-dayoff" method="post" class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill" style="background: var(--card-pink); font-size: 0.78rem;">
+                                <input type="hidden" name="dayoff_id" value="{{ off.id }}">
+                                <span>{{ off.off_date }}</span>
+                                <button type="submit" class="btn btn-sm p-0 border-0 text-danger" style="line-height:1;"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="modal fade" id="editStaffModal-{{ st.id }}" tabindex="-1" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-header-title fw-bold m-0">{{ st.name }} - የስራ ሰዓት</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <form action="/update-staff-schedule" method="post">
+                        <div class="modal-body">
+                            <input type="hidden" name="staff_id" value="{{ st.id }}">
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input staff-custom-hours-toggle" type="checkbox" name="use_custom_hours" value="1"
+                                       id="customHours-{{ st.id }}" data-target="hoursFields-{{ st.id }}"
+                                       {% if st.opening_time %}checked{% endif %}>
+                                <label class="form-check-label small fw-semibold" for="customHours-{{ st.id }}">
+                                    የተለየ የስራ ሰዓት ይጠቀሙ (ካልተመረጠ እንደ ሳሎኑ ይሆናል)
+                                </label>
+                            </div>
+                            <div id="hoursFields-{{ st.id }}" class="hours-row mb-3" style="{% if not st.opening_time %}display:none;{% endif %}">
+                                <div>
+                                    <label class="form-label small text-muted fw-semibold">መጀመሪያ ሰዓት</label>
+                                    <input type="time" name="opening_time" class="form-control" value="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}">
+                                </div>
+                                <div>
+                                    <label class="form-label small text-muted fw-semibold">መጨረሻ ሰዓት</label>
+                                    <input type="time" name="closing_time" class="form-control" value="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}">
+                                </div>
+                            </div>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input staff-custom-days-toggle" type="checkbox" name="use_custom_days" value="1"
+                                       id="customDays-{{ st.id }}" data-target="daysFields-{{ st.id }}"
+                                       {% if st.working_days %}checked{% endif %}>
+                                <label class="form-check-label small fw-semibold" for="customDays-{{ st.id }}">
+                                    የተለየ የስራ ቀናት ይጠቀሙ (ካልተመረጠ እንደ ሳሎኑ ይሆናል)
+                                </label>
+                            </div>
+                            <div id="daysFields-{{ st.id }}" class="mb-3" style="{% if not st.working_days %}display:none;{% endif %}">
+                                <div class="day-picker">
+                                    {% set day_names = ['ሰኞ','ማክሰ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'] %}
+                                    {% set staff_days = st.working_days.split(',') | map('int') | list if st.working_days else [] %}
+                                    {% for i in range(7) %}
+                                    <label class="day-toggle">
+                                        <input type="checkbox" name="working_days" value="{{ i }}" {% if i in staff_days %}checked{% endif %}>
+                                        <span>{{ day_names[i] }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <label class="form-label small text-muted fw-semibold">የፈቃድ ቀን ጨምር (Add Day Off)</label>
+                            <div class="d-flex gap-2">
+                                <input type="date" class="form-control" id="dayoffDate-{{ st.id }}">
+                                <button type="button" class="btn btn-outline-dark text-nowrap" onclick="submitDayOff({{ st.id }})">ጨምር</button>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">ዝጋ</button>
+                            <button type="submit" class="btn btn-rose">አስቀምጥ</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-4">ምንም ሰራተኛ አልተመዘገበም።</p>
+                {% endfor %}
             </div>
         </section>
+
+        <script>
+            function submitDayOff(staffId) {
+                const dateInput = document.getElementById(`dayoffDate-${staffId}`);
+                if (!dateInput.value) return;
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/add-staff-dayoff';
+                form.innerHTML = `<input type="hidden" name="staff_id" value="${staffId}">
+                                   <input type="hidden" name="off_date" value="${dateInput.value}">`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+
+            document.querySelectorAll('.staff-custom-hours-toggle, .staff-custom-days-toggle').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const target = document.getElementById(cb.dataset.target);
+                    if (target) target.style.display = cb.checked ? '' : 'none';
+                });
+            });
+        </script>
         {% endif %}
 
     </main>
@@ -810,6 +1042,7 @@
           <div class="mb-3">
             <label class="form-label small text-muted fw-semibold">ቀንና ሰዓት</label>
             <input type="datetime-local" name="appointment_time" class="form-control" required>
+            <p class="small text-muted mt-1 mb-0">የስራ ሰዓት፡ {{ salon.hours_label }} • የስራ ቀናት፡ {{ salon.working_days_label }}</p>
           </div>
         </div>
         <div class="modal-footer">

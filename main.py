@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, date, timedelta
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import urlencode
 
 from fastapi import (
@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
-from models import Salon, Service, Staff, Appointment, Waitlist, AppointmentStatus
+from models import Salon, Service, Staff, StaffDayOff, Appointment, Waitlist, AppointmentStatus
 from security import (
     hash_password,
     verify_password,
@@ -27,10 +27,8 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Melkegna Salon Platform")
 templates = Jinja2Templates(directory="templates")
 
-# Set this in Railway's environment variables (Project -> Variables).
-# Whoever knows this string can approve/suspend any salon, so keep it long
-# and random, and never commit a real value to source control.
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
+SLOT_STEP_MINUTES = 15
 
 
 def _valid_admin_key(key: Optional[str]) -> bool:
@@ -43,9 +41,6 @@ async def not_authenticated_handler(request: Request, exc: NotAuthenticatedExcep
 
 
 class SalonNotActiveException(Exception):
-    """Raised when a logged-in salon isn't approved / has an expired
-    subscription. Lets every protected route redirect to the same
-    account-status page without repeating the check everywhere."""
     def __init__(self, salon: Salon):
         self.salon = salon
 
@@ -57,9 +52,6 @@ async def salon_not_active_handler(request: Request, exc: SalonNotActiveExceptio
     )
 
 
-# ---------------------------------------------------------------------------
-# Live WebSocket updates (one connection pool per salon)
-# ---------------------------------------------------------------------------
 class ConnectionManager:
     def __init__(self):
         self.active: dict[int, list[WebSocket]] = {}
@@ -88,7 +80,7 @@ async def ws_salon(websocket: WebSocket, salon_id: int):
     await manager.connect(salon_id, websocket)
     try:
         while True:
-            await websocket.receive_text()  # keep-alive; frontend doesn't send data
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(salon_id, websocket)
 
@@ -102,6 +94,13 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
+        return None
+
+
+def _parse_time_hhmm(value: str):
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except (ValueError, TypeError):
         return None
 
 
@@ -120,32 +119,50 @@ def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: dat
     return float(total or 0)
 
 
-def _has_conflict(db: Session, salon_id: int, staff_id: int, appt_dt: datetime) -> bool:
-    """Deprecated: exact-timestamp check kept only for reference.
-    Use _staff_has_overlap instead, which accounts for service duration."""
-    return (
-        db.query(Appointment.id)
-        .filter(
-            Appointment.salon_id == salon_id,
-            Appointment.staff_id == staff_id,
-            Appointment.appointment_datetime == appt_dt,
-            Appointment.status.notin_([AppointmentStatus.cancelled, AppointmentStatus.no_show]),
-        )
-        .first()
-        is not None
-    )
-
-
-# How long the salon is assumed to be open for slot-suggestion purposes.
-# (No per-salon business-hours model exists yet, so this is a sane default.)
-BUSINESS_START_HOUR = 8
-BUSINESS_END_HOUR = 20
-SLOT_STEP_MINUTES = 15
-
-
 def _service_duration(db: Session, service_id: int) -> int:
     duration = db.query(Service.duration_minutes).filter(Service.id == service_id).scalar()
     return duration or 30
+
+
+# ---------------------------------------------------------------------------
+# Working hours / working days — salon level + per-staff overrides + day-offs
+# ---------------------------------------------------------------------------
+def _is_working_day(salon: Salon, d: date) -> bool:
+    return d.weekday() in salon.working_days_set
+
+
+def _within_business_hours(salon: Salon, appt_dt: datetime, end_dt: datetime) -> bool:
+    if not _is_working_day(salon, appt_dt.date()):
+        return False
+    day = appt_dt.date()
+    open_dt = datetime.combine(day, salon.opening_time)
+    close_dt = datetime.combine(day, salon.closing_time)
+    return open_dt <= appt_dt and end_dt <= close_dt
+
+
+def _staff_is_off(db: Session, staff_id: int, d: date) -> bool:
+    return db.query(StaffDayOff.id).filter(
+        StaffDayOff.staff_id == staff_id, StaffDayOff.off_date == d
+    ).first() is not None
+
+
+def _within_staff_hours(db: Session, salon: Salon, staff: Staff, appt_dt: datetime, end_dt: datetime) -> bool:
+    """Checks salon hours AND this staff member's own working days/hours
+    AND that they aren't marked off that specific day."""
+    if not _within_business_hours(salon, appt_dt, end_dt):
+        return False
+
+    day = appt_dt.date()
+    if day.weekday() not in staff.effective_working_days(salon):
+        return False
+
+    if _staff_is_off(db, staff.id, day):
+        return False
+
+    open_t, close_t = staff.effective_hours(salon)
+    open_dt = datetime.combine(day, open_t)
+    close_dt = datetime.combine(day, close_t)
+    return open_dt <= appt_dt and end_dt <= close_dt
 
 
 def _staff_has_overlap(
@@ -156,8 +173,6 @@ def _staff_has_overlap(
     end_dt: datetime,
     exclude_appointment_id: Optional[int] = None,
 ) -> bool:
-    """True if this staff member already has an appointment (of any
-    duration) whose time range overlaps [start_dt, end_dt)."""
     day_start = datetime.combine(start_dt.date(), datetime.min.time())
     day_end = day_start + timedelta(days=1)
 
@@ -185,44 +200,50 @@ def _staff_has_overlap(
 
 def _available_staff_for_slot(
     db: Session,
-    salon_id: int,
+    salon: Salon,
     start_dt: datetime,
     end_dt: datetime,
     exclude_staff_id: Optional[int] = None,
 ):
-    """Every staff member at this salon who is free for the whole
-    [start_dt, end_dt) window, excluding the one already tried."""
-    staff_list = db.query(Staff).filter(Staff.salon_id == salon_id).order_by(Staff.name).all()
+    """Every staff member at this salon who is working that day/hours,
+    not marked off, and free for the whole [start_dt, end_dt) window."""
+    staff_list = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
     return [
         st for st in staff_list
-        if st.id != exclude_staff_id and not _staff_has_overlap(db, salon_id, st.id, start_dt, end_dt)
+        if st.id != exclude_staff_id
+        and _within_staff_hours(db, salon, st, start_dt, end_dt)
+        and not _staff_has_overlap(db, salon.id, st.id, start_dt, end_dt)
     ]
 
 
 def _next_available_slot(
     db: Session,
-    salon_id: int,
-    staff_id: int,
+    salon: Salon,
+    staff: Staff,
     duration_minutes: int,
     requested_dt: datetime,
 ) -> Optional[datetime]:
-    """Search forward in SLOT_STEP_MINUTES increments, same day only,
-    within business hours, for the next free slot for this staff member."""
+    """Search forward same-day, within THIS staff member's effective
+    hours/days, skipping if they're off that day."""
     day = requested_dt.date()
-    business_end = datetime.combine(day, datetime.min.time()) + timedelta(hours=BUSINESS_END_HOUR)
+    if day.weekday() not in staff.effective_working_days(salon):
+        return None
+    if _staff_is_off(db, staff.id, day):
+        return None
+
+    open_t, close_t = staff.effective_hours(salon)
+    business_end = datetime.combine(day, close_t)
 
     slot_start = requested_dt + timedelta(minutes=SLOT_STEP_MINUTES)
     while slot_start + timedelta(minutes=duration_minutes) <= business_end:
         slot_end = slot_start + timedelta(minutes=duration_minutes)
-        if not _staff_has_overlap(db, salon_id, staff_id, slot_start, slot_end):
+        if not _staff_has_overlap(db, salon.id, staff.id, slot_start, slot_end):
             return slot_start
         slot_start += timedelta(minutes=SLOT_STEP_MINUTES)
     return None
 
 
 def _normalize_phone(raw: str) -> str:
-    """Keep only digits and a leading +, so '09 11 22 33 44' and
-    '0911223344' are treated as the same login/lookup key."""
     raw = raw.strip()
     digits = "".join(ch for ch in raw if ch.isdigit())
     return digits
@@ -232,14 +253,8 @@ def get_active_salon(
     salon: Salon = Depends(get_current_salon),
     db: Session = Depends(get_db),
 ) -> Salon:
-    """Use this instead of get_current_salon on every route a salon
-    shouldn't reach until a super admin has approved them and their
-    subscription is still current."""
     now = datetime.utcnow()
 
-    # Auto-expire: if the paid period has quietly run out, flip an
-    # "active" salon to "expired" so they lose dashboard access without
-    # an admin having to manually suspend them every month.
     if salon.status == "active" and salon.subscription_expires_at and salon.subscription_expires_at < now:
         salon.status = "expired"
         db.commit()
@@ -251,13 +266,7 @@ def get_active_salon(
 
 
 # ---------------------------------------------------------------------------
-# Super Admin — approve new salons, extend/suspend subscriptions.
-# Auth here is a single shared secret (ADMIN_SECRET_KEY), not a salon
-# login. After /admin/login succeeds it's carried forward as `key` in
-# the URL and in a hidden form field on every approve/suspend button,
-# matching how admin.html is already built. Anyone who obtains
-# that key has full admin access, so keep it private and rotate it in
-# Railway if you ever suspect it's leaked.
+# Super Admin
 # ---------------------------------------------------------------------------
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request, error: Optional[str] = None):
@@ -301,9 +310,6 @@ def admin_approve(
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if salon:
         now = datetime.utcnow()
-        # Extend from the current expiry if it's still in the future
-        # (renewing early doesn't lose the days already paid for);
-        # otherwise start the new period from today.
         base = salon.subscription_expires_at if (salon.subscription_expires_at and salon.subscription_expires_at > now) else now
         salon.subscription_expires_at = base + timedelta(days=days)
         salon.status = "active"
@@ -351,6 +357,9 @@ def register_salon(
     owner_name: str = Form(...),
     phone: str = Form(...),
     password: str = Form(...),
+    opening_time: str = Form("08:00"),
+    closing_time: str = Form("20:00"),
+    working_days: List[str] = Form(default=[]),
     db: Session = Depends(get_db),
 ):
     phone_clean = _normalize_phone(phone)
@@ -360,6 +369,15 @@ def register_salon(
     if db.query(Salon.id).filter(Salon.phone == phone_clean).first():
         return RedirectResponse(url="/register?error=exists", status_code=status.HTTP_303_SEE_OTHER)
 
+    open_t = _parse_time_hhmm(opening_time)
+    close_t = _parse_time_hhmm(closing_time)
+    if not open_t or not close_t or close_t <= open_t:
+        return RedirectResponse(url="/register?error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+
+    day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
+    if not day_ints:
+        return RedirectResponse(url="/register?error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+
     salon = Salon(
         name=name,
         owner_name=owner_name,
@@ -367,6 +385,9 @@ def register_salon(
         hashed_password=hash_password(password),
         status="pending",
         subscription_expires_at=None,
+        opening_time=open_t,
+        closing_time=close_t,
+        working_days=",".join(str(d) for d in day_ints),
     )
     db.add(salon)
     db.commit()
@@ -400,7 +421,6 @@ def login(
         httponly=True,
         samesite="lax",
         max_age=60 * 60,
-        # secure=True,  # turn on once you're serving over HTTPS
     )
     return redirect
 
@@ -413,7 +433,7 @@ def logout():
 
 
 # ---------------------------------------------------------------------------
-# Dashboard (all 5 tabs live behind this one route, like the template expects)
+# Dashboard
 # ---------------------------------------------------------------------------
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
@@ -507,9 +527,12 @@ def dashboard(
             c_duration = _service_duration(db, conflict_service)
             c_end = conflict_dt + timedelta(minutes=c_duration)
 
-            alt_staff = _available_staff_for_slot(db, salon.id, conflict_dt, c_end, exclude_staff_id=conflict_staff)
-            next_slot = _next_available_slot(db, salon.id, conflict_staff, c_duration, conflict_dt)
             conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+            alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+            next_slot = (
+                _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
+                if conflict_staff_obj else None
+            )
 
             context.update({
                 "conflict_name": conflict_name,
@@ -555,8 +578,109 @@ def dashboard(
 
 
 # ---------------------------------------------------------------------------
-# Customer search (by phone number or name) — used by the dashboard's
-# search modal so reception can quickly find someone to call/text back.
+# Salon-level working hours
+# ---------------------------------------------------------------------------
+@app.post("/update-hours")
+def update_hours(
+    opening_time: str = Form(...),
+    closing_time: str = Form(...),
+    working_days: List[str] = Form(default=[]),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    open_t = _parse_time_hhmm(opening_time)
+    close_t = _parse_time_hhmm(closing_time)
+    if not open_t or not close_t or close_t <= open_t:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+
+    day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
+    if not day_ints:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+
+    salon.opening_time = open_t
+    salon.closing_time = close_t
+    salon.working_days = ",".join(str(d) for d in day_ints)
+    db.commit()
+
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Staff-level schedule overrides + day-offs
+# ---------------------------------------------------------------------------
+@app.post("/update-staff-schedule")
+def update_staff_schedule(
+    staff_id: int = Form(...),
+    use_custom_hours: Optional[str] = Form(None),
+    opening_time: Optional[str] = Form(None),
+    closing_time: Optional[str] = Form(None),
+    use_custom_days: Optional[str] = Form(None),
+    working_days: List[str] = Form(default=[]),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    if not staff:
+        return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+    if use_custom_hours:
+        open_t = _parse_time_hhmm(opening_time)
+        close_t = _parse_time_hhmm(closing_time)
+        if not open_t or not close_t or close_t <= open_t:
+            return RedirectResponse(url="/dashboard?tab=staff&error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+        staff.opening_time = open_t
+        staff.closing_time = close_t
+    else:
+        staff.opening_time = None
+        staff.closing_time = None
+
+    if use_custom_days:
+        day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
+        if not day_ints:
+            return RedirectResponse(url="/dashboard?tab=staff&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+        staff.working_days = ",".join(str(d) for d in day_ints)
+    else:
+        staff.working_days = None
+
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/add-staff-dayoff")
+def add_staff_dayoff(
+    staff_id: int = Form(...),
+    off_date: str = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    d = _parse_date(off_date)
+    if staff and d:
+        exists = db.query(StaffDayOff.id).filter(
+            StaffDayOff.staff_id == staff.id, StaffDayOff.off_date == d
+        ).first()
+        if not exists:
+            db.add(StaffDayOff(staff_id=staff.id, off_date=d))
+            db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-staff-dayoff")
+def delete_staff_dayoff(
+    dayoff_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.query(StaffDayOff).filter(
+        StaffDayOff.id == dayoff_id,
+        StaffDayOff.staff_id.in_(db.query(Staff.id).filter(Staff.salon_id == salon.id))
+    ).delete(synchronize_session=False)
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Customer search
 # ---------------------------------------------------------------------------
 @app.get("/search-customer")
 def search_customer(
@@ -583,8 +707,6 @@ def search_customer(
         .all()
     )
 
-    # Collapse to one card per phone number (most recent visit first) so
-    # reception isn't scrolling through the same customer's whole history.
     seen_phones = set()
     results = []
     for a in matches:
@@ -618,6 +740,16 @@ def book_appointment(
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
     duration = _service_duration(db, service_id)
     end_dt = appt_dt + timedelta(minutes=duration)
+
+    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+
+    if not staff_obj or not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+        params = urlencode({
+            "tab": "home",
+            "error": "outside_hours",
+            "selected_date": appt_dt.date().isoformat(),
+        })
+        return RedirectResponse(url=f"/dashboard?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
         params = urlencode({
@@ -737,10 +869,14 @@ def convert_waitlist(
 
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
     staff_id = entry.staff_id or db.query(Staff.id).filter(Staff.salon_id == salon.id).scalar()
+    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
     c_duration = _service_duration(db, entry.service_id)
     c_end = appt_dt + timedelta(minutes=c_duration)
 
-    if staff_id and _staff_has_overlap(db, salon.id, staff_id, appt_dt, c_end):
+    if not staff_obj or not _within_staff_hours(db, salon, staff_obj, appt_dt, c_end):
+        return RedirectResponse(url="/dashboard?tab=reserve&error=outside_hours", status_code=status.HTTP_303_SEE_OTHER)
+
+    if _staff_has_overlap(db, salon.id, staff_id, appt_dt, c_end):
         return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
 
     db.add(Appointment(
@@ -799,9 +935,6 @@ def add_staff(
         db.add(Staff(salon_id=salon.id, name=name))
         db.commit()
     except IntegrityError:
-        # The salon this cookie points to no longer exists in the DB
-        # (e.g. stale session after a DB reset). Force a clean re-login
-        # instead of showing a raw 500 error.
         db.rollback()
         redirect = RedirectResponse(url="/login?error=session_expired", status_code=status.HTTP_303_SEE_OTHER)
         redirect.delete_cookie("access_token")
@@ -822,7 +955,7 @@ def delete_staff(
 
 
 # ---------------------------------------------------------------------------
-# Public customer-facing booking page (the {{ booking_url }} link)
+# Public customer-facing booking page
 # ---------------------------------------------------------------------------
 @app.get("/book/{salon_id}", response_class=HTMLResponse)
 def public_booking_page(
@@ -853,6 +986,8 @@ def public_booking_page(
         "error": error,
         "success": success,
         "waitlisted": waitlisted,
+        "hours_label": salon.hours_label,
+        "days_label": salon.working_days_label,
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:
@@ -860,9 +995,12 @@ def public_booking_page(
         c_duration = _service_duration(db, conflict_service)
         c_end = conflict_dt + timedelta(minutes=c_duration)
 
-        alt_staff = _available_staff_for_slot(db, salon.id, conflict_dt, c_end, exclude_staff_id=conflict_staff)
-        next_slot = _next_available_slot(db, salon.id, conflict_staff, c_duration, conflict_dt)
         conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+        alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+        next_slot = (
+            _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
+            if conflict_staff_obj else None
+        )
 
         context.update({
             "conflict_name": conflict_name,
@@ -898,6 +1036,19 @@ async def public_booking_submit(
     duration = _service_duration(db, service_id)
     end_dt = appt_dt + timedelta(minutes=duration)
 
+    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+
+    if not staff_obj or not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+        params = urlencode({
+            "error": "outside_hours",
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
     if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
         params = urlencode({
             "error": "conflict",
@@ -923,7 +1074,6 @@ async def public_booking_submit(
     db.commit()
     db.refresh(appt)
 
-    # Push it live onto the owner's dashboard (Home tab) via websocket
     await manager.broadcast(salon.id, {
         "event": "new_booking",
         "appointment": {
@@ -952,9 +1102,6 @@ def public_join_waitlist(
     preferred_date: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    """Lets a customer join today's waitlist directly from the public
-    booking page when their preferred slot is unavailable — no login
-    required, unlike the admin /add-waitlist route."""
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
