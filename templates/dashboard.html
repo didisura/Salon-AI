@@ -378,6 +378,68 @@
             font-size: 1.05rem;
             text-align: center;
         }
+
+        /* ---------- Live booking notification ---------- */
+        .live-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #D32F2F;
+            display: inline-block;
+            margin-right: 6px;
+            animation: livePulse 1.4s ease-in-out infinite;
+            box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.55);
+        }
+        @keyframes livePulse {
+            0%   { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.55); }
+            70%  { box-shadow: 0 0 0 10px rgba(211, 47, 47, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
+        }
+        .notif-toast {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 9999;
+            min-width: 280px;
+            max-width: 360px;
+            background: #FFFFFF;
+            border: 1px solid var(--border-soft);
+            border-left: 5px solid #D32F2F;
+            border-radius: 14px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.14);
+            padding: 14px 16px;
+            transform: translateX(120%);
+            transition: transform 0.35s cubic-bezier(.2,.8,.2,1);
+            font-family: var(--font-main);
+        }
+        .notif-toast.show { transform: translateX(0); }
+        .notif-toast .toast-title {
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .notif-toast .toast-body {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+        .notif-toast .toast-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .badge-counter {
+            background-color: #D32F2F !important;
+            animation: badgePop 0.4s ease;
+        }
+        @keyframes badgePop {
+            0% { transform: scale(0.6); }
+            60% { transform: scale(1.25); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -597,6 +659,12 @@
                             <span>እሁድ</span>
                         </label>
                     </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-semibold">አድራሻ (Location)</label>
+                    <input type="text" name="address" class="form-control" value="{{ salon.address or '' }}" placeholder="ለምሳሌ፡ ቦሌ፣ አዲስ አበባ — ከአየር መንገድ ማረፊያ ፊት ለፊት">
+                    <p class="small text-muted mt-1 mb-0">በደንበኛ ቀጠሮ ገጽ ላይ ይታያል + የGoogle Maps ሊንክ</p>
                 </div>
 
                 <button type="submit" class="btn btn-rose">
@@ -1029,6 +1097,20 @@
     </main>
 </div>
 
+
+<!-- Live booking toast -->
+<div id="bookingToast" class="notif-toast" role="alert" aria-live="assertive">
+    <div class="toast-title">
+        <span class="live-dot"></span>
+        <span>አዲስ ቀጠሮ መጣ!</span>
+    </div>
+    <div class="toast-body" id="bookingToastBody">—</div>
+    <div class="toast-actions">
+        <a href="/dashboard?tab=home" class="btn btn-sm btn-rose" id="toastGoBtn">ወደ ሰሌዳ</a>
+        <button type="button" class="btn btn-sm btn-outline-dark" onclick="hideBookingToast()">ዝጋ</button>
+    </div>
+</div>
+
 <!-- Mobile Bottom Navigation Bar -->
 <nav class="bottom-nav d-md-none">
     <a href="/dashboard?tab=home" class="bottom-nav-item {% if active_tab == 'home' %}active{% endif %}">
@@ -1459,6 +1541,84 @@
             ptrPullY = 0;
         });
 
+
+    // ========== Live booking notifications ==========
+    let newBookingCount = 0;
+
+    function playBookingBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.value = 880;
+            g.gain.value = 0.08;
+            o.start();
+            setTimeout(() => { o.frequency.value = 1175; }, 90);
+            setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2); o.stop(ctx.currentTime + 0.22); }, 180);
+        } catch (e) {}
+    }
+
+    function showBookingToast(appt) {
+        const toast = document.getElementById('bookingToast');
+        const body = document.getElementById('bookingToastBody');
+        if (!toast || !body) return;
+        const time = appt.appointment_time || '';
+        const name = appt.customer_name || '';
+        const service = appt.service_name || '';
+        const staff = appt.staff_name || '';
+        body.innerHTML = `<strong>${name}</strong> · ${service}<br><span style="color:var(--accent-rose)">${time}</span> · ${staff}`;
+        toast.classList.add('show');
+        // auto-hide after 12s
+        clearTimeout(window._toastTimer);
+        window._toastTimer = setTimeout(hideBookingToast, 12000);
+    }
+
+    function hideBookingToast() {
+        const toast = document.getElementById('bookingToast');
+        if (toast) toast.classList.remove('show');
+    }
+
+    function bumpNewBookingBadges() {
+        newBookingCount += 1;
+        ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
+            const badge = document.getElementById(id);
+            if (badge) {
+                badge.textContent = newBookingCount;
+                badge.classList.remove('d-none');
+                // re-trigger animation
+                badge.style.animation = 'none';
+                badge.offsetHeight;
+                badge.style.animation = '';
+            }
+        });
+    }
+
+    function requestBrowserNotifPermission() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
+    }
+
+    function showBrowserNotif(appt) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            const n = new Notification('መልከኛ · አዲስ ቀጠሮ', {
+                body: `${appt.customer_name || ''} — ${appt.service_name || ''} · ${appt.appointment_time || ''}`,
+                icon: '/favicon.ico',
+                tag: 'melkegna-booking-' + (appt.id || Date.now()),
+            });
+            n.onclick = () => { window.focus(); n.close(); };
+            setTimeout(() => n.close(), 10000);
+        } catch (e) {}
+    }
+
+    // Ask once on load (non-blocking)
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(requestBrowserNotifPermission, 2500);
+    });
+
+
         // WebSocket Live Updates — path + event name aligned with backend
         const salonId = {{ salon.id }};
         const currentTab = "{{ active_tab }}";
@@ -1471,14 +1631,12 @@
                 const appt = data.appointment;
 
                 const isOnlineBooking = !appt.source || appt.source === 'online';
-                if (isOnlineBooking && currentTab !== 'home') {
-                    ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
-                        const badge = document.getElementById(id);
-                        if (badge) {
-                            badge.textContent = (parseInt(badge.textContent || '0') || 0) + 1;
-                            badge.classList.remove('d-none');
-                        }
-                    });
+                // Always notify: toast + sound + browser + badge
+                if (isOnlineBooking) {
+                    bumpNewBookingBadges();
+                    showBookingToast(appt);
+                    playBookingBeep();
+                    showBrowserNotif(appt);
                 }
 
                 const counterEl = document.getElementById('metricTodayApptCount');

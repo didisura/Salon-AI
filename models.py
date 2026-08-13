@@ -23,6 +23,7 @@ class Salon(Base):
     name = Column(String(120), nullable=False)
     owner_name = Column(String(120), nullable=False)
     phone = Column(String(30), unique=True, nullable=False, index=True)
+    address = Column(String(255), nullable=True)  # physical location shown on public booking
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

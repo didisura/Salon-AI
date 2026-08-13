@@ -602,6 +602,7 @@ def update_hours(
     opening_time: str = Form(...),
     closing_time: str = Form(...),
     working_days: List[str] = Form(default=[]),
+    address: Optional[str] = Form(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
@@ -617,6 +618,8 @@ def update_hours(
     salon.opening_time = open_t
     salon.closing_time = close_t
     salon.working_days = ",".join(str(d) for d in day_ints)
+    if address is not None:
+        salon.address = address.strip() or None
     db.commit()
 
     return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)

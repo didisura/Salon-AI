@@ -32,6 +32,28 @@
         }
         .hours-strip i { color:#9C6B3F; }
 
+        .location-strip {
+            display:flex;
+            align-items:flex-start;
+            gap:10px;
+            background:#FFFFFF;
+            border:1px solid #E3D3C0;
+            border-radius:12px;
+            padding:12px 14px;
+            margin-bottom:20px;
+            font-size:.88rem;
+            color:#5A4936;
+        }
+        .location-strip i { color:#9C6B3F; margin-top:3px; }
+        .location-strip a {
+            color:#9C6B3F;
+            font-weight:600;
+            text-decoration:none;
+            border-bottom:1px solid #E3D3C0;
+        }
+        .location-strip a:hover { border-color:#9C6B3F; }
+
+
         /* Ethiopian time picker */
         .eth-time-picker {
             background: #F6ECE1;
@@ -77,6 +99,19 @@
             <i class="fa-solid fa-clock"></i>
             <span>የስራ ሰዓት፡ {{ hours_label }} &nbsp;•&nbsp; የስራ ቀናት፡ {{ days_label }}</span>
         </div>
+
+        {% if salon.address %}
+        <div class="location-strip">
+            <i class="fa-solid fa-location-dot"></i>
+            <div>
+                <div class="fw-semibold" style="color:#2D2424;">አድራሻ (Location)</div>
+                <div>{{ salon.address }}</div>
+                <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | replace(' ', '+') }}" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-map me-1"></i> በካርታ ላይ ይመልከቱ
+                </a>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="card-box">
             {% if success %}
