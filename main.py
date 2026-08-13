@@ -35,6 +35,23 @@ def _valid_admin_key(key: Optional[str]) -> bool:
     return bool(key) and key == ADMIN_SECRET_KEY
 
 
+def _eth_display(dt: Optional[datetime]) -> Optional[str]:
+    """Format a datetime in Ethiopian time, e.g. 'ጧት 3:15 ሰዓት'."""
+    if not dt:
+        return None
+    total = (dt.hour * 60 + dt.minute - 360) % 1440
+    eh, em = total // 60, total % 60
+    if eh < 6:
+        p, h = "ጧት", 12 if eh == 0 else eh
+    elif eh < 12:
+        p, h = "ቀን", eh
+    elif eh < 18:
+        p, h = "ማታ", 12 if eh == 12 else eh - 12
+    else:
+        p, h = "ለሊት", eh - 12
+    return f"{p} {h}:{em:02d} ሰዓት"
+
+
 @app.exception_handler(NotAuthenticatedException)
 async def not_authenticated_handler(request: Request, exc: NotAuthenticatedException):
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -544,7 +561,7 @@ def dashboard(
                 "conflict_date": conflict_dt.date().isoformat(),
                 "alt_staff": alt_staff,
                 "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
-                "next_slot_display": next_slot.strftime("%I:%M %p") if next_slot else None,
+                "next_slot_display": _eth_display(next_slot),
             })
 
     elif tab == "reserve":
@@ -1012,7 +1029,7 @@ def public_booking_page(
             "conflict_date": conflict_dt.date().isoformat(),
             "alt_staff": alt_staff,
             "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
-            "next_slot_display": next_slot.strftime("%I:%M %p") if next_slot else None,
+            "next_slot_display": _eth_display(next_slot),
         })
 
     return templates.TemplateResponse(request, "public_booking.html", context)

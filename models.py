@@ -47,7 +47,20 @@ class Salon(Base):
 
     @property
     def hours_label(self) -> str:
-        return f"{self.opening_time.strftime('%H:%M')} - {self.closing_time.strftime('%H:%M')}"
+        """Ethiopian-style working hours, e.g. 'ጧት 2:00 – ማታ 2:00'"""
+        def _fmt(t):
+            total = (t.hour * 60 + t.minute - 360) % 1440
+            eh, em = total // 60, total % 60
+            if eh < 6:
+                p, h = "ጧት", 12 if eh == 0 else eh
+            elif eh < 12:
+                p, h = "ቀን", eh
+            elif eh < 18:
+                p, h = "ማታ", 12 if eh == 12 else eh - 12
+            else:
+                p, h = "ለሊት", eh - 12
+            return f"{p} {h}:{em:02d}"
+        return f"{_fmt(self.opening_time)} – {_fmt(self.closing_time)}"
 
     @property
     def working_days_label(self) -> str:
@@ -99,7 +112,19 @@ class Staff(Base):
     @property
     def hours_label(self) -> str:
         if self.opening_time and self.closing_time:
-            return f"{self.opening_time.strftime('%H:%M')} - {self.closing_time.strftime('%H:%M')}"
+            def _fmt(t):
+                total = (t.hour * 60 + t.minute - 360) % 1440
+                eh, em = total // 60, total % 60
+                if eh < 6:
+                    p, h = "ጧት", 12 if eh == 0 else eh
+                elif eh < 12:
+                    p, h = "ቀን", eh
+                elif eh < 18:
+                    p, h = "ማታ", 12 if eh == 12 else eh - 12
+                else:
+                    p, h = "ለሊት", eh - 12
+                return f"{p} {h}:{em:02d}"
+            return f"{_fmt(self.opening_time)} – {_fmt(self.closing_time)}"
         return "እንደ ሳሎኑ (Same as salon)"
 
     @property
@@ -140,8 +165,20 @@ class Appointment(Base):
     staff = relationship("Staff")
 
     @property
-    def appointment_time(self):
-        return self.appointment_datetime.strftime("%I:%M %p")
+    def appointment_time(self) -> str:
+        """Ethiopian display, e.g. 'ጧት 3:15 ሰዓት'"""
+        dt = self.appointment_datetime
+        total = (dt.hour * 60 + dt.minute - 360) % 1440
+        eh, em = total // 60, total % 60
+        if eh < 6:
+            p, h = "ጧት", 12 if eh == 0 else eh
+        elif eh < 12:
+            p, h = "ቀን", eh
+        elif eh < 18:
+            p, h = "ማታ", 12 if eh == 12 else eh - 12
+        else:
+            p, h = "ለሊት", eh - 12
+        return f"{p} {h}:{em:02d} ሰዓት"
 
     @property
     def service_name(self):

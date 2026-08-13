@@ -31,6 +31,38 @@
             color:#5A4936;
         }
         .hours-strip i { color:#9C6B3F; }
+
+        /* Ethiopian time picker */
+        .eth-time-picker {
+            background: #F6ECE1;
+            border: 1px solid #E3D3C0;
+            border-radius: 14px;
+            padding: 14px;
+        }
+        .eth-time-picker .row-gap { gap: 10px; }
+        .eth-period-btn {
+            flex: 1;
+            min-height: 42px;
+            border-radius: 10px;
+            border: 1px solid #E3D3C0;
+            background: #fff;
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: #7A6E6E;
+            transition: all 0.15s ease;
+        }
+        .eth-period-btn.active {
+            background: #9C6B3F;
+            border-color: #9C6B3F;
+            color: #fff;
+        }
+        .eth-preview {
+            margin-top: 10px;
+            font-weight: 700;
+            color: #9C6B3F;
+            font-size: 1.05rem;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -118,7 +150,7 @@
             </div>
             {% endif %}
 
-            <form action="/book/{{ salon.id }}" method="post">
+            <form action="/book/{{ salon.id }}" method="post" id="bookingForm">
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ሙሉ ስም</label>
                     <input type="text" name="customer_name" class="form-control" value="{{ conflict_name or '' }}" required>
@@ -147,11 +179,47 @@
                         {% endfor %}
                     </select>
                 </div>
+
+                <!-- ========== ETHIOPIAN TIME PICKER ========== -->
                 <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">ቀንና ሰዓት</label>
-                    <input type="datetime-local" name="appointment_time" class="form-control" value="{{ conflict_time or '' }}" required>
-                    <p class="small text-muted mt-1 mb-0" id="staffHoursHint">የስራ ሰዓት፡ {{ hours_label }} • የስራ ቀናት፡ {{ days_label }}</p>
+                    <label class="form-label small text-muted fw-semibold">ቀን</label>
+                    <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-semibold">ሰዓት (በኢትዮጵያ ሰዓት)</label>
+                    <div class="eth-time-picker">
+                        <div class="d-flex row-gap mb-2">
+                            <button type="button" class="eth-period-btn active" data-period="ጧት">ጧት</button>
+                            <button type="button" class="eth-period-btn" data-period="ቀን">ቀን</button>
+                            <button type="button" class="eth-period-btn" data-period="ማታ">ማታ</button>
+                            <button type="button" class="eth-period-btn" data-period="ለሊት">ለሊት</button>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-1">ሰዓት (1-12)</label>
+                                <select id="ethHour" class="form-select">
+                                    {% for h in range(1,13) %}
+                                    <option value="{{ h }}" {% if h == 9 %}selected{% endif %}>{{ h }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-1">ደቂቃ (15)</label>
+                                <select id="ethMinute" class="form-select">
+                                    <option value="0">00</option>
+                                    <option value="15">15</option>
+                                    <option value="30">30</option>
+                                    <option value="45">45</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
+                    </div>
+                    <!-- Hidden field that the backend expects -->
+                    <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
+                    <p class="small text-muted mt-2 mb-0" id="staffHoursHint">የስራ ሰዓት፡ {{ hours_label }} • የስራ ቀናት፡ {{ days_label }}</p>
+                </div>
+
                 <button type="submit" class="btn btn-rose mt-2">
                     <i class="fa-solid fa-calendar-check me-1"></i> ቀጠሮ ያዝ
                 </button>
@@ -161,8 +229,71 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const dayNames = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
+        // ===== Ethiopian time conversion (client-side, mirrors backend) =====
+        function ethToWestern(period, displayH, minute) {
+            let wh;
+            if (period === 'ጧት') {
+                wh = displayH === 12 ? 6 : 6 + displayH;
+            } else if (period === 'ቀን') {
+                wh = displayH === 6 ? 12 : 12 + (displayH - 6);
+            } else if (period === 'ማታ') {
+                wh = displayH === 12 ? 18 : 18 + displayH;
+            } else { // ለሊት
+                wh = displayH - 6;
+            }
+            return { hour: wh, minute: minute };
+        }
 
+        function westernToEth(h, m) {
+            const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
+            const eh = Math.floor(total / 60);
+            const em = total % 60;
+            let period, displayH;
+            if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
+            else if (eh < 12) { period = 'ቀን'; displayH = eh; }
+            else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
+            else { period = 'ለሊት'; displayH = eh - 12; }
+            return { period, hour: displayH, minute: em };
+        }
+
+        let selectedPeriod = 'ጧት';
+
+        function updatePreviewAndHidden() {
+            const dateVal = document.getElementById('ethDate').value;
+            const hour = parseInt(document.getElementById('ethHour').value, 10);
+            const minute = parseInt(document.getElementById('ethMinute').value, 10);
+            const preview = document.getElementById('ethPreview');
+            const hidden = document.getElementById('appointmentTimeHidden');
+
+            preview.textContent = `${selectedPeriod} ${hour}:${String(minute).padStart(2,'0')} ሰዓት`;
+
+            if (!dateVal) {
+                hidden.value = '';
+                return;
+            }
+            const w = ethToWestern(selectedPeriod, hour, minute);
+            // Format YYYY-MM-DDTHH:MM (what backend expects)
+            const hh = String(w.hour).padStart(2,'0');
+            const mm = String(w.minute).padStart(2,'0');
+            hidden.value = `${dateVal}T${hh}:${mm}`;
+        }
+
+        // Period buttons
+        document.querySelectorAll('.eth-period-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.eth-period-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedPeriod = btn.dataset.period;
+                updatePreviewAndHidden();
+            });
+        });
+
+        ['ethDate', 'ethHour', 'ethMinute'].forEach(id => {
+            document.getElementById(id).addEventListener('change', updatePreviewAndHidden);
+        });
+
+        // Staff hours hint (still show Western for precision, or convert if you prefer)
+        const dayNames = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
         function updateStaffHint() {
             const sel = document.getElementById('staffSelect');
             const hint = document.getElementById('staffHoursHint');
@@ -171,7 +302,12 @@
             if (!opt) return;
             const open = opt.dataset.open, close = opt.dataset.close, days = opt.dataset.days || '';
             const dayLabels = days.split(',').filter(d => d !== '').map(d => dayNames[parseInt(d)]).join('፣ ');
-            hint.textContent = `የስራ ሰዓት፡ ${open} - ${close} • የስራ ቀናት፡ ${dayLabels}`;
+            // Convert open/close to Ethiopian for friendliness
+            const [oh, om] = open.split(':').map(Number);
+            const [ch, cm] = close.split(':').map(Number);
+            const oEth = westernToEth(oh, om);
+            const cEth = westernToEth(ch, cm);
+            hint.textContent = `የስራ ሰዓት፡ ${oEth.period} ${oEth.hour}:${String(oEth.minute).padStart(2,'0')} – ${cEth.period} ${cEth.hour}:${String(cEth.minute).padStart(2,'0')} • የስራ ቀናት፡ ${dayLabels}`;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -179,6 +315,36 @@
             if (sel) {
                 sel.addEventListener('change', updateStaffHint);
                 updateStaffHint();
+            }
+            updatePreviewAndHidden();
+
+            // Pre-fill from conflict if present
+            const conflictTime = "{{ conflict_time or '' }}";
+            if (conflictTime) {
+                try {
+                    const [datePart, timePart] = conflictTime.split('T');
+                    const [hh, mm] = timePart.split(':').map(Number);
+                    const eth = westernToEth(hh, mm || 0);
+                    document.getElementById('ethDate').value = datePart;
+                    selectedPeriod = eth.period;
+                    document.querySelectorAll('.eth-period-btn').forEach(b => {
+                        b.classList.toggle('active', b.dataset.period === eth.period);
+                    });
+                    document.getElementById('ethHour').value = eth.hour;
+                    // snap minute to 15
+                    const snapped = Math.round((eth.minute || 0) / 15) * 15 % 60;
+                    document.getElementById('ethMinute').value = snapped;
+                    updatePreviewAndHidden();
+                } catch(e) {}
+            }
+        });
+
+        // Ensure hidden is filled before submit
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            updatePreviewAndHidden();
+            if (!document.getElementById('appointmentTimeHidden').value) {
+                e.preventDefault();
+                alert('እባክዎ ቀንና ሰዓት ይምረጡ።');
             }
         });
     </script>
