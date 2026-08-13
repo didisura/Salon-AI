@@ -3,523 +3,628 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ salon.name }} - መልከኛ Admin</title>
-    
-    <!-- Bootstrap 5, FontAwesome & Custom Fonts -->
+    <title>{{ salon.name }} - መልከኛ</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-cream: #FFFDF9;
-            --sidebar-pink: #F7EBE8;
-            --card-pink: #FAF0ED;
-            --accent-rose: #C87A76;
-            --accent-rose-hover: #B56864;
+            --bg-cream: #FAFAF8;
+            --sidebar-bg: #F3E9DC;
+            --card-bg: #FFFFFF;
+            --accent: #9C6B3F;
+            --accent-hover: #7E5530;
             --text-dark: #2D2424;
             --text-muted: #7A6E6E;
-            --border-soft: #EADCDA;
-            --status-green: #2E7D32;
-            --status-orange: #ED6C02;
-            --font-main: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', sans-serif;
-            --bottom-nav-height: 65px;
+            --border: #E3D3C0;
+            --green: #2E7D32;
+            --orange: #ED6C02;
+            --font: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', sans-serif;
+            --nav-h: 64px;
         }
 
-        body { 
-            background: var(--bg-cream); 
-            color: var(--text-dark); 
-            font-family: var(--font-main); 
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg-cream);
+            color: var(--text-dark);
+            font-family: var(--font);
             min-height: 100vh;
+            margin: 0;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
         }
 
         .wrapper { display: flex; min-height: 100vh; }
 
-        /* Desktop Sidebar Navigation */
-        .sidebar { 
-            width: 260px; 
-            background: var(--sidebar-pink); 
-            border-right: 1px solid var(--border-soft);
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            padding: 32px 20px; 
-            flex-shrink: 0; 
-        }
-
-        .logo { text-align: center; margin-bottom: 32px; }
-        .logo i { color: var(--accent-rose); font-size: 2rem; margin-bottom: 6px; }
-        .logo h2 { color: var(--text-dark); font-size: 1.3rem; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
-        .logo small { color: var(--accent-rose); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
-
-        .nav-menu { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-        .nav-menu li a { 
-            display: flex; 
-            align-items: center; 
-            gap: 14px; 
-            padding: 12px 18px; 
-            color: var(--text-dark); 
-            text-decoration: none; 
-            border-radius: 14px; 
-            font-size: 0.95rem; 
-            font-weight: 500;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        .nav-menu li.active a, .nav-menu li a:hover { 
-            background: var(--accent-rose); 
-            color: #FFFFFF; 
-            font-weight: 600; 
-            box-shadow: 0 4px 12px rgba(200, 122, 118, 0.2);
-        }
-        .nav-menu li a i { width: 20px; text-align: center; }
-
-        /* Mobile Bottom App Navigation */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: var(--bottom-nav-height);
-            background: #FFFFFF;
-            border-top: 1px solid var(--border-soft);
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            z-index: 1030;
-            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        .bottom-nav-item {
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+            width: 250px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.72rem;
-            font-weight: 600;
-            width: 20%;
-            height: 100%;
-            transition: color 0.2s ease;
-            position: relative;
+            justify-content: space-between;
+            padding: 28px 16px;
+            flex-shrink: 0;
         }
+        .logo { text-align: center; margin-bottom: 28px; }
+        .logo i { color: var(--accent); font-size: 1.8rem; }
+        .logo h2 { font-size: 1.25rem; font-weight: 700; margin: 4px 0 0; }
+        .logo small { color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: 1px; }
 
-        .bottom-nav-item i {
-            font-size: 1.25rem;
-            margin-bottom: 2px;
+        .nav-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+        .nav-menu a {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 12px;
+            color: var(--text-dark); text-decoration: none;
+            font-size: 0.92rem; font-weight: 500;
+            transition: all 0.15s ease;
         }
-
-        .bottom-nav-item.active {
-            color: var(--accent-rose);
+        .nav-menu li.active a,
+        .nav-menu a:hover {
+            background: var(--accent); color: #fff; font-weight: 600;
+            box-shadow: 0 3px 10px rgba(156,107,63,0.2);
         }
+        .nav-menu a i { width: 20px; text-align: center; font-size: 1rem; }
 
-        /* Pull to Refresh Indicator */
-        .ptr-indicator {
-            position: absolute;
-            top: -50px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #FFFFFF;
-            border: 1px solid var(--border-soft);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease;
-            z-index: 1000;
+        .sidebar-footer { display: flex; flex-direction: column; gap: 10px; }
+        .lang-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 10px; border-radius: 12px; border: 1px solid var(--border);
+            background: #fff; color: var(--text-dark); font-weight: 600;
+            font-size: 0.85rem; cursor: pointer; transition: all 0.15s;
         }
+        .lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .logout-link {
+            color: var(--accent); text-decoration: none; font-weight: 600;
+            padding: 8px 12px; font-size: 0.9rem;
+        }
+        .logout-link:hover { opacity: 0.8; }
 
-        /* Main Viewport Container */
-        .main-content { 
-            flex: 1; 
-            padding: 24px 20px 90px 20px; 
-            overflow-y: auto; 
-            position: relative;
+        /* ---------- Main ---------- */
+        .main-content {
+            flex: 1;
+            padding: 20px 16px 90px;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            position: relative;
         }
-
         @media (min-width: 768px) {
-            .main-content {
-                padding: 35px 40px;
-            }
+            .main-content { padding: 28px 36px; }
         }
 
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .topbar h2 { font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-dark); }
-
-        @media (min-width: 768px) {
-            .topbar h2 { font-size: 1.75rem; }
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
         }
+        .topbar h2 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+        @media (min-width: 768px) { .topbar h2 { font-size: 1.6rem; } }
+        .topbar .welcome { color: var(--text-muted); font-size: 0.88rem; margin: 2px 0 0; }
 
-        /* Metrics Cards */
-        .metrics-grid { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 14px; 
-            margin-bottom: 24px; 
+        .top-actions { display: flex; align-items: center; gap: 8px; }
+
+        /* ---------- Cards & metrics ---------- */
+        .card-soft {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.03);
         }
+        @media (min-width: 768px) { .card-soft { padding: 22px; } }
 
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
         @media (min-width: 992px) {
-            .metrics-grid { 
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-                gap: 20px; 
-            }
+            .metrics-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
         }
-
-        .metric-card { 
-            background: #FFFFFF; 
-            border-radius: 18px; 
-            padding: 16px; 
-            border: 1px solid var(--border-soft); 
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015);
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
         }
-
-        .icon-box { 
-            width: 38px; 
-            height: 38px; 
-            border-radius: 10px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 1rem; 
+        .metric-card .label { color: var(--text-muted); font-size: 0.8rem; font-weight: 500; }
+        .metric-card .value { font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
+        .icon-box {
+            width: 34px; height: 34px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
         }
-        .icon-rose { background: var(--card-pink); color: var(--accent-rose); }
-        .icon-green { background: #E8F5E9; color: var(--status-green); }
-        .icon-orange { background: #FFF3E0; color: var(--status-orange); }
+        .icon-rose { background: #F6ECE1; color: var(--accent); }
+        .icon-green { background: #E8F5E9; color: var(--green); }
+        .icon-orange { background: #FFF3E0; color: var(--orange); }
         .icon-dark { background: #ECECEC; color: #3A3A3A; }
 
-        .content-panel { 
-            background: #FFFFFF; 
-            border-radius: 18px; 
-            padding: 20px; 
-            border: 1px solid var(--border-soft); 
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015); 
+        /* ---------- Buttons ---------- */
+        .btn-accent {
+            background: var(--accent); color: #fff; border: none;
+            font-weight: 600; padding: 10px 18px; border-radius: 11px;
+            min-height: 42px; display: inline-flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .btn-accent:hover, .btn-accent:active { background: var(--accent-hover); color: #fff; }
+        .btn-outline-soft {
+            border: 1px solid var(--border); background: #fff; color: var(--text-dark);
+            font-weight: 600; border-radius: 11px; min-height: 42px;
+        }
+        .btn-outline-soft:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ---------- Forms ---------- */
+        .form-control, .form-select {
+            border-radius: 10px; border: 1px solid var(--border);
+            background: var(--bg-cream); padding: 11px 13px; min-height: 42px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 0.2rem rgba(156,107,63,0.12);
         }
 
-        @media (min-width: 768px) {
-            .content-panel { padding: 28px; }
-        }
-
-        .btn-rose { 
-            background: var(--accent-rose); 
-            color: #FFFFFF; 
-            border: none; 
-            font-weight: 600; 
-            padding: 12px 20px; 
-            border-radius: 12px; 
-            min-height: 44px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-        }
-        .btn-rose:hover, .btn-rose:active { background: var(--accent-rose-hover); color: #FFFFFF; }
-
-        /* Swipe Card Styles */
-        .swipe-row-container {
-            background: transparent !important;
-        }
-
+        /* ---------- Appointment cards (swipe) ---------- */
         .swipe-card-wrapper {
-            position: relative;
-            overflow: hidden;
-            border-radius: 14px;
-            margin-bottom: 12px;
-            background-color: var(--bg-cream);
-            border: 1px solid var(--border-soft);
+            position: relative; overflow: hidden; border-radius: 14px;
+            margin-bottom: 10px; border: 1px solid var(--border); background: var(--bg-cream);
         }
-
         .swipe-card-content {
-            background: #FFFFFF;
-            position: relative;
-            z-index: 2;
-            transition: transform 0.1s linear;
-            touch-action: pan-y;
+            background: #fff; position: relative; z-index: 2;
+            transition: transform 0.1s linear; touch-action: pan-y;
         }
-
         .swipe-action-bg {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 50%;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            z-index: 1;
+            position: absolute; top: 0; bottom: 0; width: 50%;
+            display: flex; align-items: center; padding: 0 18px; z-index: 1;
         }
-
         .swipe-action-left { left: 0; justify-content: flex-start; }
         .swipe-action-right { right: 0; justify-content: flex-end; }
 
-        /* Pulse Highlight Animation for Incoming Live Online Bookings */
-        @keyframes pulseNewBooking {
-            0% { background-color: rgba(200, 122, 118, 0.3); }
-            100% { background-color: #FFFFFF; }
+        @keyframes pulseNew {
+            0% { background-color: rgba(156,107,63,0.25); }
+            100% { background-color: #fff; }
+        }
+        .new-booking-highlight { animation: pulseNew 2.5s ease-out forwards; }
+
+        /* ---------- Day picker ---------- */
+        .day-picker { display: flex; flex-wrap: wrap; gap: 7px; }
+        .day-toggle { position: relative; }
+        .day-toggle input {
+            position: absolute; opacity: 0; width: 100%; height: 100%;
+            margin: 0; cursor: pointer;
+        }
+        .day-toggle span {
+            display: flex; align-items: center; justify-content: center;
+            width: 40px; height: 40px; border-radius: 9px;
+            border: 1px solid var(--border); font-size: 0.75rem; font-weight: 600;
+            color: var(--text-muted); background: #fff; transition: all 0.12s;
+        }
+        .day-toggle input:checked + span {
+            background: var(--accent); border-color: var(--accent); color: #fff;
         }
 
-        .new-booking-highlight {
-            animation: pulseNewBooking 3s ease-out forwards;
+        /* ---------- Ethiopian time picker ---------- */
+        .eth-time-picker {
+            background: #F6ECE1; border: 1px solid var(--border);
+            border-radius: 12px; padding: 12px;
+        }
+        .eth-period-btn {
+            flex: 1; min-height: 38px; border-radius: 9px;
+            border: 1px solid var(--border); background: #fff;
+            font-weight: 600; font-size: 0.78rem; color: var(--text-muted);
+        }
+        .eth-period-btn.active {
+            background: var(--accent); border-color: var(--accent); color: #fff;
+        }
+        .eth-preview {
+            margin-top: 8px; font-weight: 700; color: var(--accent);
+            font-size: 1rem; text-align: center;
         }
 
-        /* Badge Counters */
+        /* ---------- Badges & toast ---------- */
         .badge-counter {
-            background-color: #D32F2F;
-            color: #FFFFFF;
-            border-radius: 50px;
-            padding: 2px 7px;
-            font-size: 0.7rem;
-            font-weight: 700;
+            background: #D32F2F; color: #fff; border-radius: 50px;
+            padding: 2px 7px; font-size: 0.68rem; font-weight: 700;
         }
+        .live-dot {
+            width: 9px; height: 9px; border-radius: 50%; background: #D32F2F;
+            display: inline-block; margin-right: 5px;
+            animation: livePulse 1.4s ease-in-out infinite;
+        }
+        @keyframes livePulse {
+            0% { box-shadow: 0 0 0 0 rgba(211,47,47,0.5); }
+            70% { box-shadow: 0 0 0 9px rgba(211,47,47,0); }
+            100% { box-shadow: 0 0 0 0 rgba(211,47,47,0); }
+        }
+        .notif-toast {
+            position: fixed; top: 16px; right: 16px; z-index: 9999;
+            min-width: 270px; max-width: 340px; background: #fff;
+            border: 1px solid var(--border); border-left: 4px solid #D32F2F;
+            border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,0.12);
+            padding: 12px 14px; transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
+        }
+        .notif-toast.show { transform: translateX(0); }
 
+        /* ---------- Mobile stack table ---------- */
         @media (max-width: 767.98px) {
-            .table-responsive-stack table, 
-            .table-responsive-stack tbody, 
-            .table-responsive-stack tr, 
-            .table-responsive-stack td { 
-                display: block; 
-                width: 100%; 
+            .table-stack table, .table-stack tbody, .table-stack tr, .table-stack td {
+                display: block; width: 100%;
             }
-            .table-responsive-stack thead { display: none; }
-            .table-responsive-stack tr:not(.swipe-row-container) {
-                background: var(--bg-cream);
-                border: 1px solid var(--border-soft);
-                border-radius: 14px;
-                padding: 14px;
-                margin-bottom: 12px;
+            .table-stack thead { display: none; }
+            .table-stack tr:not(.swipe-row) {
+                background: var(--bg-cream); border: 1px solid var(--border);
+                border-radius: 12px; padding: 12px; margin-bottom: 10px;
             }
-            .table-responsive-stack tr:not(.swipe-row-container) td {
-                padding: 6px 0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border: none;
+            .table-stack tr:not(.swipe-row) td {
+                padding: 5px 0; display: flex; justify-content: space-between;
+                align-items: center; border: none;
             }
-            .table-responsive-stack tr:not(.swipe-row-container) td::before {
-                content: attr(data-label);
-                font-weight: 600;
-                color: var(--text-muted);
-                font-size: 0.85rem;
-                padding-right: 10px;
+            .table-stack tr:not(.swipe-row) td::before {
+                content: attr(data-label); font-weight: 600;
+                color: var(--text-muted); font-size: 0.82rem; padding-right: 8px;
             }
         }
 
-        .form-control, .form-select {
-            border-radius: 10px;
-            border: 1px solid var(--border-soft);
-            background-color: var(--bg-cream);
-            padding: 12px 14px;
-            min-height: 44px;
+        /* ---------- Bottom nav ---------- */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: var(--nav-h); background: #fff;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-around; align-items: center;
+            z-index: 1030; box-shadow: 0 -3px 10px rgba(0,0,0,0.04);
+            padding-bottom: env(safe-area-inset-bottom);
         }
-        .form-control:focus, .form-select:focus {
-            border-color: var(--accent-rose);
-            box-shadow: 0 0 0 0.25rem rgba(200, 122, 118, 0.15);
+        .bottom-nav-item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-muted); text-decoration: none;
+            font-size: 0.68rem; font-weight: 600; width: 18%; height: 100%;
+            position: relative; transition: color 0.15s;
+        }
+        .bottom-nav-item i { font-size: 1.2rem; margin-bottom: 2px; }
+        .bottom-nav-item.active { color: var(--accent); }
+
+        .modal-content { border-radius: 16px; border: 1px solid var(--border); }
+        .modal-header, .modal-footer { border-color: var(--border); }
+
+        .hours-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .hours-row > div { flex: 1; min-width: 130px; }
+
+        .ptr-indicator {
+            position: absolute; top: -48px; left: 50%; transform: translateX(-50%);
+            width: 36px; height: 36px; border-radius: 50%; background: #fff;
+            border: 1px solid var(--border); display: flex; align-items: center;
+            justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.08); z-index: 1000;
         }
 
-        .modal-content { border-radius: 20px; border: 1px solid var(--border-soft); }
-        .modal-header { border-bottom: 1px solid var(--border-soft); }
-        .modal-footer { border-top: 1px solid var(--border-soft); }
+        /* Language: hide inactive */
+        [data-lang-en] { display: none; }
+        html[lang="en"] [data-lang-am] { display: none !important; }
+        html[lang="en"] [data-lang-en] { display: inline !important; }
+        html[lang="am"] [data-lang-am] { display: inline !important; }
+        html[lang="am"] [data-lang-en] { display: none !important; }
+
+        /* Block-level bilingual helpers */
+        .i18n-block-en { display: none; }
+        html[lang="en"] .i18n-block-am { display: none !important; }
+        html[lang="en"] .i18n-block-en { display: block !important; }
+        html[lang="am"] .i18n-block-am { display: block !important; }
+        html[lang="am"] .i18n-block-en { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
-    <!-- Desktop Sidebar Navigation -->
+    <!-- ========== DESKTOP SIDEBAR ========== -->
     <aside class="sidebar d-none d-md-flex">
         <div>
             <div class="logo">
                 <i class="fa-solid fa-spa"></i>
                 <h2>መልከኛ</h2>
-                <small>MELKEGNA PLATFORM</small>
+                <small>MELKEGNA</small>
             </div>
-            
             <ul class="nav-menu">
                 <li class="{% if active_tab == 'home' %}active{% endif %}">
                     <a href="/dashboard?tab=home">
-                        <i class="fa-solid fa-house"></i> <span>ዋና ገጽ</span>
+                        <i class="fa-solid fa-house"></i>
+                        <span data-lang-am>ዋና ገጽ</span><span data-lang-en>Home</span>
+                        <span class="badge-counter ms-auto d-none" id="sidebarNewBookingBadge">0</span>
                     </a>
                 </li>
                 <li class="{% if active_tab == 'reserve' %}active{% endif %}">
                     <a href="/dashboard?tab=reserve">
-                        <i class="fa-solid fa-clock-rotate-left"></i> <span>ተጠባባቂ ዝርዝር</span>
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span data-lang-am>ተጠባባቂ</span><span data-lang-en>Waitlist</span>
                         <span class="badge-counter ms-auto d-none" id="sidebarReserveCounter">0</span>
                     </a>
                 </li>
                 <li class="{% if active_tab == 'revenue' %}active{% endif %}">
-                    <a href="/dashboard?tab=revenue"><i class="fa-solid fa-chart-pie"></i> <span>ገቢ (Revenue)</span></a>
+                    <a href="/dashboard?tab=revenue">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span data-lang-am>ገቢ</span><span data-lang-en>Revenue</span>
+                    </a>
                 </li>
                 <li class="{% if active_tab == 'services' %}active{% endif %}">
-                    <a href="/dashboard?tab=services"><i class="fa-solid fa-scissors"></i> <span>አገልግሎቶች</span></a>
+                    <a href="/dashboard?tab=services">
+                        <i class="fa-solid fa-scissors"></i>
+                        <span data-lang-am>አገልግሎቶች</span><span data-lang-en>Services</span>
+                    </a>
                 </li>
                 <li class="{% if active_tab == 'staff' %}active{% endif %}">
-                    <a href="/dashboard?tab=staff"><i class="fa-solid fa-users"></i> <span>ሰራተኞች</span></a>
+                    <a href="/dashboard?tab=staff">
+                        <i class="fa-solid fa-users"></i>
+                        <span data-lang-am>ሰራተኞች</span><span data-lang-en>Staff</span>
+                    </a>
+                </li>
+                <li class="{% if active_tab == 'settings' %}active{% endif %}">
+                    <a href="/dashboard?tab=settings">
+                        <i class="fa-solid fa-gear"></i>
+                        <span data-lang-am>ቅንብሮች</span><span data-lang-en>Settings</span>
+                    </a>
                 </li>
             </ul>
         </div>
-        
-        <a href="/logout" class="text-decoration-none px-3 fw-semibold" style="color: var(--accent-rose);">
-            <i class="fa-solid fa-right-from-bracket me-2"></i> ውጣ (Logout)
-        </a>
+        <div class="sidebar-footer">
+            <button type="button" class="lang-btn" id="langToggleSidebar" onclick="toggleLang()">
+                <i class="fa-solid fa-globe"></i>
+                <span id="langLabelSidebar">EN</span>
+            </button>
+            <a href="/logout" class="logout-link">
+                <i class="fa-solid fa-right-from-bracket me-1"></i>
+                <span data-lang-am>ውጣ</span><span data-lang-en>Logout</span>
+            </a>
+        </div>
     </aside>
 
-    <!-- Main Viewport Canvas -->
+    <!-- ========== MAIN CONTENT ========== -->
     <main class="main-content" id="mainScrollArea">
         <div class="ptr-indicator" id="ptrIndicator">
             <i class="fa-solid fa-rotate-right text-muted"></i>
         </div>
 
-        <!-- Header -->
+        <!-- Top bar -->
         <header class="topbar">
             <div>
                 <h2>{{ salon.name }}</h2>
-                <p class="text-muted mb-0 small">እንኳን ደህና መጡ {{ salon.owner_name }} 👋</p>
+                <p class="welcome mb-0">
+                    <span data-lang-am>እንኳን ደህና መጡ</span><span data-lang-en>Welcome</span>
+                    {{ salon.owner_name }} 👋
+                </p>
             </div>
-            
-            {% if active_tab == 'home' %}
-            <button class="btn btn-rose btn-sm d-md-none" data-bs-toggle="modal" data-bs-target="#bookModal">
-                <i class="fa-solid fa-plus me-1"></i> አዲስ
-            </button>
-            <button class="btn btn-rose d-none d-md-inline-flex" data-bs-toggle="modal" data-bs-target="#bookModal">
-                <i class="fa-solid fa-plus me-1"></i> አዲስ ቀጠሮ (Book Walk-in)
-            </button>
-            {% endif %}
+            <div class="top-actions">
+                <button type="button" class="btn btn-outline-soft btn-sm d-md-none" onclick="toggleLang()" title="Language">
+                    <i class="fa-solid fa-globe"></i>
+                </button>
+                <button type="button" class="btn btn-outline-soft btn-sm" data-bs-toggle="modal" data-bs-target="#searchCustomerModal" title="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                {% if active_tab == 'home' %}
+                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#bookModal">
+                    <i class="fa-solid fa-plus me-1"></i>
+                    <span class="d-none d-sm-inline" data-lang-am>አዲስ ቀጠሮ</span>
+                    <span class="d-none d-sm-inline" data-lang-en>New Booking</span>
+                    <span class="d-sm-none" data-lang-am>አዲስ</span>
+                    <span class="d-sm-none" data-lang-en>New</span>
+                </button>
+                {% endif %}
+                <a href="/logout" class="btn btn-outline-danger btn-sm d-md-none" onclick="return confirm(document.documentElement.lang==='en'?'Logout?':'ውጣ ይፈልጋሉ?')">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </header>
 
+        <!-- Error banners -->
         {% if error == 'conflict' %}
-        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
-            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
-            <div>
-                <strong>ድርብ ቀጠሮ (Double-Booking Blocked):</strong>
-                ይህ ሰዓት ለተመረጠው ባለሙያ አስቀድሞ ተይዟል። እባክዎ ሌላ ሰዓት ወይም ሌላ ባለሙያ ይምረጡ።
+        <div class="card-soft mb-3" style="border-color:#f5c2c7;background:#fff5f5;">
+            <div class="d-flex align-items-start gap-2 mb-2">
+                <i class="fa-solid fa-triangle-exclamation mt-1" style="color:#dc3545;"></i>
+                <div>
+                    <strong style="color:#842029;" data-lang-am>ድርብ ቀጠሮ ተከልክሏል</strong>
+                    <strong style="color:#842029;" data-lang-en>Double-booking blocked</strong>
+                    <span style="color:#842029;"> — {{ conflict_staff_name }}
+                        ({{ conflict_time.split('T')[1] if conflict_time else '' }})</span>
+                </div>
             </div>
+            {% if next_slot %}
+            <form action="/book-appointment" method="post" class="d-inline-block me-2 mb-2">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                <input type="hidden" name="appointment_time" value="{{ next_slot }}">
+                <button type="submit" class="btn btn-sm btn-accent">
+                    <i class="fa-solid fa-clock me-1"></i>
+                    {{ conflict_staff_name }} · {{ next_slot_display }}
+                </button>
+            </form>
+            {% endif %}
+            {% for alt in alt_staff %}
+            <form action="/book-appointment" method="post" class="d-inline-block me-2 mb-2">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ alt.id }}">
+                <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
+                <button type="submit" class="btn btn-sm btn-outline-soft">
+                    <i class="fa-solid fa-user me-1"></i> {{ alt.name }}
+                </button>
+            </form>
+            {% endfor %}
+            <form action="/add-waitlist" method="post" class="d-inline-block mb-2">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i class="fa-solid fa-list-check me-1"></i>
+                    <span data-lang-am>ተጠባባቂ ላይ ጨምር</span>
+                    <span data-lang-en>Add to waitlist</span>
+                </button>
+            </form>
         </div>
         {% endif %}
 
-        <!-- TAB 1: HOME (DAILY DASHBOARD & LIVE ONLINE APPOINTMENTS) -->
+        {% if error == 'outside_hours' %}
+        <div class="card-soft mb-3" style="border-color:#f5c2c7;background:#fff5f5;">
+            <i class="fa-solid fa-triangle-exclamation me-2" style="color:#dc3545;"></i>
+            <span style="color:#842029;" data-lang-am>የመረጡት ሰዓት ከስራ ሰዓት ውጪ ነው።</span>
+            <span style="color:#842029;" data-lang-en>Selected time is outside working hours.</span>
+        </div>
+        {% endif %}
+
+        {% if error == 'invalid_hours' %}
+        <div class="card-soft mb-3" style="border-color:#f5c2c7;background:#fff5f5;">
+            <i class="fa-solid fa-triangle-exclamation me-2" style="color:#dc3545;"></i>
+            <span style="color:#842029;" data-lang-am>የስራ መጨረሻ ሰዓት ከመጀመሪያ በኋላ መሆን አለበት።</span>
+            <span style="color:#842029;" data-lang-en>Closing time must be after opening time.</span>
+        </div>
+        {% endif %}
+
+        {% if error == 'invalid_days' %}
+        <div class="card-soft mb-3" style="border-color:#f5c2c7;background:#fff5f5;">
+            <i class="fa-solid fa-triangle-exclamation me-2" style="color:#dc3545;"></i>
+            <span style="color:#842029;" data-lang-am>ቢያንስ አንድ የስራ ቀን ይምረጡ።</span>
+            <span style="color:#842029;" data-lang-en>Select at least one working day.</span>
+        </div>
+        {% endif %}
+
+        <!-- ==================== HOME ==================== -->
         {% if active_tab == 'home' %}
-        <div class="content-panel mb-4" style="background: var(--card-pink); border-color: var(--border-soft);">
-            <p class="fw-semibold small mb-2" style="color: var(--text-dark);">የደንበኛ ቀጠሮ መያዣ ሊንክ (Client Link):</p>
+        <!-- Booking link -->
+        <div class="card-soft mb-3" style="background:#F6ECE1;">
+            <p class="small fw-semibold mb-2" style="color:var(--text-dark);">
+                <span data-lang-am>የደንበኛ ቀጠሮ ሊንክ</span>
+                <span data-lang-en>Client booking link</span>
+            </p>
             <div class="d-flex align-items-center gap-2">
-                <input type="text" id="bookingLinkInput" readonly value="{{ booking_url }}" class="form-control form-control-sm" style="background:#FFFFFF; font-family: monospace;">
-                <button type="button" onclick="copyBookingLink()" class="btn btn-rose btn-sm text-nowrap" id="copyBookingBtn">
+                <input type="text" id="bookingLinkInput" readonly value="{{ booking_url }}"
+                       class="form-control form-control-sm" style="background:#fff;font-family:monospace;">
+                <button type="button" onclick="copyBookingLink()" class="btn btn-accent btn-sm text-nowrap" id="copyBookingBtn">
                     <i class="fa-solid fa-copy me-1"></i> Copy
                 </button>
             </div>
         </div>
 
+        <!-- Metrics -->
         <section class="metrics-grid">
             <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">የዕለቱ ገቢ</span>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="label" data-lang-am>የዕለቱ ገቢ</span>
+                    <span class="label" data-lang-en>Today's revenue</span>
                     <div class="icon-box icon-rose"><i class="fa-solid fa-receipt"></i></div>
                 </div>
-                <div class="h5 fw-bold mb-0 mt-1">{{ "{:,.2f}".format(daily_rev) }} ETB</div>
+                <div class="value">{{ "{:,.2f}".format(daily_rev) }} ETB</div>
             </div>
-
             <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">የዕለቱ ቀጠሮዎች</span>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="label" data-lang-am>የዕለቱ ቀጠሮዎች</span>
+                    <span class="label" data-lang-en>Today's bookings</span>
                     <div class="icon-box icon-green"><i class="fa-solid fa-calendar-check"></i></div>
                 </div>
-                <div class="h5 fw-bold mb-0 mt-1" id="metricTodayApptCount">{{ today_appt_count }}</div>
+                <div class="value" id="metricTodayApptCount">{{ today_appt_count }}</div>
             </div>
-
             <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">ጠቅላላ ደንበኞች</span>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="label" data-lang-am>ጠቅላላ ደንበኞች</span>
+                    <span class="label" data-lang-en>Total customers</span>
                     <div class="icon-box icon-orange"><i class="fa-solid fa-user-group"></i></div>
                 </div>
-                <div class="h5 fw-bold mb-0 mt-1">{{ total_customers }}</div>
+                <div class="value">{{ total_customers }}</div>
             </div>
-
             <div class="metric-card">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small">ያልመጡ (No-Show)</span>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="label" data-lang-am>ያልመጡ</span>
+                    <span class="label" data-lang-en>No-shows</span>
                     <div class="icon-box icon-dark"><i class="fa-solid fa-user-clock"></i></div>
                 </div>
-                <div class="h5 fw-bold mb-0 mt-1">{{ no_show_count_today }}</div>
+                <div class="value">{{ no_show_count_today }}</div>
             </div>
         </section>
 
-        <section class="content-panel">
+        <!-- Appointments board -->
+        <section class="card-soft">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
-                <h5 class="fw-bold mb-0">የቀጠሮዎች ሰሌዳ</h5>
-                <form action="/dashboard" method="get" class="d-flex align-items-center gap-2 w-100 w-sm-auto">
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>የቀጠሮዎች ሰሌዳ</span>
+                    <span data-lang-en>Appointments</span>
+                </h5>
+                <form action="/dashboard" method="get" class="d-flex align-items-center gap-2">
                     <input type="hidden" name="tab" value="home">
-                    <input type="date" id="selected_date" name="selected_date" value="{{ selected_date or current_date }}" class="form-control form-control-sm w-100" onchange="this.form.submit()">
+                    <input type="date" name="selected_date" value="{{ selected_date or current_date }}"
+                           class="form-control form-control-sm" style="width:auto;" onchange="this.form.submit()">
                 </form>
             </div>
 
-            <div class="table-responsive-stack">
+            <div class="table-stack">
                 <table class="table align-middle mb-0">
                     <thead class="d-none d-md-table-header-group">
-                        <tr class="text-muted">
-                            <th>ቀንና ሰዓት</th>
-                            <th>ደንበኛ</th>
-                            <th>ስልክ</th>
-                            <th>አገልግሎት</th>
-                            <th>ሰራተኛ</th>
-                            <th>ዋጋ</th>
-                            <th>ሁኔታ (Status)</th>
+                        <tr class="text-muted small">
+                            <th data-lang-am>ሰዓት</th><th data-lang-en>Time</th>
+                            <th data-lang-am>ደንበኛ</th><th data-lang-en>Customer</th>
+                            <th data-lang-am>ስልክ</th><th data-lang-en>Phone</th>
+                            <th data-lang-am>አገልግሎት</th><th data-lang-en>Service</th>
+                            <th data-lang-am>ሰራተኛ</th><th data-lang-en>Staff</th>
+                            <th data-lang-am>ዋጋ</th><th data-lang-en>Price</th>
+                            <th data-lang-am>ሁኔታ</th><th data-lang-en>Status</th>
                         </tr>
                     </thead>
                     <tbody id="appointmentsListTable">
                         {% for appt in appointments %}
-                        <tr class="swipe-row-container p-0">
-                          <td colspan="7" class="p-0 border-0">
-                            <div class="swipe-card-wrapper" id="appt-card-{{ appt.id }}">
-                              
-                              <div class="swipe-action-bg swipe-action-left bg-success text-white">
-                                <i class="fa-solid fa-circle-check fs-4"></i>
-                                <span class="fw-bold small ms-2">Completed</span>
-                              </div>
-                              <div class="swipe-action-bg swipe-action-right bg-dark text-white">
-                                <span class="fw-bold small me-2">No-Show</span>
-                                <i class="fa-solid fa-user-slash fs-4"></i>
-                              </div>
-
-                              <div class="swipe-card-content p-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                  <div>
-                                    <span class="fw-bold text-dark fs-6">{{ appt.appointment_time }}</span>
-                                    <span class="badge ms-2 status-badge-{{ appt.id }} {% if appt.status == 'Completed' %}bg-success{% elif appt.status == 'Cancelled' %}bg-danger{% elif appt.status == 'No-Show' %}bg-dark{% else %}bg-warning text-dark{% endif %}">
-                                      {{ appt.status }}
-                                    </span>
-                                  </div>
-                                  <span class="fw-bold text-rose" style="color: var(--accent-rose);">{{ appt.service_price }} ETB</span>
+                        <tr class="swipe-row p-0">
+                            <td colspan="7" class="p-0 border-0">
+                                <div class="swipe-card-wrapper" id="appt-card-{{ appt.id }}">
+                                    <div class="swipe-action-bg swipe-action-left bg-success text-white">
+                                        <i class="fa-solid fa-circle-check fs-5"></i>
+                                        <span class="fw-bold small ms-2">Completed</span>
+                                    </div>
+                                    <div class="swipe-action-bg swipe-action-right bg-dark text-white">
+                                        <span class="fw-bold small me-2">No-Show</span>
+                                        <i class="fa-solid fa-user-slash fs-5"></i>
+                                    </div>
+                                    <div class="swipe-card-content p-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div>
+                                                <span class="fw-bold fs-6">{{ appt.appointment_time }}</span>
+                                                <span class="badge ms-2 status-badge-{{ appt.id }}
+                                                    {% if appt.status.value == 'Completed' %}bg-success
+                                                    {% elif appt.status.value == 'Cancelled' %}bg-danger
+                                                    {% elif appt.status.value == 'No-Show' %}bg-dark
+                                                    {% else %}bg-warning text-dark{% endif %}">
+                                                    {{ appt.status.value }}
+                                                </span>
+                                            </div>
+                                            <span class="fw-bold" style="color:var(--accent);">{{ "{:,.2f}".format(appt.service_price) }} ETB</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-end">
+                                            <div>
+                                                <div class="fw-bold">{{ appt.customer_name }}</div>
+                                                <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>{{ appt.customer_phone }}</div>
+                                                <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>{{ appt.service_name }} · {{ appt.staff_name }}</div>
+                                            </div>
+                                            <form action="/update-appointment-status" method="post" id="status-form-{{ appt.id }}">
+                                                <input type="hidden" name="appointment_id" value="{{ appt.id }}">
+                                                <select name="status" id="status-select-{{ appt.id }}"
+                                                        onchange="submitStatusAjax(this.form,'{{ appt.id }}')"
+                                                        class="form-select form-select-sm fw-semibold" style="width:auto;">
+                                                    <option value="Confirmed" {% if appt.status.value=='Confirmed' %}selected{% endif %}>Confirmed</option>
+                                                    <option value="Completed" {% if appt.status.value=='Completed' %}selected{% endif %}>Completed</option>
+                                                    <option value="No-Show" {% if appt.status.value=='No-Show' %}selected{% endif %}>No-Show</option>
+                                                    <option value="Cancelled" {% if appt.status.value=='Cancelled' %}selected{% endif %}>Cancelled</option>
+                                                </select>
+                                            </form>
+                                        </div>
+                                    </div>
                                 </div>
-
-                                <div class="d-flex justify-content-between align-items-end">
-                                  <div>
-                                    <div class="fw-bold text-dark">{{ appt.customer_name }}</div>
-                                    <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>{{ appt.customer_phone }}</div>
-                                    <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>{{ appt.service_name }} ({{ appt.staff_name }})</div>
-                                  </div>
-
-                                  <form action="/update-appointment-status" method="post" id="status-form-{{ appt.id }}">
-                                    <input type="hidden" name="appointment_id" value="{{ appt.id }}">
-                                    <select name="status" id="status-select-{{ appt.id }}" onchange="submitStatusAjax(this.form, '{{ appt.id }}')" class="form-select form-select-sm fw-semibold">
-                                        <option value="Confirmed" {% if appt.status == 'Confirmed' %}selected{% endif %}>Confirmed</option>
-                                        <option value="Completed" {% if appt.status == 'Completed' %}selected{% endif %}>Completed</option>
-                                        <option value="No-Show" {% if appt.status == 'No-Show' %}selected{% endif %}>No-Show</option>
-                                        <option value="Cancelled" {% if appt.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
-                                    </select>
-                                  </form>
-                                </div>
-                              </div>
-
-                            </div>
-                          </td>
+                            </td>
                         </tr>
                         {% else %}
                         <tr id="noAppointmentsRow">
-                            <td colspan="7" class="text-center text-muted py-4">በዚህ ቀን ምንም የተቀጠረ ቀጠሮ የለም።</td>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <span data-lang-am>በዚህ ቀን ምንም ቀጠሮ የለም።</span>
+                                <span data-lang-en>No appointments on this day.</span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -528,45 +633,70 @@
         </section>
         {% endif %}
 
-        <!-- TAB 2: RESERVE LIST -->
+        <!-- ==================== WAITLIST ==================== -->
         {% if active_tab == 'reserve' %}
-        <section class="content-panel mb-4">
+        <section class="card-soft">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0">ተጠባባቂ ደንበኞች</h5>
-                <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addWaitlistModal">
-                    <i class="fa-solid fa-plus me-1"></i> ጨምር
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>ተጠባባቂ ደንበኞች</span>
+                    <span data-lang-en>Waitlist</span>
+                </h5>
+                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addWaitlistModal">
+                    <i class="fa-solid fa-plus me-1"></i>
+                    <span data-lang-am>ጨምር</span><span data-lang-en>Add</span>
                 </button>
             </div>
-
-            <div class="table-responsive-stack">
+            <div class="table-stack">
                 <table class="table align-middle mb-0">
                     <thead>
-                        <tr class="text-muted">
-                            <th>ደንበኛ</th>
-                            <th>ስልክ</th>
-                            <th>አገልግሎት</th>
-                            <th>ባለሙያ</th>
-                            <th>ቀን</th>
-                            <th>ቀጠሮ ስጠው</th>
+                        <tr class="text-muted small">
+                            <th><span data-lang-am>ደንበኛ</span><span data-lang-en>Customer</span></th>
+                            <th><span data-lang-am>ስልክ</span><span data-lang-en>Phone</span></th>
+                            <th><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></th>
+                            <th><span data-lang-am>ባለሙያ</span><span data-lang-en>Staff</span></th>
+                            <th><span data-lang-am>ቀን</span><span data-lang-en>Date</span></th>
+                            <th><span data-lang-am>ቀጠሮ ስጠው</span><span data-lang-en>Book</span></th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody id="reserveTableBody">
                         {% for w in waitlist_entries %}
                         <tr>
-                            <td data-label="ደንበኛ" class="fw-bold">{{ w.customer_name }}</td>
-                            <td data-label="ስልክ">{{ w.customer_phone }}</td>
-                            <td data-label="አገልግሎት">{{ w.service_name }}</td>
-                            <td data-label="ባለሙያ">{{ w.staff_name }}</td>
-                            <td data-label="ቀን">{{ w.preferred_date }}</td>
-                            <td data-label="ቦታ ስጠው">
-                                <form action="/convert-waitlist/{{ w.id }}" method="post" class="d-flex gap-1 align-items-center w-100">
-                                    <input type="datetime-local" name="appointment_time" class="form-control form-control-sm" required style="min-width: 140px;">
-                                    <button type="submit" class="btn btn-sm btn-rose text-nowrap">ስጠው</button>
+                            <td data-label="ደንበኛ / Customer" class="fw-bold">{{ w.customer_name }}</td>
+                            <td data-label="ስልክ / Phone">{{ w.customer_phone }}</td>
+                            <td data-label="አገልግሎት / Service">{{ w.service_name }}</td>
+                            <td data-label="ባለሙያ / Staff">{{ w.staff_name }}</td>
+                            <td data-label="ቀን / Date">{{ w.preferred_date }}</td>
+                            <td data-label="ቦታ ስጠው / Book">
+                                <form action="/convert-waitlist/{{ w.id }}" method="post" class="convert-waitlist-form">
+                                    <div class="d-flex flex-column gap-1">
+                                        <input type="date" class="form-control form-control-sm wl-date" value="{{ w.preferred_date }}" required>
+                                        <div class="d-flex gap-1 flex-wrap">
+                                            <select class="form-select form-select-sm wl-period" style="max-width:72px;">
+                                                <option value="ጧት">ጧት</option>
+                                                <option value="ቀን" selected>ቀን</option>
+                                                <option value="ማታ">ማታ</option>
+                                                <option value="ለሊት">ለሊት</option>
+                                            </select>
+                                            <select class="form-select form-select-sm wl-hour" style="max-width:56px;">
+                                                {% for h in range(1,13) %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+                                            </select>
+                                            <select class="form-select form-select-sm wl-min" style="max-width:56px;">
+                                                <option value="0">00</option>
+                                                <option value="15">15</option>
+                                                <option value="30">30</option>
+                                                <option value="45">45</option>
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-accent text-nowrap">
+                                                <span data-lang-am>ስጠው</span><span data-lang-en>Book</span>
+                                            </button>
+                                        </div>
+                                        <input type="hidden" name="appointment_time" class="wl-hidden" value="">
+                                    </div>
                                 </form>
                             </td>
-                            <td data-label="ሰርዝ" class="text-end">
-                                <form action="/delete-waitlist" method="post" onsubmit="return confirm('ከዝርዝሩ ማጥፋት እርግጠኛ ነዎት?')">
+                            <td class="text-end">
+                                <form action="/delete-waitlist" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete?':'ማጥፋት እርግጠኛ ነዎት?')">
                                     <input type="hidden" name="waitlist_id" value="{{ w.id }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i></button>
                                 </form>
@@ -574,7 +704,10 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">ምንም ተጠባባቂ ደንበኛ የለም።</td>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <span data-lang-am>ምንም ተጠባባቂ የለም።</span>
+                                <span data-lang-en>No one on the waitlist.</span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -583,81 +716,103 @@
         </section>
         {% endif %}
 
-        <!-- TAB 3: REVENUE -->
+        <!-- ==================== REVENUE ==================== -->
         {% if active_tab == 'revenue' %}
-        <section class="row g-3 mb-4">
+        <section class="row g-3 mb-3">
             <div class="col-6 col-md-4">
                 <div class="metric-card">
-                    <span class="text-muted small">የዛሬ ገቢ</span>
-                    <h4 class="fw-bold mt-2" style="color: var(--accent-rose);">{{ "{:,.2f}".format(daily_rev) }} ETB</h4>
+                    <span class="label" data-lang-am>የዛሬ ገቢ</span>
+                    <span class="label" data-lang-en>Today</span>
+                    <div class="value" style="color:var(--accent);">{{ "{:,.2f}".format(daily_rev) }} ETB</div>
                 </div>
             </div>
             <div class="col-6 col-md-4">
                 <div class="metric-card">
-                    <span class="text-muted small">የዚህ ሳምንት ገቢ</span>
-                    <h4 class="fw-bold mt-2 text-success">{{ "{:,.2f}".format(weekly_rev) }} ETB</h4>
+                    <span class="label" data-lang-am>የዚህ ሳምንት</span>
+                    <span class="label" data-lang-en>This week</span>
+                    <div class="value text-success">{{ "{:,.2f}".format(weekly_rev) }} ETB</div>
                 </div>
             </div>
             <div class="col-12 col-md-4">
                 <div class="metric-card">
-                    <span class="text-muted small">የዚህ ወር ገቢ</span>
-                    <h4 class="fw-bold mt-2 text-primary">{{ "{:,.2f}".format(monthly_rev) }} ETB</h4>
+                    <span class="label" data-lang-am>የዚህ ወር</span>
+                    <span class="label" data-lang-en>This month</span>
+                    <div class="value text-primary">{{ "{:,.2f}".format(monthly_rev) }} ETB</div>
                 </div>
             </div>
         </section>
-
-        <section class="content-panel mb-4">
-            <h5 class="fw-bold mb-3">በቀን ክልል ገቢ መፈለጊያ</h5>
+        <section class="card-soft">
+            <h5 class="fw-bold mb-3">
+                <span data-lang-am>በቀን ክልል ገቢ</span>
+                <span data-lang-en>Revenue by date range</span>
+            </h5>
             <form action="/dashboard" method="get" class="row g-2 align-items-end">
                 <input type="hidden" name="tab" value="revenue">
                 <div class="col-12 col-md-4">
-                    <label class="form-label text-muted small fw-semibold">መነሻ ቀን</label>
+                    <label class="form-label small text-muted fw-semibold">
+                        <span data-lang-am>መነሻ ቀን</span><span data-lang-en>Start date</span>
+                    </label>
                     <input type="date" name="start_date" class="form-control" value="{{ start_date }}" required>
                 </div>
                 <div class="col-12 col-md-4">
-                    <label class="form-label text-muted small fw-semibold">መድረሻ ቀን</label>
+                    <label class="form-label small text-muted fw-semibold">
+                        <span data-lang-am>መድረሻ ቀን</span><span data-lang-en>End date</span>
+                    </label>
                     <input type="date" name="end_date" class="form-control" value="{{ end_date }}" required>
                 </div>
                 <div class="col-12 col-md-4">
-                    <button type="submit" class="btn btn-rose w-100"><i class="fa-solid fa-filter me-1"></i> ገቢ አሳይ</button>
+                    <button type="submit" class="btn btn-accent w-100">
+                        <i class="fa-solid fa-filter me-1"></i>
+                        <span data-lang-am>አሳይ</span><span data-lang-en>Show</span>
+                    </button>
                 </div>
             </form>
             {% if custom_rev is not none %}
-            <div class="mt-3 p-3 rounded" style="background-color: var(--card-pink); border: 1px solid var(--border-soft);">
-                <span class="text-muted small fw-semibold">የተመረጠው ጊዜ ገቢ:</span>
-                <h3 class="fw-bold mb-0 text-dark mt-1">{{ "{:,.2f}".format(custom_rev) }} ETB</h3>
+            <div class="mt-3 p-3 rounded" style="background:#F6ECE1;border:1px solid var(--border);">
+                <span class="text-muted small fw-semibold" data-lang-am>የተመረጠው ጊዜ ገቢ:</span>
+                <span class="text-muted small fw-semibold" data-lang-en>Selected period:</span>
+                <h3 class="fw-bold mb-0 mt-1">{{ "{:,.2f}".format(custom_rev) }} ETB</h3>
             </div>
             {% endif %}
         </section>
         {% endif %}
 
-        <!-- TAB 4: SERVICES -->
+        <!-- ==================== SERVICES ==================== -->
         {% if active_tab == 'services' %}
-        <section class="content-panel">
+        <section class="card-soft">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0">አገልግሎቶች</h5>
-                <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addServiceModal"><i class="fa-solid fa-plus me-1"></i> አዲስ</button>
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>አገልግሎቶች</span><span data-lang-en>Services</span>
+                </h5>
+                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+                    <i class="fa-solid fa-plus me-1"></i>
+                    <span data-lang-am>አዲስ</span><span data-lang-en>Add</span>
+                </button>
             </div>
-            <div class="table-responsive-stack">
+            <div class="table-stack">
                 <table class="table align-middle mb-0">
                     <thead>
-                        <tr class="text-muted">
-                            <th>ስም</th>
-                            <th>ዋጋ</th>
-                            <th>ርዝመት</th>
-                            <th>ተግባር</th>
+                        <tr class="text-muted small">
+                            <th><span data-lang-am>ስም</span><span data-lang-en>Name</span></th>
+                            <th><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></th>
+                            <th><span data-lang-am>ርዝመት</span><span data-lang-en>Duration</span></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for s in services %}
                         <tr>
-                            <td data-label="ስም" class="fw-bold">{{ s.name }}</td>
-                            <td data-label="ዋጋ">{{ s.price }} ETB</td>
-                            <td data-label="ርዝመት">{{ s.duration_minutes }} ደቂቃ</td>
-                            <td data-label="ተግባር" class="text-end">
-                                <form action="/delete-service" method="post" onsubmit="return confirm('አገልግሎቱን ማጥፋት እርግጠኛ ነዎት?')">
+                            <td data-label="ስም / Name" class="fw-bold">{{ s.name }}</td>
+                            <td data-label="ዋጋ / Price">{{ s.price }} ETB</td>
+                            <td data-label="ርዝመት / Duration">{{ s.duration_minutes }}
+                                <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>
+                            </td>
+                            <td class="text-end">
+                                <form action="/delete-service" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete service?':'አገልግሎቱን ማጥፋት እርግጠኛ ነዎት?')">
                                     <input type="hidden" name="service_id" value="{{ s.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i> ሰርዝ</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
                                 </form>
                             </td>
                         </tr>
@@ -668,471 +823,922 @@
         </section>
         {% endif %}
 
-        <!-- TAB 5: STAFF -->
+        <!-- ==================== STAFF ==================== -->
         {% if active_tab == 'staff' %}
-        <section class="content-panel">
+        <section class="card-soft">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0">ሰራተኞች</h5>
-                <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addStaffModal"><i class="fa-solid fa-plus me-1"></i> አዲስ</button>
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>ሰራተኞች</span><span data-lang-en>Staff</span>
+                </h5>
+                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addStaffModal">
+                    <i class="fa-solid fa-plus me-1"></i>
+                    <span data-lang-am>አዲስ</span><span data-lang-en>Add</span>
+                </button>
             </div>
-            <div class="table-responsive-stack">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr class="text-muted">
-                            <th>ስም</th>
-                            <th>ተግባር</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for st in staff_members %}
-                        <tr>
-                            <td data-label="ስም" class="fw-bold">{{ st.name }}</td>
-                            <td data-label="ተግባር" class="text-end">
-                                <form action="/delete-staff" method="post" onsubmit="return confirm('ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
+            <div class="d-flex flex-column gap-3">
+                {% for st in staff_members %}
+                <div class="p-3 rounded-3" style="border:1px solid var(--border);background:var(--bg-cream);">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+                        <div>
+                            <div class="fw-bold">{{ st.name }}</div>
+                            <div class="text-muted small mt-1"><i class="fa-solid fa-clock me-1"></i>{{ st.hours_label }}</div>
+                            <div class="text-muted small"><i class="fa-solid fa-calendar-days me-1"></i>{{ st.working_days_label }}</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-soft" data-bs-toggle="modal" data-bs-target="#editStaffModal-{{ st.id }}">
+                                <i class="fa-solid fa-pen"></i>
+                                <span data-lang-am>ሰዓት</span><span data-lang-en>Hours</span>
+                            </button>
+                            <form action="/delete-staff" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete staff?':'ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
+                                <input type="hidden" name="staff_id" value="{{ st.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    {% if st.day_offs %}
+                    <div class="mt-2 pt-2" style="border-top:1px dashed var(--border);">
+                        <span class="text-muted small fw-semibold d-block mb-1">
+                            <span data-lang-am>የፈቃድ ቀናት</span><span data-lang-en>Days off</span>
+                        </span>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for off in st.day_offs %}
+                            <form action="/delete-staff-dayoff" method="post" class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill" style="background:#F6ECE1;font-size:0.78rem;">
+                                <input type="hidden" name="dayoff_id" value="{{ off.id }}">
+                                <span>{{ off.off_date }}</span>
+                                <button type="submit" class="btn btn-sm p-0 border-0 text-danger" style="line-height:1;"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Edit staff schedule modal -->
+                <div class="modal fade" id="editStaffModal-{{ st.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="fw-bold m-0">{{ st.name }} —
+                                    <span data-lang-am>የስራ ሰዓት</span><span data-lang-en>Schedule</span>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form action="/update-staff-schedule" method="post">
+                                <div class="modal-body">
                                     <input type="hidden" name="staff_id" value="{{ st.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i> ሰርዝ</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input staff-custom-hours-toggle" type="checkbox" name="use_custom_hours" value="1"
+                                               id="customHours-{{ st.id }}" data-target="hoursFields-{{ st.id }}"
+                                               {% if st.opening_time %}checked{% endif %}>
+                                        <label class="form-check-label small fw-semibold" for="customHours-{{ st.id }}">
+                                            <span data-lang-am>የተለየ የስራ ሰዓት</span>
+                                            <span data-lang-en>Custom working hours</span>
+                                        </label>
+                                    </div>
+                                    <div id="hoursFields-{{ st.id }}" class="hours-row mb-3" style="{% if not st.opening_time %}display:none;{% endif %}">
+                                        <div>
+                                            <label class="form-label small text-muted">
+                                                <span data-lang-am>መጀመሪያ</span><span data-lang-en>Open</span>
+                                            </label>
+                                            <input type="time" name="opening_time" class="form-control"
+                                                   value="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}">
+                                        </div>
+                                        <div>
+                                            <label class="form-label small text-muted">
+                                                <span data-lang-am>መጨረሻ</span><span data-lang-en>Close</span>
+                                            </label>
+                                            <input type="time" name="closing_time" class="form-control"
+                                                   value="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}">
+                                        </div>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input staff-custom-days-toggle" type="checkbox" name="use_custom_days" value="1"
+                                               id="customDays-{{ st.id }}" data-target="daysFields-{{ st.id }}"
+                                               {% if st.working_days %}checked{% endif %}>
+                                        <label class="form-check-label small fw-semibold" for="customDays-{{ st.id }}">
+                                            <span data-lang-am>የተለየ የስራ ቀናት</span>
+                                            <span data-lang-en>Custom working days</span>
+                                        </label>
+                                    </div>
+                                    <div id="daysFields-{{ st.id }}" class="mb-3" style="{% if not st.working_days %}display:none;{% endif %}">
+                                        <div class="day-picker">
+                                            {% set day_names = ['ሰኞ','ማክሰ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'] %}
+                                            {% set staff_days = st.working_days.split(',') | map('int') | list if st.working_days else [] %}
+                                            {% for i in range(7) %}
+                                            <label class="day-toggle">
+                                                <input type="checkbox" name="working_days" value="{{ i }}" {% if i in staff_days %}checked{% endif %}>
+                                                <span>{{ day_names[i] }}</span>
+                                            </label>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <label class="form-label small text-muted fw-semibold">
+                                        <span data-lang-am>የፈቃድ ቀን ጨምር</span>
+                                        <span data-lang-en>Add day off</span>
+                                    </label>
+                                    <div class="d-flex gap-2">
+                                        <input type="date" class="form-control" id="dayoffDate-{{ st.id }}">
+                                        <button type="button" class="btn btn-outline-soft text-nowrap" onclick="submitDayOff({{ st.id }})">
+                                            <span data-lang-am>ጨምር</span><span data-lang-en>Add</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                                        <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
+                                    </button>
+                                    <button type="submit" class="btn btn-accent">
+                                        <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-4">
+                    <span data-lang-am>ምንም ሰራተኛ አልተመዘገበም።</span>
+                    <span data-lang-en>No staff registered yet.</span>
+                </p>
+                {% endfor %}
             </div>
+        </section>
+        <script>
+            function submitDayOff(staffId) {
+                const dateInput = document.getElementById(`dayoffDate-${staffId}`);
+                if (!dateInput.value) return;
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/add-staff-dayoff';
+                form.innerHTML = `<input type="hidden" name="staff_id" value="${staffId}">
+                                   <input type="hidden" name="off_date" value="${dateInput.value}">`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+            document.querySelectorAll('.staff-custom-hours-toggle, .staff-custom-days-toggle').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const target = document.getElementById(cb.dataset.target);
+                    if (target) target.style.display = cb.checked ? '' : 'none';
+                });
+            });
+        </script>
+        {% endif %}
+
+        <!-- ==================== SETTINGS (hours + address) ==================== -->
+        {% if active_tab == 'settings' %}
+        <section class="card-soft">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="fa-solid fa-clock" style="color:var(--accent);"></i>
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>የስራ ሰዓት እና ቀናት</span>
+                    <span data-lang-en>Working hours & days</span>
+                </h5>
+            </div>
+            <form action="/update-hours" method="post">
+                <div class="hours-row mb-3">
+                    <div>
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>መጀመሪያ ሰዓት</span>
+                            <span data-lang-en>Opening time</span>
+                        </label>
+                        <input type="time" name="opening_time" class="form-control"
+                               value="{{ salon.opening_time.strftime('%H:%M') }}" required>
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>መጨረሻ ሰዓት</span>
+                            <span data-lang-en>Closing time</span>
+                        </label>
+                        <input type="time" name="closing_time" class="form-control"
+                               value="{{ salon.closing_time.strftime('%H:%M') }}" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-semibold d-block">
+                        <span data-lang-am>የስራ ቀናት</span>
+                        <span data-lang-en>Working days</span>
+                    </label>
+                    <div class="day-picker">
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="0" {% if 0 in salon.working_days_set %}checked{% endif %}>
+                            <span>ሰኞ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="1" {% if 1 in salon.working_days_set %}checked{% endif %}>
+                            <span>ማክሰ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="2" {% if 2 in salon.working_days_set %}checked{% endif %}>
+                            <span>ረቡዕ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="3" {% if 3 in salon.working_days_set %}checked{% endif %}>
+                            <span>ሐሙስ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="4" {% if 4 in salon.working_days_set %}checked{% endif %}>
+                            <span>ዓርብ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="5" {% if 5 in salon.working_days_set %}checked{% endif %}>
+                            <span>ቅዳሜ</span>
+                        </label>
+                        <label class="day-toggle">
+                            <input type="checkbox" name="working_days" value="6" {% if 6 in salon.working_days_set %}checked{% endif %}>
+                            <span>እሁድ</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-semibold">
+                        <span data-lang-am>አድራሻ</span>
+                        <span data-lang-en>Address</span>
+                    </label>
+                    <input type="text" name="address" class="form-control" value="{{ salon.address or '' }}"
+                           placeholder="ቦሌ፣ አዲስ አበባ">
+                    <p class="small text-muted mt-1 mb-0">
+                        <span data-lang-am>በደንበኛ ቀጠሮ ገጽ ላይ ይታያል</span>
+                        <span data-lang-en>Shown on the public booking page</span>
+                    </p>
+                </div>
+                <button type="submit" class="btn btn-accent">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>
+                    <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
+                </button>
+            </form>
         </section>
         {% endif %}
 
     </main>
 </div>
 
-<!-- Mobile Bottom Navigation Bar -->
+<!-- Live toast -->
+<div id="bookingToast" class="notif-toast" role="alert">
+    <div class="fw-bold mb-1" style="font-size:0.95rem;">
+        <span class="live-dot"></span>
+        <span data-lang-am>አዲስ ቀጠሮ መጣ!</span>
+        <span data-lang-en>New booking!</span>
+    </div>
+    <div class="small text-muted" id="bookingToastBody">—</div>
+    <div class="mt-2 d-flex gap-2">
+        <a href="/dashboard?tab=home" class="btn btn-sm btn-accent">
+            <span data-lang-am>ወደ ሰሌዳ</span><span data-lang-en>Go to board</span>
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-soft" onclick="hideBookingToast()">
+            <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
+        </button>
+    </div>
+</div>
+
+<!-- Mobile bottom nav -->
 <nav class="bottom-nav d-md-none">
     <a href="/dashboard?tab=home" class="bottom-nav-item {% if active_tab == 'home' %}active{% endif %}">
         <i class="fa-solid fa-house"></i>
-        <span>ዋና ገጽ</span>
+        <span data-lang-am>ዋና</span><span data-lang-en>Home</span>
+        <span class="badge-counter position-absolute top-0 start-50 translate-middle-x d-none" id="mobileNewBookingBadge" style="margin-top:3px;">0</span>
     </a>
     <a href="/dashboard?tab=reserve" class="bottom-nav-item {% if active_tab == 'reserve' %}active{% endif %}">
         <i class="fa-solid fa-clock-rotate-left"></i>
-        <span>ተጠባባቂ</span>
-        <span class="badge-counter position-absolute top-0 start-50 translate-middle-x d-none" id="mobileReserveCounter" style="margin-top: 4px;">0</span>
+        <span data-lang-am>ተጠባባቂ</span><span data-lang-en>Waitlist</span>
+        <span class="badge-counter position-absolute top-0 start-50 translate-middle-x d-none" id="mobileReserveCounter" style="margin-top:3px;">0</span>
     </a>
     <a href="/dashboard?tab=revenue" class="bottom-nav-item {% if active_tab == 'revenue' %}active{% endif %}">
         <i class="fa-solid fa-chart-pie"></i>
-        <span>ገቢ</span>
+        <span data-lang-am>ገቢ</span><span data-lang-en>Revenue</span>
     </a>
     <a href="/dashboard?tab=services" class="bottom-nav-item {% if active_tab == 'services' %}active{% endif %}">
         <i class="fa-solid fa-scissors"></i>
-        <span>አገልግሎት</span>
+        <span data-lang-am>አገልግሎት</span><span data-lang-en>Services</span>
     </a>
     <a href="/dashboard?tab=staff" class="bottom-nav-item {% if active_tab == 'staff' %}active{% endif %}">
         <i class="fa-solid fa-users"></i>
-        <span>ሰራተኞች</span>
+        <span data-lang-am>ሰራተኞች</span><span data-lang-en>Staff</span>
+    </a>
+    <a href="/dashboard?tab=settings" class="bottom-nav-item {% if active_tab == 'settings' %}active{% endif %}">
+        <i class="fa-solid fa-gear"></i>
+        <span data-lang-am>ቅንብር</span><span data-lang-en>Settings</span>
     </a>
 </nav>
 
-<!-- MODALS -->
-<!-- 1. Book Walk-In Modal -->
+<!-- ========== MODALS ========== -->
+
+<!-- Book walk-in -->
 <div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/book-appointment" method="post">
-        <div class="modal-header">
-          <h5 class="modal-header-title fw-bold m-0">አዲስ ቀጠሮ መመዝገቢያ</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="/book-appointment" method="post">
+                <div class="modal-header">
+                    <h5 class="fw-bold m-0">
+                        <span data-lang-am>አዲስ ቀጠሮ</span>
+                        <span data-lang-en>New booking</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>የደንበኛ ስም</span><span data-lang-en>Customer name</span>
+                        </label>
+                        <input type="text" name="customer_name" class="form-control" required placeholder="አበበ ከበደ">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ስልክ ቁጥር</span><span data-lang-en>Phone</span>
+                        </label>
+                        <input type="tel" name="customer_phone" class="form-control" required placeholder="0911223344">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span>
+                        </label>
+                        <select name="service_id" class="form-select" required>
+                            {% for s in services %}
+                            <option value="{{ s.id }}">{{ s.name }} ({{ s.price }} ETB)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ባለሙያ</span><span data-lang-en>Staff</span>
+                        </label>
+                        <select name="staff_id" class="form-select" required>
+                            {% for st in staff_members %}
+                            <option value="{{ st.id }}">{{ st.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ቀን</span><span data-lang-en>Date</span>
+                        </label>
+                        <input type="date" id="bookEthDate" class="form-control" value="{{ current_date }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ሰዓት (በኢትዮጵያ ሰዓት)</span>
+                            <span data-lang-en>Time (Ethiopian)</span>
+                        </label>
+                        <div class="eth-time-picker">
+                            <div class="d-flex gap-2 mb-2">
+                                <button type="button" class="eth-period-btn active" data-period="ጧት" data-target="book">ጧት</button>
+                                <button type="button" class="eth-period-btn" data-period="ቀን" data-target="book">ቀን</button>
+                                <button type="button" class="eth-period-btn" data-period="ማታ" data-target="book">ማታ</button>
+                                <button type="button" class="eth-period-btn" data-period="ለሊት" data-target="book">ለሊት</button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small text-muted mb-1">1–12</label>
+                                    <select id="bookEthHour" class="form-select">
+                                        {% for h in range(1,13) %}
+                                        <option value="{{ h }}" {% if h == 9 %}selected{% endif %}>{{ h }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small text-muted mb-1">ደቂቃ</label>
+                                    <select id="bookEthMinute" class="form-select">
+                                        <option value="0">00</option>
+                                        <option value="15">15</option>
+                                        <option value="30">30</option>
+                                        <option value="45">45</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
+                        </div>
+                        <input type="hidden" name="appointment_time" id="bookAppointmentTime" value="">
+                        <p class="small text-muted mt-2 mb-0">{{ salon.hours_label }} · {{ salon.working_days_label }}</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                    </button>
+                    <button type="submit" class="btn btn-accent">
+                        <span data-lang-am>መዝግብ</span><span data-lang-en>Book</span>
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የደንበኛ ስም</label>
-            <input type="text" name="customer_name" class="form-control" required placeholder="ለምሳሌ፡ አበበ ከበደ">
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ስልክ ቁጥር</label>
-            <input type="tel" name="customer_phone" class="form-control" required placeholder="0911223344">
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">አገልግሎት</label>
-            <select name="service_id" class="form-select" required>
-              {% for s in services %}
-              <option value="{{ s.id }}">{{ s.name }} ({{ s.price }} ETB)</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ባለሙያ (ሰራተኛ)</label>
-            <select name="staff_id" class="form-select" required>
-              {% for st in staff_members %}
-              <option value="{{ st.id }}">{{ st.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ቀንና ሰዓት</label>
-            <input type="datetime-local" name="appointment_time" class="form-control" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ሰርዝ</button>
-          <button type="submit" class="btn btn-rose">መዝግብ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<!-- 2. Add Waitlist Modal -->
+<!-- Add waitlist -->
 <div class="modal fade" id="addWaitlistModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/add-waitlist" method="post">
-        <div class="modal-header">
-          <h5 class="modal-header-title fw-bold m-0">ተጠባባቂ ደንበኛ መመዝገቢያ</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="/add-waitlist" method="post">
+                <div class="modal-header">
+                    <h5 class="fw-bold m-0">
+                        <span data-lang-am>ተጠባባቂ መመዝገቢያ</span>
+                        <span data-lang-en>Add to waitlist</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ስም</span><span data-lang-en>Name</span>
+                        </label>
+                        <input type="text" name="customer_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ስልክ</span><span data-lang-en>Phone</span>
+                        </label>
+                        <input type="tel" name="customer_phone" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span>
+                        </label>
+                        <select name="service_id" class="form-select" required>
+                            {% for s in services %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ባለሙያ</span><span data-lang-en>Preferred staff</span>
+                        </label>
+                        <select name="staff_id" class="form-select">
+                            <option value="">Any</option>
+                            {% for st in staff_members %}
+                            <option value="{{ st.id }}">{{ st.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ቀን</span><span data-lang-en>Preferred date</span>
+                        </label>
+                        <input type="date" name="preferred_date" class="form-control" value="{{ current_date }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                    </button>
+                    <button type="submit" class="btn btn-accent">
+                        <span data-lang-am>መዝግብ</span><span data-lang-en>Save</span>
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የደንበኛ ስም</label>
-            <input type="text" name="customer_name" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ስልክ ቁጥር</label>
-            <input type="tel" name="customer_phone" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">አገልግሎት</label>
-            <select name="service_id" class="form-select" required>
-              {% for s in services %}
-              <option value="{{ s.id }}">{{ s.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የሚፈለግ ባለሙያ</label>
-            <select name="staff_id" class="form-select">
-              <option value="">ማንኛውም (Any)</option>
-              {% for st in staff_members %}
-              <option value="{{ st.id }}">{{ st.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የተመረጠ ቀን</label>
-            <input type="date" name="preferred_date" class="form-control" value="{{ current_date }}" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ሰርዝ</button>
-          <button type="submit" class="btn btn-rose">መዝግብ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<!-- 3. Add Service Modal -->
+<!-- Add service -->
 <div class="modal fade" id="addServiceModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/add-service" method="post">
-        <div class="modal-header">
-          <h5 class="modal-header-title fw-bold m-0">አዲስ አገልግሎት ጨምር</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="/add-service" method="post">
+                <div class="modal-header">
+                    <h5 class="fw-bold m-0">
+                        <span data-lang-am>አዲስ አገልግሎት</span>
+                        <span data-lang-en>New service</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ስም</span><span data-lang-en>Name</span>
+                        </label>
+                        <input type="text" name="name" class="form-control" required placeholder="ፀጉር መቁረጥ">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ዋጋ (ETB)</span><span data-lang-en>Price (ETB)</span>
+                        </label>
+                        <input type="number" step="0.01" name="price" class="form-control" required placeholder="300.00">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ጊዜ (ደቂቃ)</span><span data-lang-en>Duration (minutes)</span>
+                        </label>
+                        <input type="number" name="duration_minutes" class="form-control" required value="60">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                    </button>
+                    <button type="submit" class="btn btn-accent">
+                        <span data-lang-am>መዝግብ</span><span data-lang-en>Save</span>
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የአገልግሎት ስም</label>
-            <input type="text" name="name" class="form-control" required placeholder="ለምሳሌ፡ ፀጉር መቁረጥ">
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ዋጋ (ETB)</label>
-            <input type="number" step="0.01" name="price" class="form-control" required placeholder="300.00">
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የሚወስደው ጊዜ (በደቂቃ)</label>
-            <input type="number" name="duration_minutes" class="form-control" required placeholder="45" value="60">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ሰርዝ</button>
-          <button type="submit" class="btn btn-rose">መዝግብ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<!-- 4. Add Staff Modal -->
+<!-- Search customer -->
+<div class="modal fade" id="searchCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="fw-bold m-0">
+                    <span data-lang-am>ደንበኛ ፈልግ</span>
+                    <span data-lang-en>Search customer</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex gap-2 mb-3">
+                    <input type="tel" id="customerSearchInput" class="form-control"
+                           placeholder="ስልክ ወይም ስም / Phone or name" autocomplete="off">
+                    <button type="button" class="btn btn-accent text-nowrap" onclick="searchCustomer()">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+                <div id="customerSearchStatus" class="text-muted small mb-2"></div>
+                <div id="customerSearchResults" class="d-flex flex-column gap-2" style="max-height:55vh;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add staff -->
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form action="/add-staff" method="post">
-        <div class="modal-header">
-          <h5 class="modal-header-title fw-bold m-0">አዲስ ሰራተኛ ጨምር</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="/add-staff" method="post">
+                <div class="modal-header">
+                    <h5 class="fw-bold m-0">
+                        <span data-lang-am>አዲስ ሰራተኛ</span>
+                        <span data-lang-en>New staff</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ስም</span><span data-lang-en>Name</span>
+                        </label>
+                        <input type="text" name="name" class="form-control" required placeholder="ሰለሞን">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                    </button>
+                    <button type="submit" class="btn btn-accent">
+                        <span data-lang-am>መዝግብ</span><span data-lang-en>Save</span>
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">የሰራተኛ ስም</label>
-            <input type="text" name="name" class="form-control" required placeholder="ለምሳሌ፡ ሰለሞን">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ሰርዝ</button>
-          <button type="submit" class="btn btn-rose">መዝግብ</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-<!-- JS Dependencies -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-    // Copy Client Booking Link
-    function copyBookingLink() {
-        const input = document.getElementById('bookingLinkInput');
-        input.select();
-        input.setSelectionRange(0, 99999);
-        navigator.clipboard.writeText(input.value).then(() => {
-            const btn = document.getElementById('copyBookingBtn');
-            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Copied!';
-            setTimeout(() => {
-                btn.innerHTML = '<i class="fa-solid fa-copy me-1"></i> Copy';
-            }, 2000);
-        });
-    }
+/* ========== Language toggle ========== */
+function applyLang(lang) {
+    document.documentElement.lang = lang;
+    localStorage.setItem('melkegna_lang', lang);
+    const label = lang === 'en' ? 'አማ' : 'EN';
+    const side = document.getElementById('langLabelSidebar');
+    if (side) side.textContent = label;
+}
+function toggleLang() {
+    const next = document.documentElement.lang === 'en' ? 'am' : 'en';
+    applyLang(next);
+}
+(function initLang() {
+    const saved = localStorage.getItem('melkegna_lang') || 'am';
+    applyLang(saved);
+})();
 
-    // Dynamic AJAX Status Update (expects JSON from backend)
-    function submitStatusAjax(formElement, appointmentId) {
-        const formData = new FormData(formElement);
-        fetch('/update-appointment-status', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                const badge = document.querySelector(`.status-badge-${appointmentId}`);
-                if (badge) {
-                    badge.textContent = data.status;
-                    badge.className = `badge ms-2 status-badge-${appointmentId} `;
-                    if (data.status === 'Completed') badge.classList.add('bg-success');
-                    else if (data.status === 'Cancelled') badge.classList.add('bg-danger');
-                    else if (data.status === 'No-Show') badge.classList.add('bg-dark');
-                    else badge.classList.add('bg-warning', 'text-dark');
-                }
-            }
-        })
-        .catch(err => console.error("Error updating status:", err));
-    }
-
-    // Touch Swipe Mechanics for Mobile Cards
-    document.addEventListener('DOMContentLoaded', () => {
-        const swipeContents = document.querySelectorAll('.swipe-card-content');
-        
-        swipeContents.forEach(content => {
-            let startX = 0;
-            let currentX = 0;
-            let isSwiping = false;
-
-            content.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
-                isSwiping = true;
-                content.style.transition = 'none';
-            }, { passive: true });
-
-            content.addEventListener('touchmove', (e) => {
-                if (!isSwiping) return;
-                currentX = e.touches[0].clientX - startX;
-                // Limit swipe boundary
-                if (Math.abs(currentX) < 140) {
-                    content.style.transform = `translateX(${currentX}px)`;
-                }
-            }, { passive: true });
-
-            content.addEventListener('touchend', () => {
-                if (!isSwiping) return;
-                isSwiping = false;
-                content.style.transition = 'transform 0.2s ease-out';
-                
-                const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
-                const selectEl = document.getElementById(`status-select-${cardId}`);
-                const formEl = document.getElementById(`status-form-${cardId}`);
-
-                if (currentX > 80) {
-                    // Swiped Right -> Mark Completed
-                    if (selectEl) {
-                        selectEl.value = 'Completed';
-                        submitStatusAjax(formEl, cardId);
-                    }
-                } else if (currentX < -80) {
-                    // Swiped Left -> Mark No-Show
-                    if (selectEl) {
-                        selectEl.value = 'No-Show';
-                        submitStatusAjax(formEl, cardId);
-                    }
-                }
-
-                content.style.transform = 'translateX(0px)';
-                currentX = 0;
-            });
-        });
-
-        // Native Mobile Pull-To-Refresh
-        const mainArea = document.getElementById('mainScrollArea');
-        const ptrIndicator = document.getElementById('ptrIndicator');
-        let ptrStartY = 0;
-        let ptrPullY = 0;
-
-        mainArea.addEventListener('touchstart', (e) => {
-            if (mainArea.scrollTop === 0) {
-                ptrStartY = e.touches[0].clientY;
-            }
-        }, { passive: true });
-
-        mainArea.addEventListener('touchmove', (e) => {
-            if (ptrStartY > 0 && mainArea.scrollTop === 0) {
-                ptrPullY = e.touches[0].clientY - ptrStartY;
-                if (ptrPullY > 0 && ptrPullY < 120) {
-                    ptrIndicator.style.transform = `translate(-50%, ${ptrPullY}px) rotate(${ptrPullY * 2}deg)`;
-                }
-            }
-        }, { passive: true });
-
-        mainArea.addEventListener('touchend', () => {
-            if (ptrPullY > 70) {
-                ptrIndicator.style.transform = `translate(-50%, 60px) rotate(360deg)`;
-                location.reload();
-            } else {
-                ptrIndicator.style.transform = `translate(-50%, -50px)`;
-            }
-            ptrStartY = 0;
-            ptrPullY = 0;
-        });
+/* ========== Copy booking link ========== */
+function copyBookingLink() {
+    const input = document.getElementById('bookingLinkInput');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        const btn = document.getElementById('copyBookingBtn');
+        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-copy me-1"></i> Copy'; }, 1800);
     });
+}
 
-    // WebSocket Live Updates — path + event name aligned with backend
+/* ========== Customer search ========== */
+function searchCustomer() {
+    const q = document.getElementById('customerSearchInput').value.trim();
+    const statusEl = document.getElementById('customerSearchStatus');
+    const resultsEl = document.getElementById('customerSearchResults');
+    resultsEl.innerHTML = '';
+    if (!q) {
+        statusEl.textContent = document.documentElement.lang === 'en' ? 'Enter phone or name.' : 'ስልክ ወይም ስም ያስገቡ።';
+        return;
+    }
+    statusEl.textContent = document.documentElement.lang === 'en' ? 'Searching…' : 'በመፈለግ ላይ...';
+    fetch(`/search-customer?q=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' } })
+        .then(r => r.json())
+        .then(data => {
+            const results = data.results || [];
+            if (!results.length) {
+                statusEl.textContent = document.documentElement.lang === 'en' ? 'No results.' : 'ምንም ውጤት አልተገኘም።';
+                return;
+            }
+            statusEl.textContent = `${results.length} ` + (document.documentElement.lang === 'en' ? 'result(s)' : 'ውጤት(ት)');
+            results.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'p-3 rounded-3';
+                card.style.cssText = 'background:var(--bg-cream);border:1px solid var(--border);';
+                card.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-bold">${c.customer_name || ''}</div>
+                            <div class="text-muted small">${c.customer_phone || ''}</div>
+                            ${c.service_name ? `<div class="text-muted small mt-1"><i class="fa-solid fa-scissors me-1"></i>${c.service_name}${c.appointment_time ? ' — ' + c.appointment_time : ''}</div>` : ''}
+                            ${c.status ? `<span class="badge bg-secondary mt-1">${c.status}</span>` : ''}
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            <a href="tel:${c.customer_phone}" class="btn btn-sm btn-accent"><i class="fa-solid fa-phone"></i></a>
+                            <a href="sms:${c.customer_phone}" class="btn btn-sm btn-outline-soft"><i class="fa-solid fa-comment-sms"></i></a>
+                        </div>
+                    </div>`;
+                resultsEl.appendChild(card);
+            });
+        })
+        .catch(() => {
+            statusEl.textContent = document.documentElement.lang === 'en' ? 'Error. Try again.' : 'ስህተት ተፈጥሯል።';
+        });
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const si = document.getElementById('customerSearchInput');
+    if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); searchCustomer(); } });
+    const sm = document.getElementById('searchCustomerModal');
+    if (sm) sm.addEventListener('shown.bs.modal', () => si && si.focus());
+});
+
+/* ========== Status AJAX ========== */
+function submitStatusAjax(form, id) {
+    const fd = new FormData(form);
+    fetch('/update-appointment-status', {
+        method: 'POST', body: fd,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        const badge = document.querySelector(`.status-badge-${id}`);
+        if (!badge) return;
+        badge.textContent = data.status;
+        badge.className = `badge ms-2 status-badge-${id}`;
+        if (data.status === 'Completed') badge.classList.add('bg-success');
+        else if (data.status === 'Cancelled') badge.classList.add('bg-danger');
+        else if (data.status === 'No-Show') badge.classList.add('bg-dark');
+        else badge.classList.add('bg-warning', 'text-dark');
+    })
+    .catch(console.error);
+}
+
+/* ========== Swipe ========== */
+function attachSwipe(content) {
+    let startX = 0, currentX = 0, swiping = false;
+    content.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX; swiping = true; content.style.transition = 'none';
+    }, { passive: true });
+    content.addEventListener('touchmove', e => {
+        if (!swiping) return;
+        currentX = e.touches[0].clientX - startX;
+        if (Math.abs(currentX) < 140) content.style.transform = `translateX(${currentX}px)`;
+    }, { passive: true });
+    content.addEventListener('touchend', () => {
+        if (!swiping) return;
+        swiping = false;
+        content.style.transition = 'transform 0.2s ease-out';
+        const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
+        const sel = document.getElementById(`status-select-${cardId}`);
+        const form = document.getElementById(`status-form-${cardId}`);
+        if (currentX > 80 && sel) { sel.value = 'Completed'; submitStatusAjax(form, cardId); }
+        else if (currentX < -80 && sel) { sel.value = 'No-Show'; submitStatusAjax(form, cardId); }
+        content.style.transform = 'translateX(0)';
+        currentX = 0;
+    });
+}
+
+/* ========== Pull to refresh ========== */
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.swipe-card-content').forEach(attachSwipe);
+
+    const main = document.getElementById('mainScrollArea');
+    const ptr = document.getElementById('ptrIndicator');
+    let startY = 0, pullY = 0;
+    main.addEventListener('touchstart', e => {
+        if (main.scrollTop === 0) startY = e.touches[0].clientY;
+    }, { passive: true });
+    main.addEventListener('touchmove', e => {
+        if (startY > 0 && main.scrollTop === 0) {
+            pullY = e.touches[0].clientY - startY;
+            if (pullY > 0 && pullY < 110) ptr.style.transform = `translate(-50%, ${pullY}px) rotate(${pullY * 2}deg)`;
+        }
+    }, { passive: true });
+    main.addEventListener('touchend', () => {
+        if (pullY > 65) { ptr.style.transform = 'translate(-50%, 55px) rotate(360deg)'; location.reload(); }
+        else ptr.style.transform = 'translate(-50%, -48px)';
+        startY = 0; pullY = 0;
+    });
+});
+
+/* ========== Live notifications ========== */
+let newBookingCount = 0;
+function playBeep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; g.gain.value = 0.08; o.start();
+        setTimeout(() => { o.frequency.value = 1175; }, 90);
+        setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2); o.stop(ctx.currentTime + 0.22); }, 180);
+    } catch (_) {}
+}
+function showBookingToast(appt) {
+    const toast = document.getElementById('bookingToast');
+    const body = document.getElementById('bookingToastBody');
+    if (!toast || !body) return;
+    body.innerHTML = `<strong>${appt.customer_name || ''}</strong> · ${appt.service_name || ''}<br>
+        <span style="color:var(--accent)">${appt.appointment_time || ''}</span> · ${appt.staff_name || ''}`;
+    toast.classList.add('show');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(hideBookingToast, 12000);
+}
+function hideBookingToast() {
+    const t = document.getElementById('bookingToast');
+    if (t) t.classList.remove('show');
+}
+function bumpBadges() {
+    newBookingCount += 1;
+    ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.textContent = newBookingCount; b.classList.remove('d-none'); }
+    });
+}
+function requestNotif() {
+    if ('Notification' in window && Notification.permission === 'default')
+        Notification.requestPermission().catch(() => {});
+}
+function showBrowserNotif(appt) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+        const n = new Notification('መልከኛ · አዲስ ቀጠሮ', {
+            body: `${appt.customer_name || ''} — ${appt.service_name || ''} · ${appt.appointment_time || ''}`,
+            icon: '/favicon.ico', tag: 'melkegna-' + (appt.id || Date.now())
+        });
+        n.onclick = () => { window.focus(); n.close(); };
+        setTimeout(() => n.close(), 10000);
+    } catch (_) {}
+}
+document.addEventListener('DOMContentLoaded', () => setTimeout(requestNotif, 2500));
+
+/* WebSocket */
+document.addEventListener('DOMContentLoaded', () => {
     const salonId = {{ salon.id }};
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/salon/${salonId}`);
-
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${wsProto}//${location.host}/ws/salon/${salonId}`);
     socket.onmessage = function(event) {
         const data = JSON.parse(event.data);
-        if (data.event === 'new_booking') {
-            const appt = data.appointment;
-            
-            // Increment today's appt counter dynamically
-            const counterEl = document.getElementById('metricTodayApptCount');
-            if (counterEl) {
-                counterEl.textContent = parseInt(counterEl.textContent || '0') + 1;
-            }
-
-            const tableBody = document.getElementById('appointmentsListTable');
-            const noRow = document.getElementById('noAppointmentsRow');
-            if (noRow) noRow.remove();
-
-            if (tableBody) {
-                const newRowHTML = `
-                <tr class="swipe-row-container p-0">
-                  <td colspan="7" class="p-0 border-0">
-                    <div class="swipe-card-wrapper new-booking-highlight" id="appt-card-${appt.id}">
-                      <div class="swipe-action-bg swipe-action-left bg-success text-white">
-                        <i class="fa-solid fa-circle-check fs-4"></i>
-                        <span class="fw-bold small ms-2">Completed</span>
-                      </div>
-                      <div class="swipe-action-bg swipe-action-right bg-dark text-white">
-                        <span class="fw-bold small me-2">No-Show</span>
-                        <i class="fa-solid fa-user-slash fs-4"></i>
-                      </div>
-                      <div class="swipe-card-content p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                          <div>
-                            <span class="fw-bold text-dark fs-6">${appt.appointment_time}</span>
-                            <span class="badge ms-2 status-badge-${appt.id} bg-warning text-dark">${appt.status}</span>
-                          </div>
-                          <span class="fw-bold text-rose" style="color: var(--accent-rose);">${appt.service_price} ETB</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-end">
-                          <div>
-                            <div class="fw-bold text-dark">${appt.customer_name}</div>
-                            <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>${appt.customer_phone}</div>
-                            <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>${appt.service_name} (${appt.staff_name})</div>
-                          </div>
-                          <form action="/update-appointment-status" method="post" id="status-form-${appt.id}">
-                            <input type="hidden" name="appointment_id" value="${appt.id}">
-                            <select name="status" id="status-select-${appt.id}" onchange="submitStatusAjax(this.form, '${appt.id}')" class="form-select form-select-sm fw-semibold">
-                                <option value="Confirmed" selected>Confirmed</option>
-                                <option value="Completed">Completed</option>
-                                <option value="No-Show">No-Show</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>`;
-                
-                tableBody.insertAdjacentHTML('afterbegin', newRowHTML);
-
-                // Re-attach swipe listeners for the newly inserted card
-                const newContent = document.querySelector(`#appt-card-${appt.id} .swipe-card-content`);
-                if (newContent) {
-                    attachSwipe(newContent);
-                }
-            }
+        if (data.event !== 'new_booking') return;
+        const appt = data.appointment;
+        const isOnline = !appt.source || appt.source === 'online';
+        if (isOnline) {
+            bumpBadges();
+            showBookingToast(appt);
+            playBeep();
+            showBrowserNotif(appt);
         }
+        const counter = document.getElementById('metricTodayApptCount');
+        if (counter) counter.textContent = parseInt(counter.textContent || '0') + 1;
+
+        const table = document.getElementById('appointmentsListTable');
+        const noRow = document.getElementById('noAppointmentsRow');
+        if (noRow) noRow.remove();
+        if (!table) return;
+
+        const html = `
+        <tr class="swipe-row p-0">
+          <td colspan="7" class="p-0 border-0">
+            <div class="swipe-card-wrapper new-booking-highlight" id="appt-card-${appt.id}">
+              <div class="swipe-action-bg swipe-action-left bg-success text-white">
+                <i class="fa-solid fa-circle-check fs-5"></i><span class="fw-bold small ms-2">Completed</span>
+              </div>
+              <div class="swipe-action-bg swipe-action-right bg-dark text-white">
+                <span class="fw-bold small me-2">No-Show</span><i class="fa-solid fa-user-slash fs-5"></i>
+              </div>
+              <div class="swipe-card-content p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div>
+                    <span class="fw-bold fs-6">${appt.appointment_time}</span>
+                    <span class="badge ms-2 status-badge-${appt.id} bg-warning text-dark">${appt.status}</span>
+                  </div>
+                  <span class="fw-bold" style="color:var(--accent);">${appt.service_price} ETB</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-end">
+                  <div>
+                    <div class="fw-bold">${appt.customer_name}</div>
+                    <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>${appt.customer_phone}</div>
+                    <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>${appt.service_name} · ${appt.staff_name}</div>
+                  </div>
+                  <form action="/update-appointment-status" method="post" id="status-form-${appt.id}">
+                    <input type="hidden" name="appointment_id" value="${appt.id}">
+                    <select name="status" id="status-select-${appt.id}" onchange="submitStatusAjax(this.form,'${appt.id}')"
+                            class="form-select form-select-sm fw-semibold" style="width:auto;">
+                      <option value="Confirmed" selected>Confirmed</option>
+                      <option value="Completed">Completed</option>
+                      <option value="No-Show">No-Show</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+        table.insertAdjacentHTML('afterbegin', html);
+        const nc = document.querySelector(`#appt-card-${appt.id} .swipe-card-content`);
+        if (nc) attachSwipe(nc);
     };
+});
 
-    // Helper so live-injected cards also get swipe support
-    function attachSwipe(content) {
-        let startX = 0;
-        let currentX = 0;
-        let isSwiping = false;
+/* ========== Ethiopian time helpers ========== */
+function ethToWestern(period, displayH, minute) {
+    let wh;
+    if (period === 'ጧት') wh = displayH === 12 ? 6 : 6 + displayH;
+    else if (period === 'ቀን') wh = displayH === 6 ? 12 : 12 + (displayH - 6);
+    else if (period === 'ማታ') wh = displayH === 12 ? 18 : 18 + displayH;
+    else wh = displayH - 6;
+    return { hour: wh, minute };
+}
 
-        content.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            isSwiping = true;
-            content.style.transition = 'none';
-        }, { passive: true });
+let bookPeriod = 'ጧት';
+function updateBookEth() {
+    const dateVal = document.getElementById('bookEthDate')?.value;
+    const hour = parseInt(document.getElementById('bookEthHour')?.value || '9', 10);
+    const minute = parseInt(document.getElementById('bookEthMinute')?.value || '0', 10);
+    const preview = document.getElementById('bookEthPreview');
+    const hidden = document.getElementById('bookAppointmentTime');
+    if (preview) preview.textContent = `${bookPeriod} ${hour}:${String(minute).padStart(2,'0')} ሰዓት`;
+    if (!hidden) return;
+    if (!dateVal) { hidden.value = ''; return; }
+    const w = ethToWestern(bookPeriod, hour, minute);
+    hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+}
 
-        content.addEventListener('touchmove', (e) => {
-            if (!isSwiping) return;
-            currentX = e.touches[0].clientX - startX;
-            if (Math.abs(currentX) < 140) {
-                content.style.transform = `translateX(${currentX}px)`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.eth-period-btn[data-target="book"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.eth-period-btn[data-target="book"]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            bookPeriod = btn.dataset.period;
+            updateBookEth();
+        });
+    });
+    ['bookEthDate','bookEthHour','bookEthMinute'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', updateBookEth);
+    });
+    updateBookEth();
+    const bookForm = document.querySelector('#bookModal form');
+    if (bookForm) {
+        bookForm.addEventListener('submit', e => {
+            updateBookEth();
+            if (!document.getElementById('bookAppointmentTime').value) {
+                e.preventDefault();
+                alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
             }
-        }, { passive: true });
-
-        content.addEventListener('touchend', () => {
-            if (!isSwiping) return;
-            isSwiping = false;
-            content.style.transition = 'transform 0.2s ease-out';
-            
-            const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
-            const selectEl = document.getElementById(`status-select-${cardId}`);
-            const formEl = document.getElementById(`status-form-${cardId}`);
-
-            if (currentX > 80) {
-                if (selectEl) {
-                    selectEl.value = 'Completed';
-                    submitStatusAjax(formEl, cardId);
-                }
-            } else if (currentX < -80) {
-                if (selectEl) {
-                    selectEl.value = 'No-Show';
-                    submitStatusAjax(formEl, cardId);
-                }
-            }
-
-            content.style.transform = 'translateX(0px)';
-            currentX = 0;
         });
     }
-</script>
+});
 
+/* Waitlist convert forms */
+function updateWlForm(form) {
+    const dateVal = form.querySelector('.wl-date')?.value;
+    const period = form.querySelector('.wl-period')?.value || 'ቀን';
+    const hour = parseInt(form.querySelector('.wl-hour')?.value || '7', 10);
+    const minute = parseInt(form.querySelector('.wl-min')?.value || '0', 10);
+    const hidden = form.querySelector('.wl-hidden');
+    if (!hidden) return;
+    if (!dateVal) { hidden.value = ''; return; }
+    const w = ethToWestern(period, hour, minute);
+    hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.convert-waitlist-form').forEach(form => {
+        ['change','input'].forEach(ev => form.addEventListener(ev, () => updateWlForm(form)));
+        updateWlForm(form);
+        form.addEventListener('submit', e => {
+            updateWlForm(form);
+            if (!form.querySelector('.wl-hidden').value) {
+                e.preventDefault();
+                alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
+            }
+        });
+    });
+});
+</script>
 </body>
 </html>
