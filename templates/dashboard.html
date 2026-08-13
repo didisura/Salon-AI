@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ salon.name }} - መልከኛ Admin</title>
-
+    
     <!-- Bootstrap 5, FontAwesome & Custom Fonts -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
@@ -12,24 +12,24 @@
 
     <style>
         :root {
-            --bg-cream: #FFFFFF;
-            --sidebar-pink: #F1E4D6;
-            --card-pink: #F6ECE1;
-            --accent-rose: #9C6B3F;
-            --accent-rose-hover: #7E5530;
+            --bg-cream: #FFFDF9;
+            --sidebar-pink: #F7EBE8;
+            --card-pink: #FAF0ED;
+            --accent-rose: #C87A76;
+            --accent-rose-hover: #B56864;
             --text-dark: #2D2424;
             --text-muted: #7A6E6E;
-            --border-soft: #E3D3C0;
+            --border-soft: #EADCDA;
             --status-green: #2E7D32;
             --status-orange: #ED6C02;
             --font-main: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', sans-serif;
             --bottom-nav-height: 65px;
         }
 
-        body {
-            background: var(--bg-cream);
-            color: var(--text-dark);
-            font-family: var(--font-main);
+        body { 
+            background: var(--bg-cream); 
+            color: var(--text-dark); 
+            font-family: var(--font-main); 
             min-height: 100vh;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
@@ -37,15 +37,16 @@
 
         .wrapper { display: flex; min-height: 100vh; }
 
-        .sidebar {
-            width: 260px;
-            background: var(--sidebar-pink);
+        /* Desktop Sidebar Navigation */
+        .sidebar { 
+            width: 260px; 
+            background: var(--sidebar-pink); 
             border-right: 1px solid var(--border-soft);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 32px 20px;
-            flex-shrink: 0;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            padding: 32px 20px; 
+            flex-shrink: 0; 
         }
 
         .logo { text-align: center; margin-bottom: 32px; }
@@ -54,27 +55,28 @@
         .logo small { color: var(--accent-rose); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
 
         .nav-menu { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-        .nav-menu li a {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 18px;
-            color: var(--text-dark);
-            text-decoration: none;
-            border-radius: 14px;
-            font-size: 0.95rem;
+        .nav-menu li a { 
+            display: flex; 
+            align-items: center; 
+            gap: 14px; 
+            padding: 12px 18px; 
+            color: var(--text-dark); 
+            text-decoration: none; 
+            border-radius: 14px; 
+            font-size: 0.95rem; 
             font-weight: 500;
             transition: all 0.2s ease;
             position: relative;
         }
-        .nav-menu li.active a, .nav-menu li a:hover {
-            background: var(--accent-rose);
-            color: #FFFFFF;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(156, 107, 63, 0.2);
+        .nav-menu li.active a, .nav-menu li a:hover { 
+            background: var(--accent-rose); 
+            color: #FFFFFF; 
+            font-weight: 600; 
+            box-shadow: 0 4px 12px rgba(200, 122, 118, 0.2);
         }
         .nav-menu li a i { width: 20px; text-align: center; }
 
+        /* Mobile Bottom App Navigation */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -115,6 +117,7 @@
             color: var(--accent-rose);
         }
 
+        /* Pull to Refresh Indicator */
         .ptr-indicator {
             position: absolute;
             top: -50px;
@@ -133,80 +136,84 @@
             z-index: 1000;
         }
 
-        .main-content {
-            flex: 1;
-            padding: 24px 20px 90px 20px;
-            overflow-y: auto;
+        /* Main Viewport Container */
+        .main-content { 
+            flex: 1; 
+            padding: 24px 20px 90px 20px; 
+            overflow-y: auto; 
             position: relative;
             -webkit-overflow-scrolling: touch;
         }
 
         @media (min-width: 768px) {
-            .main-content { padding: 35px 40px; }
+            .main-content {
+                padding: 35px 40px;
+            }
         }
 
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 10px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .topbar h2 { font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-dark); }
 
         @media (min-width: 768px) {
             .topbar h2 { font-size: 1.75rem; }
         }
 
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 14px;
-            margin-bottom: 24px;
+        /* Metrics Cards */
+        .metrics-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 14px; 
+            margin-bottom: 24px; 
         }
 
         @media (min-width: 992px) {
-            .metrics-grid {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 20px;
+            .metrics-grid { 
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+                gap: 20px; 
             }
         }
 
-        .metric-card {
-            background: #FFFFFF;
-            border-radius: 18px;
-            padding: 16px;
-            border: 1px solid var(--border-soft);
+        .metric-card { 
+            background: #FFFFFF; 
+            border-radius: 18px; 
+            padding: 16px; 
+            border: 1px solid var(--border-soft); 
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015);
         }
 
-        .icon-box {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
+        .icon-box { 
+            width: 38px; 
+            height: 38px; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 1rem; 
         }
         .icon-rose { background: var(--card-pink); color: var(--accent-rose); }
         .icon-green { background: #E8F5E9; color: var(--status-green); }
         .icon-orange { background: #FFF3E0; color: var(--status-orange); }
         .icon-dark { background: #ECECEC; color: #3A3A3A; }
 
-        .content-panel {
-            background: #FFFFFF;
-            border-radius: 18px;
-            padding: 20px;
-            border: 1px solid var(--border-soft);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015);
+        .content-panel { 
+            background: #FFFFFF; 
+            border-radius: 18px; 
+            padding: 20px; 
+            border: 1px solid var(--border-soft); 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015); 
         }
 
         @media (min-width: 768px) {
             .content-panel { padding: 28px; }
         }
 
-        .btn-rose {
-            background: var(--accent-rose);
-            color: #FFFFFF;
-            border: none;
-            font-weight: 600;
-            padding: 12px 20px;
-            border-radius: 12px;
+        .btn-rose { 
+            background: var(--accent-rose); 
+            color: #FFFFFF; 
+            border: none; 
+            font-weight: 600; 
+            padding: 12px 20px; 
+            border-radius: 12px; 
             min-height: 44px;
             display: inline-flex;
             align-items: center;
@@ -215,7 +222,10 @@
         }
         .btn-rose:hover, .btn-rose:active { background: var(--accent-rose-hover); color: #FFFFFF; }
 
-        .swipe-row-container { background: transparent !important; }
+        /* Swipe Card Styles */
+        .swipe-row-container {
+            background: transparent !important;
+        }
 
         .swipe-card-wrapper {
             position: relative;
@@ -248,8 +258,9 @@
         .swipe-action-left { left: 0; justify-content: flex-start; }
         .swipe-action-right { right: 0; justify-content: flex-end; }
 
+        /* Pulse Highlight Animation for Incoming Live Online Bookings */
         @keyframes pulseNewBooking {
-            0% { background-color: rgba(156, 107, 63, 0.3); }
+            0% { background-color: rgba(200, 122, 118, 0.3); }
             100% { background-color: #FFFFFF; }
         }
 
@@ -257,6 +268,7 @@
             animation: pulseNewBooking 3s ease-out forwards;
         }
 
+        /* Badge Counters */
         .badge-counter {
             background-color: #D32F2F;
             color: #FFFFFF;
@@ -267,12 +279,12 @@
         }
 
         @media (max-width: 767.98px) {
-            .table-responsive-stack table,
-            .table-responsive-stack tbody,
-            .table-responsive-stack tr,
-            .table-responsive-stack td {
-                display: block;
-                width: 100%;
+            .table-responsive-stack table, 
+            .table-responsive-stack tbody, 
+            .table-responsive-stack tr, 
+            .table-responsive-stack td { 
+                display: block; 
+                width: 100%; 
             }
             .table-responsive-stack thead { display: none; }
             .table-responsive-stack tr:not(.swipe-row-container) {
@@ -307,139 +319,12 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--accent-rose);
-            box-shadow: 0 0 0 0.25rem rgba(156, 107, 63, 0.15);
+            box-shadow: 0 0 0 0.25rem rgba(200, 122, 118, 0.15);
         }
 
         .modal-content { border-radius: 20px; border: 1px solid var(--border-soft); }
         .modal-header { border-bottom: 1px solid var(--border-soft); }
         .modal-footer { border-top: 1px solid var(--border-soft); }
-
-        /* ---------- Working-hours editor (Home tab) ---------- */
-        .hours-row { display: flex; gap: 14px; flex-wrap: wrap; }
-        .hours-row > div { flex: 1; min-width: 140px; }
-
-        .day-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-        .day-toggle { position: relative; }
-        .day-toggle input {
-            position: absolute;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            cursor: pointer;
-        }
-        .day-toggle span {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            border-radius: 10px;
-            border: 1px solid var(--border-soft);
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            background: #FFFFFF;
-            transition: all 0.15s ease;
-        }
-        .day-toggle input:checked + span {
-            background: var(--accent-rose);
-            border-color: var(--accent-rose);
-            color: #FFFFFF;
-        }
-
-        /* ---------- Ethiopian time picker ---------- */
-        .eth-time-picker {
-            background: var(--card-pink);
-            border: 1px solid var(--border-soft);
-            border-radius: 14px;
-            padding: 14px;
-        }
-        .eth-period-btn {
-            flex: 1;
-            min-height: 40px;
-            border-radius: 10px;
-            border: 1px solid var(--border-soft);
-            background: #FFFFFF;
-            font-weight: 600;
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            transition: all 0.15s ease;
-        }
-        .eth-period-btn.active {
-            background: var(--accent-rose);
-            border-color: var(--accent-rose);
-            color: #FFFFFF;
-        }
-        .eth-preview {
-            margin-top: 10px;
-            font-weight: 700;
-            color: var(--accent-rose);
-            font-size: 1.05rem;
-            text-align: center;
-        }
-
-        /* ---------- Live booking notification ---------- */
-        .live-dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            background: #D32F2F;
-            display: inline-block;
-            margin-right: 6px;
-            animation: livePulse 1.4s ease-in-out infinite;
-            box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.55);
-        }
-        @keyframes livePulse {
-            0%   { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.55); }
-            70%  { box-shadow: 0 0 0 10px rgba(211, 47, 47, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
-        }
-        .notif-toast {
-            position: fixed;
-            top: 18px;
-            right: 18px;
-            z-index: 9999;
-            min-width: 280px;
-            max-width: 360px;
-            background: #FFFFFF;
-            border: 1px solid var(--border-soft);
-            border-left: 5px solid #D32F2F;
-            border-radius: 14px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.14);
-            padding: 14px 16px;
-            transform: translateX(120%);
-            transition: transform 0.35s cubic-bezier(.2,.8,.2,1);
-            font-family: var(--font-main);
-        }
-        .notif-toast.show { transform: translateX(0); }
-        .notif-toast .toast-title {
-            font-weight: 700;
-            color: var(--text-dark);
-            font-size: 0.95rem;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .notif-toast .toast-body {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            line-height: 1.45;
-        }
-        .notif-toast .toast-actions {
-            margin-top: 10px;
-            display: flex;
-            gap: 8px;
-        }
-        .badge-counter {
-            background-color: #D32F2F !important;
-            animation: badgePop 0.4s ease;
-        }
-        @keyframes badgePop {
-            0% { transform: scale(0.6); }
-            60% { transform: scale(1.25); }
-            100% { transform: scale(1); }
-        }
     </style>
 </head>
 <body>
@@ -453,12 +338,11 @@
                 <h2>መልከኛ</h2>
                 <small>MELKEGNA PLATFORM</small>
             </div>
-
+            
             <ul class="nav-menu">
                 <li class="{% if active_tab == 'home' %}active{% endif %}">
                     <a href="/dashboard?tab=home">
                         <i class="fa-solid fa-house"></i> <span>ዋና ገጽ</span>
-                        <span class="badge-counter ms-auto d-none" id="sidebarNewBookingBadge">0</span>
                     </a>
                 </li>
                 <li class="{% if active_tab == 'reserve' %}active{% endif %}">
@@ -478,7 +362,7 @@
                 </li>
             </ul>
         </div>
-
+        
         <a href="/logout" class="text-decoration-none px-3 fw-semibold" style="color: var(--accent-rose);">
             <i class="fa-solid fa-right-from-bracket me-2"></i> ውጣ (Logout)
         </a>
@@ -496,103 +380,23 @@
                 <h2>{{ salon.name }}</h2>
                 <p class="text-muted mb-0 small">እንኳን ደህና መጡ {{ salon.owner_name }} 👋</p>
             </div>
-
-            <div class="d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#searchCustomerModal" title="ደንበኛ ፈልግ በስልክ">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </button>
-
-                {% if active_tab == 'home' %}
-                <button class="btn btn-rose btn-sm d-md-none" data-bs-toggle="modal" data-bs-target="#bookModal">
-                    <i class="fa-solid fa-plus me-1"></i> አዲስ
-                </button>
-                <button class="btn btn-rose d-none d-md-inline-flex" data-bs-toggle="modal" data-bs-target="#bookModal">
-                    <i class="fa-solid fa-plus me-1"></i> አዲስ ቀጠሮ (Book Walk-in)
-                </button>
-                {% endif %}
-
-                <a href="/logout" class="btn btn-outline-danger btn-sm d-md-none" title="ውጣ (Logout)" onclick="return confirm('ውጣ ይፈልጋሉ?')">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                </a>
-            </div>
+            
+            {% if active_tab == 'home' %}
+            <button class="btn btn-rose btn-sm d-md-none" data-bs-toggle="modal" data-bs-target="#bookModal">
+                <i class="fa-solid fa-plus me-1"></i> አዲስ
+            </button>
+            <button class="btn btn-rose d-none d-md-inline-flex" data-bs-toggle="modal" data-bs-target="#bookModal">
+                <i class="fa-solid fa-plus me-1"></i> አዲስ ቀጠሮ (Book Walk-in)
+            </button>
+            {% endif %}
         </header>
 
         {% if error == 'conflict' %}
-        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
-            <div class="d-flex align-items-start gap-2 mb-3">
-                <i class="fa-solid fa-triangle-exclamation mt-1" style="color: #dc3545;"></i>
-                <div>
-                    <strong style="color: #842029;">ድርብ ቀጠሮ (Double-Booking Blocked):</strong>
-                    <span style="color: #842029;">ይህ ሰዓት ለ{{ conflict_staff_name }} አስቀድሞ ተይዟል ({{ conflict_time.split('T')[1] if conflict_time else '' }})።</span>
-                </div>
-            </div>
-
-            {% if next_slot %}
-            <form action="/book-appointment" method="post" class="d-inline-block me-2 mb-2">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                <input type="hidden" name="appointment_time" value="{{ next_slot }}">
-                <button type="submit" class="btn btn-sm btn-rose">
-                    <i class="fa-solid fa-clock me-1"></i> {{ conflict_staff_name }} በ{{ next_slot_display }} ያዙ
-                </button>
-            </form>
-            {% endif %}
-
-            {% for alt in alt_staff %}
-            <form action="/book-appointment" method="post" class="d-inline-block me-2 mb-2">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ alt.id }}">
-                <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
-                <button type="submit" class="btn btn-sm btn-outline-dark">
-                    <i class="fa-solid fa-user me-1"></i> በ{{ alt.name }} በተመሳሳይ ሰዓት
-                </button>
-            </form>
-            {% endfor %}
-
-            <form action="/add-waitlist" method="post" class="d-inline-block mb-2">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
-                <button type="submit" class="btn btn-sm btn-outline-secondary">
-                    <i class="fa-solid fa-list-check me-1"></i> ለዛሬ ተጠባባቂ ዝርዝር ላይ ጨምር
-                </button>
-            </form>
-
-            {% if not next_slot and not alt_staff %}
-            <p class="small text-muted mb-0 mt-2">ዛሬ ምንም ክፍት ሰዓት አልተገኘም። ተጠባባቂ ዝርዝር ላይ ብቻ መጨመር ይችላሉ።</p>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {% if error == 'outside_hours' %}
-        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
-            <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545;"></i>
-                <span style="color: #842029;">የመረጡት ሰዓት ከሳሎኑ የስራ ሰዓት/ቀን ውጪ ነው። የስራ ሰዓትዎን ከታች ማስተካከል ይችላሉ።</span>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if error == 'invalid_hours' and active_tab == 'home' %}
-        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
-            <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545;"></i>
-                <span style="color: #842029;">የስራ መጨረሻ ሰዓት ከመጀመሪያ ሰዓት በኋላ መሆን አለበት።</span>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if error == 'invalid_days' and active_tab == 'home' %}
-        <div class="content-panel mb-4" style="border-color: #f5c2c7; background: #fff5f5;">
-            <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545;"></i>
-                <span style="color: #842029;">ቢያንስ አንድ የስራ ቀን ይምረጡ።</span>
+        <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
+            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+            <div>
+                <strong>ድርብ ቀጠሮ (Double-Booking Blocked):</strong>
+                ይህ ሰዓት ለተመረጠው ባለሙያ አስቀድሞ ተይዟል። እባክዎ ሌላ ሰዓት ወይም ሌላ ባለሙያ ይምረጡ።
             </div>
         </div>
         {% endif %}
@@ -608,70 +412,6 @@
                 </button>
             </div>
         </div>
-
-        <!-- Working hours / working days editor -->
-        <section class="content-panel mb-4">
-            <div class="d-flex align-items-center gap-2 mb-3">
-                <i class="fa-solid fa-clock" style="color: var(--accent-rose);"></i>
-                <h5 class="fw-bold mb-0">የስራ ሰዓት እና ቀናት</h5>
-            </div>
-            <form action="/update-hours" method="post">
-                <div class="hours-row mb-3">
-                    <div>
-                        <label class="form-label small text-muted fw-semibold">የስራ መጀመሪያ ሰዓት</label>
-                        <input type="time" name="opening_time" class="form-control" value="{{ salon.opening_time.strftime('%H:%M') }}" required>
-                    </div>
-                    <div>
-                        <label class="form-label small text-muted fw-semibold">የስራ መጨረሻ ሰዓት</label>
-                        <input type="time" name="closing_time" class="form-control" value="{{ salon.closing_time.strftime('%H:%M') }}" required>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold d-block">የስራ ቀናት</label>
-                    <div class="day-picker">
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="0" {% if 0 in salon.working_days_set %}checked{% endif %}>
-                            <span>ሰኞ</span>
-                        </label>
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="1" {% if 1 in salon.working_days_set %}checked{% endif %}>
-                            <span>ማክሰ</span>
-                        </label>
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="2" {% if 2 in salon.working_days_set %}checked{% endif %}>
-                            <span>ረቡዕ</span>
-                        </label>
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="3" {% if 3 in salon.working_days_set %}checked{% endif %}>
-                            <span>ሐሙስ</span>
-                        </label>
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="4" {% if 4 in salon.working_days_set %}checked{% endif %}>
-                            <span>ዓርብ</span>
-                        </label>
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="5" {% if 5 in salon.working_days_set %}checked{% endif %}>
-                            <span>ቅዳሜ</span>
-                        </label>
-                        <label class="day-toggle">
-                            <input type="checkbox" name="working_days" value="6" {% if 6 in salon.working_days_set %}checked{% endif %}>
-                            <span>እሁድ</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">አድራሻ (Location)</label>
-                    <input type="text" name="address" class="form-control" value="{{ salon.address or '' }}" placeholder="ለምሳሌ፡ ቦሌ፣ አዲስ አበባ — ከአየር መንገድ ማረፊያ ፊት ለፊት">
-                    <p class="small text-muted mt-1 mb-0">በደንበኛ ቀጠሮ ገጽ ላይ ይታያል + የGoogle Maps ሊንክ</p>
-                </div>
-
-                <button type="submit" class="btn btn-rose">
-                    <i class="fa-solid fa-floppy-disk me-1"></i> አስቀምጥ
-                </button>
-            </form>
-        </section>
 
         <section class="metrics-grid">
             <div class="metric-card">
@@ -734,7 +474,7 @@
                         <tr class="swipe-row-container p-0">
                           <td colspan="7" class="p-0 border-0">
                             <div class="swipe-card-wrapper" id="appt-card-{{ appt.id }}">
-
+                              
                               <div class="swipe-action-bg swipe-action-left bg-success text-white">
                                 <i class="fa-solid fa-circle-check fs-4"></i>
                                 <span class="fw-bold small ms-2">Completed</span>
@@ -748,11 +488,11 @@
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                   <div>
                                     <span class="fw-bold text-dark fs-6">{{ appt.appointment_time }}</span>
-                                    <span class="badge ms-2 status-badge-{{ appt.id }} {% if appt.status.value == 'Completed' %}bg-success{% elif appt.status.value == 'Cancelled' %}bg-danger{% elif appt.status.value == 'No-Show' %}bg-dark{% else %}bg-warning text-dark{% endif %}">
-                                      {{ appt.status.value }}
+                                    <span class="badge ms-2 status-badge-{{ appt.id }} {% if appt.status == 'Completed' %}bg-success{% elif appt.status == 'Cancelled' %}bg-danger{% elif appt.status == 'No-Show' %}bg-dark{% else %}bg-warning text-dark{% endif %}">
+                                      {{ appt.status }}
                                     </span>
                                   </div>
-                                  <span class="fw-bold text-rose" style="color: var(--accent-rose);">{{ "{:,.2f}".format(appt.service_price) }} ETB</span>
+                                  <span class="fw-bold text-rose" style="color: var(--accent-rose);">{{ appt.service_price }} ETB</span>
                                 </div>
 
                                 <div class="d-flex justify-content-between align-items-end">
@@ -765,10 +505,10 @@
                                   <form action="/update-appointment-status" method="post" id="status-form-{{ appt.id }}">
                                     <input type="hidden" name="appointment_id" value="{{ appt.id }}">
                                     <select name="status" id="status-select-{{ appt.id }}" onchange="submitStatusAjax(this.form, '{{ appt.id }}')" class="form-select form-select-sm fw-semibold">
-                                        <option value="Confirmed" {% if appt.status.value == 'Confirmed' %}selected{% endif %}>Confirmed</option>
-                                        <option value="Completed" {% if appt.status.value == 'Completed' %}selected{% endif %}>Completed</option>
-                                        <option value="No-Show" {% if appt.status.value == 'No-Show' %}selected{% endif %}>No-Show</option>
-                                        <option value="Cancelled" {% if appt.status.value == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                                        <option value="Confirmed" {% if appt.status == 'Confirmed' %}selected{% endif %}>Confirmed</option>
+                                        <option value="Completed" {% if appt.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                        <option value="No-Show" {% if appt.status == 'No-Show' %}selected{% endif %}>No-Show</option>
+                                        <option value="Cancelled" {% if appt.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
                                     </select>
                                   </form>
                                 </div>
@@ -820,29 +560,9 @@
                             <td data-label="ባለሙያ">{{ w.staff_name }}</td>
                             <td data-label="ቀን">{{ w.preferred_date }}</td>
                             <td data-label="ቦታ ስጠው">
-                                <form action="/convert-waitlist/{{ w.id }}" method="post" class="convert-waitlist-form" data-wid="{{ w.id }}">
-                                    <div class="d-flex flex-column gap-1 w-100">
-                                      <input type="date" class="form-control form-control-sm wl-date" value="{{ w.preferred_date }}" required>
-                                      <div class="d-flex gap-1">
-                                        <select class="form-select form-select-sm wl-period" style="max-width:72px;">
-                                          <option value="ጧት">ጧት</option>
-                                          <option value="ቀን" selected>ቀን</option>
-                                          <option value="ማታ">ማታ</option>
-                                          <option value="ለሊት">ለሊት</option>
-                                        </select>
-                                        <select class="form-select form-select-sm wl-hour" style="max-width:58px;">
-                                          {% for h in range(1,13) %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
-                                        </select>
-                                        <select class="form-select form-select-sm wl-min" style="max-width:58px;">
-                                          <option value="0">00</option>
-                                          <option value="15">15</option>
-                                          <option value="30">30</option>
-                                          <option value="45">45</option>
-                                        </select>
-                                        <button type="submit" class="btn btn-sm btn-rose text-nowrap">ስጠው</button>
-                                      </div>
-                                      <input type="hidden" name="appointment_time" class="wl-hidden" value="">
-                                    </div>
+                                <form action="/convert-waitlist/{{ w.id }}" method="post" class="d-flex gap-1 align-items-center w-100">
+                                    <input type="datetime-local" name="appointment_time" class="form-control form-control-sm" required style="min-width: 140px;">
+                                    <button type="submit" class="btn btn-sm btn-rose text-nowrap">ስጠው</button>
                                 </form>
                             </td>
                             <td data-label="ሰርዝ" class="text-end">
@@ -955,160 +675,33 @@
                 <h5 class="fw-bold mb-0">ሰራተኞች</h5>
                 <button class="btn btn-rose btn-sm" data-bs-toggle="modal" data-bs-target="#addStaffModal"><i class="fa-solid fa-plus me-1"></i> አዲስ</button>
             </div>
-
-            {% if error == 'invalid_hours' %}
-            <div class="alert alert-danger py-2 small">የስራ መጨረሻ ሰዓት ከመጀመሪያ ሰዓት በኋላ መሆን አለበት።</div>
-            {% endif %}
-            {% if error == 'invalid_days' %}
-            <div class="alert alert-danger py-2 small">ቢያንስ አንድ የስራ ቀን ይምረጡ።</div>
-            {% endif %}
-
-            <div class="d-flex flex-column gap-3">
-                {% for st in staff_members %}
-                <div class="p-3 rounded-3" style="border: 1px solid var(--border-soft); background: var(--bg-cream);">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                        <div>
-                            <div class="fw-bold fs-6 text-dark">{{ st.name }}</div>
-                            <div class="text-muted small mt-1"><i class="fa-solid fa-clock me-1"></i>{{ st.hours_label }}</div>
-                            <div class="text-muted small"><i class="fa-solid fa-calendar-days me-1"></i>{{ st.working_days_label }}</div>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#editStaffModal-{{ st.id }}">
-                                <i class="fa-solid fa-pen"></i> ሰዓት
-                            </button>
-                            <form action="/delete-staff" method="post" onsubmit="return confirm('ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
-                                <input type="hidden" name="staff_id" value="{{ st.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
-                            </form>
-                        </div>
-                    </div>
-
-                    {% if st.day_offs %}
-                    <div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-soft);">
-                        <span class="text-muted small fw-semibold d-block mb-1">የፈቃድ ቀናት (Day Off):</span>
-                        <div class="d-flex flex-wrap gap-2">
-                            {% for off in st.day_offs %}
-                            <form action="/delete-staff-dayoff" method="post" class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill" style="background: var(--card-pink); font-size: 0.78rem;">
-                                <input type="hidden" name="dayoff_id" value="{{ off.id }}">
-                                <span>{{ off.off_date }}</span>
-                                <button type="submit" class="btn btn-sm p-0 border-0 text-danger" style="line-height:1;"><i class="fa-solid fa-xmark"></i></button>
-                            </form>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div class="modal fade" id="editStaffModal-{{ st.id }}" tabindex="-1" aria-hidden="true">
-                  <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                      <div class="modal-header">
-                        <h5 class="modal-header-title fw-bold m-0">{{ st.name }} - የስራ ሰዓት</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                      </div>
-                      <form action="/update-staff-schedule" method="post">
-                        <div class="modal-body">
-                            <input type="hidden" name="staff_id" value="{{ st.id }}">
-
-                            <div class="form-check mb-2">
-                                <input class="form-check-input staff-custom-hours-toggle" type="checkbox" name="use_custom_hours" value="1"
-                                       id="customHours-{{ st.id }}" data-target="hoursFields-{{ st.id }}"
-                                       {% if st.opening_time %}checked{% endif %}>
-                                <label class="form-check-label small fw-semibold" for="customHours-{{ st.id }}">
-                                    የተለየ የስራ ሰዓት ይጠቀሙ (ካልተመረጠ እንደ ሳሎኑ ይሆናል)
-                                </label>
-                            </div>
-                            <div id="hoursFields-{{ st.id }}" class="hours-row mb-3" style="{% if not st.opening_time %}display:none;{% endif %}">
-                                <div>
-                                    <label class="form-label small text-muted fw-semibold">መጀመሪያ ሰዓት</label>
-                                    <input type="time" name="opening_time" class="form-control" value="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}">
-                                </div>
-                                <div>
-                                    <label class="form-label small text-muted fw-semibold">መጨረሻ ሰዓት</label>
-                                    <input type="time" name="closing_time" class="form-control" value="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}">
-                                </div>
-                            </div>
-
-                            <div class="form-check mb-2">
-                                <input class="form-check-input staff-custom-days-toggle" type="checkbox" name="use_custom_days" value="1"
-                                       id="customDays-{{ st.id }}" data-target="daysFields-{{ st.id }}"
-                                       {% if st.working_days %}checked{% endif %}>
-                                <label class="form-check-label small fw-semibold" for="customDays-{{ st.id }}">
-                                    የተለየ የስራ ቀናት ይጠቀሙ (ካልተመረጠ እንደ ሳሎኑ ይሆናል)
-                                </label>
-                            </div>
-                            <div id="daysFields-{{ st.id }}" class="mb-3" style="{% if not st.working_days %}display:none;{% endif %}">
-                                <div class="day-picker">
-                                    {% set day_names = ['ሰኞ','ማክሰ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'] %}
-                                    {% set staff_days = st.working_days.split(',') | map('int') | list if st.working_days else [] %}
-                                    {% for i in range(7) %}
-                                    <label class="day-toggle">
-                                        <input type="checkbox" name="working_days" value="{{ i }}" {% if i in staff_days %}checked{% endif %}>
-                                        <span>{{ day_names[i] }}</span>
-                                    </label>
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <hr>
-
-                            <label class="form-label small text-muted fw-semibold">የፈቃድ ቀን ጨምር (Add Day Off)</label>
-                            <div class="d-flex gap-2">
-                                <input type="date" class="form-control" id="dayoffDate-{{ st.id }}">
-                                <button type="button" class="btn btn-outline-dark text-nowrap" onclick="submitDayOff({{ st.id }})">ጨምር</button>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">ዝጋ</button>
-                            <button type="submit" class="btn btn-rose">አስቀምጥ</button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-                {% else %}
-                <p class="text-center text-muted py-4">ምንም ሰራተኛ አልተመዘገበም።</p>
-                {% endfor %}
+            <div class="table-responsive-stack">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr class="text-muted">
+                            <th>ስም</th>
+                            <th>ተግባር</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for st in staff_members %}
+                        <tr>
+                            <td data-label="ስም" class="fw-bold">{{ st.name }}</td>
+                            <td data-label="ተግባር" class="text-end">
+                                <form action="/delete-staff" method="post" onsubmit="return confirm('ሰራተኛውን ማጥፋት እርግጠኛ ነዎት?')">
+                                    <input type="hidden" name="staff_id" value="{{ st.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fa-solid fa-trash"></i> ሰርዝ</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </section>
-
-        <script>
-            function submitDayOff(staffId) {
-                const dateInput = document.getElementById(`dayoffDate-${staffId}`);
-                if (!dateInput.value) return;
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/add-staff-dayoff';
-                form.innerHTML = `<input type="hidden" name="staff_id" value="${staffId}">
-                                   <input type="hidden" name="off_date" value="${dateInput.value}">`;
-                document.body.appendChild(form);
-                form.submit();
-            }
-
-            document.querySelectorAll('.staff-custom-hours-toggle, .staff-custom-days-toggle').forEach(cb => {
-                cb.addEventListener('change', () => {
-                    const target = document.getElementById(cb.dataset.target);
-                    if (target) target.style.display = cb.checked ? '' : 'none';
-                });
-            });
-        </script>
         {% endif %}
 
     </main>
-</div>
-
-
-<!-- Live booking toast -->
-<div id="bookingToast" class="notif-toast" role="alert" aria-live="assertive">
-    <div class="toast-title">
-        <span class="live-dot"></span>
-        <span>አዲስ ቀጠሮ መጣ!</span>
-    </div>
-    <div class="toast-body" id="bookingToastBody">—</div>
-    <div class="toast-actions">
-        <a href="/dashboard?tab=home" class="btn btn-sm btn-rose" id="toastGoBtn">ወደ ሰሌዳ</a>
-        <button type="button" class="btn btn-sm btn-outline-dark" onclick="hideBookingToast()">ዝጋ</button>
-    </div>
 </div>
 
 <!-- Mobile Bottom Navigation Bar -->
@@ -1116,7 +709,6 @@
     <a href="/dashboard?tab=home" class="bottom-nav-item {% if active_tab == 'home' %}active{% endif %}">
         <i class="fa-solid fa-house"></i>
         <span>ዋና ገጽ</span>
-        <span class="badge-counter position-absolute top-0 start-50 translate-middle-x d-none" id="mobileNewBookingBadge" style="margin-top: 4px;">0</span>
     </a>
     <a href="/dashboard?tab=reserve" class="bottom-nav-item {% if active_tab == 'reserve' %}active{% endif %}">
         <i class="fa-solid fa-clock-rotate-left"></i>
@@ -1173,41 +765,8 @@
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ቀን</label>
-            <input type="date" id="bookEthDate" class="form-control" value="{{ current_date }}" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small text-muted fw-semibold">ሰዓት (በኢትዮጵያ ሰዓት)</label>
-            <div class="eth-time-picker">
-              <div class="d-flex gap-2 mb-2">
-                <button type="button" class="eth-period-btn active" data-period="ጧት" data-target="book">ጧት</button>
-                <button type="button" class="eth-period-btn" data-period="ቀን" data-target="book">ቀን</button>
-                <button type="button" class="eth-period-btn" data-period="ማታ" data-target="book">ማታ</button>
-                <button type="button" class="eth-period-btn" data-period="ለሊት" data-target="book">ለሊት</button>
-              </div>
-              <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label small text-muted mb-1">ሰዓት (1-12)</label>
-                  <select id="bookEthHour" class="form-select">
-                    {% for h in range(1,13) %}
-                    <option value="{{ h }}" {% if h == 9 %}selected{% endif %}>{{ h }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="col-6">
-                  <label class="form-label small text-muted mb-1">ደቂቃ (15)</label>
-                  <select id="bookEthMinute" class="form-select">
-                    <option value="0">00</option>
-                    <option value="15">15</option>
-                    <option value="30">30</option>
-                    <option value="45">45</option>
-                  </select>
-                </div>
-              </div>
-              <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
-            </div>
-            <input type="hidden" name="appointment_time" id="bookAppointmentTime" value="">
-            <p class="small text-muted mt-2 mb-0">የስራ ሰዓት፡ {{ salon.hours_label }} • የስራ ቀናት፡ {{ salon.working_days_label }}</p>
+            <label class="form-label small text-muted fw-semibold">ቀንና ሰዓት</label>
+            <input type="datetime-local" name="appointment_time" class="form-control" required>
           </div>
         </div>
         <div class="modal-footer">
@@ -1300,28 +859,6 @@
   </div>
 </div>
 
-<!-- 5. Search Customer By Phone Modal -->
-<div class="modal fade" id="searchCustomerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-header-title fw-bold m-0">ደንበኛ ፈልግ (Search by Phone)</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="d-flex gap-2 mb-3">
-          <input type="tel" id="customerSearchInput" class="form-control" placeholder="ስልክ ቁጥር ወይም ስም ያስገቡ" autocomplete="off">
-          <button type="button" class="btn btn-rose text-nowrap" onclick="searchCustomer()">
-            <i class="fa-solid fa-magnifying-glass"></i>
-          </button>
-        </div>
-        <div id="customerSearchStatus" class="text-muted small mb-2"></div>
-        <div id="customerSearchResults" class="d-flex flex-column gap-2" style="max-height: 55vh; overflow-y: auto;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- 4. Add Staff Modal -->
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1348,6 +885,7 @@
 
 <!-- JS Dependencies -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     // Copy Client Booking Link
     function copyBookingLink() {
@@ -1362,75 +900,6 @@
             }, 2000);
         });
     }
-
-    // Search customer by phone number (or name) — calls backend /search-customer
-    function searchCustomer() {
-        const q = document.getElementById('customerSearchInput').value.trim();
-        const statusEl = document.getElementById('customerSearchStatus');
-        const resultsEl = document.getElementById('customerSearchResults');
-        resultsEl.innerHTML = '';
-
-        if (!q) {
-            statusEl.textContent = 'ስልክ ቁጥር ወይም ስም ያስገቡ።';
-            return;
-        }
-
-        statusEl.textContent = 'በመፈለግ ላይ...';
-
-        fetch(`/search-customer?q=${encodeURIComponent(q)}`, {
-            headers: { 'Accept': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            const results = data.results || [];
-            if (results.length === 0) {
-                statusEl.textContent = 'ምንም ውጤት አልተገኘም።';
-                return;
-            }
-            statusEl.textContent = `${results.length} ውጤት(ት) ተገኝቷል`;
-
-            results.forEach(c => {
-                const card = document.createElement('div');
-                card.className = 'p-3 rounded-3';
-                card.style.background = 'var(--bg-cream)';
-                card.style.border = '1px solid var(--border-soft)';
-                card.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <div class="fw-bold text-dark">${c.customer_name || ''}</div>
-                            <div class="text-muted small">${c.customer_phone || ''}</div>
-                            ${c.service_name ? `<div class="text-muted small mt-1"><i class="fa-solid fa-scissors me-1"></i>${c.service_name} ${c.appointment_time ? '— ' + c.appointment_time : ''}</div>` : ''}
-                            ${c.status ? `<span class="badge bg-secondary mt-1">${c.status}</span>` : ''}
-                        </div>
-                        <div class="d-flex flex-column gap-1">
-                            <a href="tel:${c.customer_phone}" class="btn btn-sm btn-rose"><i class="fa-solid fa-phone"></i></a>
-                            <a href="sms:${c.customer_phone}" class="btn btn-sm btn-outline-dark"><i class="fa-solid fa-comment-sms"></i></a>
-                        </div>
-                    </div>`;
-                resultsEl.appendChild(card);
-            });
-        })
-        .catch(err => {
-            console.error('Error searching customer:', err);
-            statusEl.textContent = 'ስህተት ተፈጥሯል፣ እንደገና ይሞክሩ።';
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('customerSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchCustomer();
-                }
-            });
-        }
-        const searchModal = document.getElementById('searchCustomerModal');
-        if (searchModal) {
-            searchModal.addEventListener('shown.bs.modal', () => searchInput && searchInput.focus());
-        }
-    });
 
     // Dynamic AJAX Status Update (expects JSON from backend)
     function submitStatusAjax(formElement, appointmentId) {
@@ -1449,7 +918,7 @@
                 const badge = document.querySelector(`.status-badge-${appointmentId}`);
                 if (badge) {
                     badge.textContent = data.status;
-                    badge.className = `badge ms-2 status-badge-${appointmentId}`;
+                    badge.className = `badge ms-2 status-badge-${appointmentId} `;
                     if (data.status === 'Completed') badge.classList.add('bg-success');
                     else if (data.status === 'Cancelled') badge.classList.add('bg-danger');
                     else if (data.status === 'No-Show') badge.classList.add('bg-dark');
@@ -1461,53 +930,56 @@
     }
 
     // Touch Swipe Mechanics for Mobile Cards
-    function attachSwipe(content) {
-        let startX = 0;
-        let currentX = 0;
-        let isSwiping = false;
-
-        content.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            isSwiping = true;
-            content.style.transition = 'none';
-        }, { passive: true });
-
-        content.addEventListener('touchmove', (e) => {
-            if (!isSwiping) return;
-            currentX = e.touches[0].clientX - startX;
-            if (Math.abs(currentX) < 140) {
-                content.style.transform = `translateX(${currentX}px)`;
-            }
-        }, { passive: true });
-
-        content.addEventListener('touchend', () => {
-            if (!isSwiping) return;
-            isSwiping = false;
-            content.style.transition = 'transform 0.2s ease-out';
-
-            const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
-            const selectEl = document.getElementById(`status-select-${cardId}`);
-            const formEl = document.getElementById(`status-form-${cardId}`);
-
-            if (currentX > 80) {
-                if (selectEl) {
-                    selectEl.value = 'Completed';
-                    submitStatusAjax(formEl, cardId);
-                }
-            } else if (currentX < -80) {
-                if (selectEl) {
-                    selectEl.value = 'No-Show';
-                    submitStatusAjax(formEl, cardId);
-                }
-            }
-
-            content.style.transform = 'translateX(0px)';
-            currentX = 0;
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.swipe-card-content').forEach(attachSwipe);
+        const swipeContents = document.querySelectorAll('.swipe-card-content');
+        
+        swipeContents.forEach(content => {
+            let startX = 0;
+            let currentX = 0;
+            let isSwiping = false;
+
+            content.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isSwiping = true;
+                content.style.transition = 'none';
+            }, { passive: true });
+
+            content.addEventListener('touchmove', (e) => {
+                if (!isSwiping) return;
+                currentX = e.touches[0].clientX - startX;
+                // Limit swipe boundary
+                if (Math.abs(currentX) < 140) {
+                    content.style.transform = `translateX(${currentX}px)`;
+                }
+            }, { passive: true });
+
+            content.addEventListener('touchend', () => {
+                if (!isSwiping) return;
+                isSwiping = false;
+                content.style.transition = 'transform 0.2s ease-out';
+                
+                const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
+                const selectEl = document.getElementById(`status-select-${cardId}`);
+                const formEl = document.getElementById(`status-form-${cardId}`);
+
+                if (currentX > 80) {
+                    // Swiped Right -> Mark Completed
+                    if (selectEl) {
+                        selectEl.value = 'Completed';
+                        submitStatusAjax(formEl, cardId);
+                    }
+                } else if (currentX < -80) {
+                    // Swiped Left -> Mark No-Show
+                    if (selectEl) {
+                        selectEl.value = 'No-Show';
+                        submitStatusAjax(formEl, cardId);
+                    }
+                }
+
+                content.style.transform = 'translateX(0px)';
+                currentX = 0;
+            });
+        });
 
         // Native Mobile Pull-To-Refresh
         const mainArea = document.getElementById('mainScrollArea');
@@ -1532,270 +1004,134 @@
 
         mainArea.addEventListener('touchend', () => {
             if (ptrPullY > 70) {
-                ptrIndicator.style.transform = 'translate(-50%, 60px) rotate(360deg)';
+                ptrIndicator.style.transform = `translate(-50%, 60px) rotate(360deg)`;
                 location.reload();
             } else {
-                ptrIndicator.style.transform = 'translate(-50%, -50px)';
+                ptrIndicator.style.transform = `translate(-50%, -50px)`;
             }
             ptrStartY = 0;
             ptrPullY = 0;
         });
-
-
-    // ========== Live booking notifications ==========
-    let newBookingCount = 0;
-
-    function playBookingBeep() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const o = ctx.createOscillator();
-            const g = ctx.createGain();
-            o.connect(g); g.connect(ctx.destination);
-            o.frequency.value = 880;
-            g.gain.value = 0.08;
-            o.start();
-            setTimeout(() => { o.frequency.value = 1175; }, 90);
-            setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2); o.stop(ctx.currentTime + 0.22); }, 180);
-        } catch (e) {}
-    }
-
-    function showBookingToast(appt) {
-        const toast = document.getElementById('bookingToast');
-        const body = document.getElementById('bookingToastBody');
-        if (!toast || !body) return;
-        const time = appt.appointment_time || '';
-        const name = appt.customer_name || '';
-        const service = appt.service_name || '';
-        const staff = appt.staff_name || '';
-        body.innerHTML = `<strong>${name}</strong> · ${service}<br><span style="color:var(--accent-rose)">${time}</span> · ${staff}`;
-        toast.classList.add('show');
-        // auto-hide after 12s
-        clearTimeout(window._toastTimer);
-        window._toastTimer = setTimeout(hideBookingToast, 12000);
-    }
-
-    function hideBookingToast() {
-        const toast = document.getElementById('bookingToast');
-        if (toast) toast.classList.remove('show');
-    }
-
-    function bumpNewBookingBadges() {
-        newBookingCount += 1;
-        ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
-            const badge = document.getElementById(id);
-            if (badge) {
-                badge.textContent = newBookingCount;
-                badge.classList.remove('d-none');
-                // re-trigger animation
-                badge.style.animation = 'none';
-                badge.offsetHeight;
-                badge.style.animation = '';
-            }
-        });
-    }
-
-    function requestBrowserNotifPermission() {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => {});
-        }
-    }
-
-    function showBrowserNotif(appt) {
-        if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        try {
-            const n = new Notification('መልከኛ · አዲስ ቀጠሮ', {
-                body: `${appt.customer_name || ''} — ${appt.service_name || ''} · ${appt.appointment_time || ''}`,
-                icon: '/favicon.ico',
-                tag: 'melkegna-booking-' + (appt.id || Date.now()),
-            });
-            n.onclick = () => { window.focus(); n.close(); };
-            setTimeout(() => n.close(), 10000);
-        } catch (e) {}
-    }
-
-    // Ask once on load (non-blocking)
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(requestBrowserNotifPermission, 2500);
     });
 
+    // WebSocket Live Updates — path + event name aligned with backend
+    const salonId = {{ salon.id }};
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/salon/${salonId}`);
 
-        // WebSocket Live Updates — path + event name aligned with backend
-        const salonId = {{ salon.id }};
-        const currentTab = "{{ active_tab }}";
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/salon/${salonId}`);
+    socket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.event === 'new_booking') {
+            const appt = data.appointment;
+            
+            // Increment today's appt counter dynamically
+            const counterEl = document.getElementById('metricTodayApptCount');
+            if (counterEl) {
+                counterEl.textContent = parseInt(counterEl.textContent || '0') + 1;
+            }
 
-        socket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (data.event === 'new_booking') {
-                const appt = data.appointment;
+            const tableBody = document.getElementById('appointmentsListTable');
+            const noRow = document.getElementById('noAppointmentsRow');
+            if (noRow) noRow.remove();
 
-                const isOnlineBooking = !appt.source || appt.source === 'online';
-                // Always notify: toast + sound + browser + badge
-                if (isOnlineBooking) {
-                    bumpNewBookingBadges();
-                    showBookingToast(appt);
-                    playBookingBeep();
-                    showBrowserNotif(appt);
-                }
-
-                const counterEl = document.getElementById('metricTodayApptCount');
-                if (counterEl) {
-                    counterEl.textContent = parseInt(counterEl.textContent || '0') + 1;
-                }
-
-                const tableBody = document.getElementById('appointmentsListTable');
-                const noRow = document.getElementById('noAppointmentsRow');
-                if (noRow) noRow.remove();
-
-                if (tableBody) {
-                    const newRowHTML = `
-                    <tr class="swipe-row-container p-0">
-                      <td colspan="7" class="p-0 border-0">
-                        <div class="swipe-card-wrapper new-booking-highlight" id="appt-card-${appt.id}">
-                          <div class="swipe-action-bg swipe-action-left bg-success text-white">
-                            <i class="fa-solid fa-circle-check fs-4"></i>
-                            <span class="fw-bold small ms-2">Completed</span>
+            if (tableBody) {
+                const newRowHTML = `
+                <tr class="swipe-row-container p-0">
+                  <td colspan="7" class="p-0 border-0">
+                    <div class="swipe-card-wrapper new-booking-highlight" id="appt-card-${appt.id}">
+                      <div class="swipe-action-bg swipe-action-left bg-success text-white">
+                        <i class="fa-solid fa-circle-check fs-4"></i>
+                        <span class="fw-bold small ms-2">Completed</span>
+                      </div>
+                      <div class="swipe-action-bg swipe-action-right bg-dark text-white">
+                        <span class="fw-bold small me-2">No-Show</span>
+                        <i class="fa-solid fa-user-slash fs-4"></i>
+                      </div>
+                      <div class="swipe-card-content p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <div>
+                            <span class="fw-bold text-dark fs-6">${appt.appointment_time}</span>
+                            <span class="badge ms-2 status-badge-${appt.id} bg-warning text-dark">${appt.status}</span>
                           </div>
-                          <div class="swipe-action-bg swipe-action-right bg-dark text-white">
-                            <span class="fw-bold small me-2">No-Show</span>
-                            <i class="fa-solid fa-user-slash fs-4"></i>
-                          </div>
-                          <div class="swipe-card-content p-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                              <div>
-                                <span class="fw-bold text-dark fs-6">${appt.appointment_time}</span>
-                                <span class="badge ms-2 status-badge-${appt.id} bg-warning text-dark">${appt.status}</span>
-                              </div>
-                              <span class="fw-bold text-rose" style="color: var(--accent-rose);">${appt.service_price} ETB</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-end">
-                              <div>
-                                <div class="fw-bold text-dark">${appt.customer_name}</div>
-                                <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>${appt.customer_phone}</div>
-                                <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>${appt.service_name} (${appt.staff_name})</div>
-                              </div>
-                              <form action="/update-appointment-status" method="post" id="status-form-${appt.id}">
-                                <input type="hidden" name="appointment_id" value="${appt.id}">
-                                <select name="status" id="status-select-${appt.id}" onchange="submitStatusAjax(this.form, '${appt.id}')" class="form-select form-select-sm fw-semibold">
-                                    <option value="Confirmed" selected>Confirmed</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="No-Show">No-Show</option>
-                                    <option value="Cancelled">Cancelled</option>
-                                </select>
-                              </form>
-                            </div>
-                          </div>
+                          <span class="fw-bold text-rose" style="color: var(--accent-rose);">${appt.service_price} ETB</span>
                         </div>
-                      </td>
-                    </tr>`;
+                        <div class="d-flex justify-content-between align-items-end">
+                          <div>
+                            <div class="fw-bold text-dark">${appt.customer_name}</div>
+                            <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>${appt.customer_phone}</div>
+                            <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>${appt.service_name} (${appt.staff_name})</div>
+                          </div>
+                          <form action="/update-appointment-status" method="post" id="status-form-${appt.id}">
+                            <input type="hidden" name="appointment_id" value="${appt.id}">
+                            <select name="status" id="status-select-${appt.id}" onchange="submitStatusAjax(this.form, '${appt.id}')" class="form-select form-select-sm fw-semibold">
+                                <option value="Confirmed" selected>Confirmed</option>
+                                <option value="Completed">Completed</option>
+                                <option value="No-Show">No-Show</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>`;
+                
+                tableBody.insertAdjacentHTML('afterbegin', newRowHTML);
 
-                    tableBody.insertAdjacentHTML('afterbegin', newRowHTML);
-
-                    const newContent = document.querySelector(`#appt-card-${appt.id} .swipe-card-content`);
-                    if (newContent) {
-                        attachSwipe(newContent);
-                    }
+                // Re-attach swipe listeners for the newly inserted card
+                const newContent = document.querySelector(`#appt-card-${appt.id} .swipe-card-content`);
+                if (newContent) {
+                    attachSwipe(newContent);
                 }
             }
-        };
-    });
-
-    // ========== Ethiopian Time Helpers (shared) ==========
-    function ethToWestern(period, displayH, minute) {
-        let wh;
-        if (period === 'ጧት') wh = displayH === 12 ? 6 : 6 + displayH;
-        else if (period === 'ቀን') wh = displayH === 6 ? 12 : 12 + (displayH - 6);
-        else if (period === 'ማታ') wh = displayH === 12 ? 18 : 18 + displayH;
-        else wh = displayH - 6; // ለሊት
-        return { hour: wh, minute: minute };
-    }
-    function westernToEth(h, m) {
-        const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
-        const eh = Math.floor(total / 60);
-        const em = total % 60;
-        let period, displayH;
-        if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
-        else if (eh < 12) { period = 'ቀን'; displayH = eh; }
-        else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
-        else { period = 'ለሊት'; displayH = eh - 12; }
-        return { period, hour: displayH, minute: em };
-    }
-
-    // Book Walk-in modal picker state
-    let bookPeriod = 'ጧት';
-    function updateBookEth() {
-        const dateVal = document.getElementById('bookEthDate')?.value;
-        const hour = parseInt(document.getElementById('bookEthHour')?.value || '9', 10);
-        const minute = parseInt(document.getElementById('bookEthMinute')?.value || '0', 10);
-        const preview = document.getElementById('bookEthPreview');
-        const hidden = document.getElementById('bookAppointmentTime');
-        if (preview) preview.textContent = `${bookPeriod} ${hour}:${String(minute).padStart(2,'0')} ሰዓት`;
-        if (!hidden) return;
-        if (!dateVal) { hidden.value = ''; return; }
-        const w = ethToWestern(bookPeriod, hour, minute);
-        hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        // Period buttons for book modal
-        document.querySelectorAll('.eth-period-btn[data-target="book"]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.eth-period-btn[data-target="book"]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                bookPeriod = btn.dataset.period;
-                updateBookEth();
-            });
-        });
-        ['bookEthDate','bookEthHour','bookEthMinute'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', updateBookEth);
-        });
-        updateBookEth();
-
-        // Ensure value is set on form submit
-        const bookForm = document.querySelector('#bookModal form');
-        if (bookForm) {
-            bookForm.addEventListener('submit', (e) => {
-                updateBookEth();
-                if (!document.getElementById('bookAppointmentTime').value) {
-                    e.preventDefault();
-                    alert('እባክዎ ቀንና ሰዓት ይምረጡ።');
-                }
-            });
         }
-    });
+    };
 
+    // Helper so live-injected cards also get swipe support
+    function attachSwipe(content) {
+        let startX = 0;
+        let currentX = 0;
+        let isSwiping = false;
 
-    // ========== Waitlist convert forms (Ethiopian) ==========
-    function updateWlForm(form) {
-        const dateVal = form.querySelector('.wl-date')?.value;
-        const period = form.querySelector('.wl-period')?.value || 'ቀን';
-        const hour = parseInt(form.querySelector('.wl-hour')?.value || '7', 10);
-        const minute = parseInt(form.querySelector('.wl-min')?.value || '0', 10);
-        const hidden = form.querySelector('.wl-hidden');
-        if (!hidden) return;
-        if (!dateVal) { hidden.value = ''; return; }
-        const w = ethToWestern(period, hour, minute);
-        hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
-    }
+        content.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            isSwiping = true;
+            content.style.transition = 'none';
+        }, { passive: true });
 
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.convert-waitlist-form').forEach(form => {
-            ['change','input'].forEach(ev => {
-                form.addEventListener(ev, () => updateWlForm(form));
-            });
-            updateWlForm(form);
-            form.addEventListener('submit', (e) => {
-                updateWlForm(form);
-                if (!form.querySelector('.wl-hidden').value) {
-                    e.preventDefault();
-                    alert('እባክዎ ቀንና ሰዓት ይምረጡ።');
+        content.addEventListener('touchmove', (e) => {
+            if (!isSwiping) return;
+            currentX = e.touches[0].clientX - startX;
+            if (Math.abs(currentX) < 140) {
+                content.style.transform = `translateX(${currentX}px)`;
+            }
+        }, { passive: true });
+
+        content.addEventListener('touchend', () => {
+            if (!isSwiping) return;
+            isSwiping = false;
+            content.style.transition = 'transform 0.2s ease-out';
+            
+            const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
+            const selectEl = document.getElementById(`status-select-${cardId}`);
+            const formEl = document.getElementById(`status-form-${cardId}`);
+
+            if (currentX > 80) {
+                if (selectEl) {
+                    selectEl.value = 'Completed';
+                    submitStatusAjax(formEl, cardId);
                 }
-            });
-        });
-    });
+            } else if (currentX < -80) {
+                if (selectEl) {
+                    selectEl.value = 'No-Show';
+                    submitStatusAjax(formEl, cardId);
+                }
+            }
 
+            content.style.transform = 'translateX(0px)';
+            currentX = 0;
+        });
+    }
 </script>
 
 </body>
