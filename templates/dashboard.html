@@ -82,6 +82,27 @@
             padding: 8px 12px; font-size: 0.9rem;
         }
         .logout-link:hover { opacity: 0.8; }
+        .support-block {
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            margin-top: 4px;
+            text-align: center;
+        }
+        .support-block .support-title {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .support-block a {
+            display: block;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 3px;
+        }
+        .support-block a:hover { text-decoration: underline; }
 
         /* ---------- Main ---------- */
         .main-content {
@@ -298,6 +319,21 @@
             justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.08); z-index: 1000;
         }
 
+        /* ---------- Mobile support strip ---------- */
+        .mobile-support-strip {
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            padding: 10px 0 4px;
+        }
+        .mobile-support-strip a {
+            color: var(--accent);
+            font-weight: 700;
+            text-decoration: none;
+            margin: 0 5px;
+        }
+        .mobile-support-strip a:hover { text-decoration: underline; }
+
         /* Language: hide inactive */
         [data-lang-en] { display: none; }
         html[lang="en"] [data-lang-am] { display: none !important; }
@@ -374,6 +410,13 @@
                 <i class="fa-solid fa-right-from-bracket me-1"></i>
                 <span data-lang-am>ውጣ</span><span data-lang-en>Logout</span>
             </a>
+            <div class="support-block">
+                <div class="support-title">
+                    <span data-lang-am>የደንበኛ ድጋፍ</span><span data-lang-en>Customer support</span>
+                </div>
+                <a href="tel:0946332194">0946332194</a>
+                <a href="tel:0955157398">0955157398</a>
+            </div>
         </div>
     </aside>
 
@@ -1067,6 +1110,28 @@
                     <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
                 </button>
             </form>
+
+            <hr class="my-4">
+
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="fa-solid fa-headset" style="color:var(--accent);"></i>
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>የደንበኛ ድጋፍ</span>
+                    <span data-lang-en>Customer support</span>
+                </h5>
+            </div>
+            <p class="text-muted small mb-2">
+                <span data-lang-am>ማንኛውም ጥያቄ ወይም እርዳታ ካስፈለገዎት ይደውሉ፡</span>
+                <span data-lang-en>For any questions or help, call:</span>
+            </p>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="tel:0946332194" class="btn btn-outline-soft btn-sm">
+                    <i class="fa-solid fa-phone me-1"></i> 0946332194
+                </a>
+                <a href="tel:0955157398" class="btn btn-outline-soft btn-sm">
+                    <i class="fa-solid fa-phone me-1"></i> 0955157398
+                </a>
+            </div>
         </section>
         {% endif %}
 
@@ -1089,6 +1154,13 @@
             <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
         </button>
     </div>
+</div>
+
+<!-- Mobile support strip (visible above bottom nav on phones) -->
+<div class="mobile-support-strip d-md-none">
+    <span data-lang-am>ድጋፍ</span><span data-lang-en>Support</span>:
+    <a href="tel:0946332194">0946332194</a>
+    <a href="tel:0955157398">0955157398</a>
 </div>
 
 <!-- Mobile bottom nav -->
