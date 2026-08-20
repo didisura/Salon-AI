@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ግላዊነት - መልከኛ</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Noto+Sans+Ethiopic:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#2E2013; --muted:#8C7B63; --cream:#F7F1E3; --cream-deep:#EFE3C7;
+    --card:#FFFFFF; --line:#E7D9B9; --accent:#A67C43; --accent-dark:#7A5731;
+    --brown:#3B2A1A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    min-height:100vh; font-family:'Noto Sans Ethiopic',sans-serif; color:var(--ink);
+    background:var(--cream); -webkit-font-smoothing:antialiased;
+    display:flex; justify-content:center;
+  }
+  .page{width:100%; max-width:520px; padding:32px 22px 60px;}
+  .top{display:flex; align-items:center; gap:14px; margin-bottom:28px;}
+  .back{
+    width:38px; height:38px; border-radius:12px; border:1px solid var(--line);
+    background:#fff; display:flex; align-items:center; justify-content:center;
+    color:var(--ink); text-decoration:none; flex-shrink:0;
+  }
+  .brand-row{display:flex; align-items:center; gap:10px;}
+  .brand-row h1{font-family:'Fraunces',serif; font-size:1.2rem; font-weight:600; letter-spacing:.04em;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:20px;
+    padding:28px 24px; box-shadow:0 8px 28px rgba(46,32,19,.06);
+  }
+  .card h2{font-size:1.15rem; font-weight:700; margin-bottom:6px; color:var(--ink);}
+  .updated{font-size:.78rem; color:var(--muted); margin-bottom:22px;}
+  .section{margin-bottom:22px;}
+  .section h3{font-size:.92rem; font-weight:700; color:var(--accent-dark); margin-bottom:8px;}
+  .section p, .section li{font-size:.9rem; line-height:1.75; color:var(--ink);}
+  .section ul{padding-left:1.2em; margin-top:6px;}
+  .section li{margin-bottom:4px;}
+  .lang-toggle{display:flex; gap:8px; margin-bottom:20px;}
+  .lang-toggle button{
+    flex:1; padding:10px; border-radius:10px; border:1px solid var(--line);
+    background:#fff; font-family:inherit; font-weight:600; font-size:.85rem;
+    color:var(--muted); cursor:pointer;
+  }
+  .lang-toggle button.active{background:var(--brown); color:#fff; border-color:var(--brown);}
+  [data-lang-en]{display:none;}
+  html[lang="en"] [data-lang-am]{display:none !important;}
+  html[lang="en"] [data-lang-en]{display:block !important;}
+  html[lang="am"] [data-lang-am]{display:block !important;}
+  html[lang="am"] [data-lang-en]{display:none !important;}
+  .footer-note{text-align:center; font-size:.8rem; color:var(--muted); margin-top:28px;}
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="top">
+      <a href="javascript:history.back()" class="back" aria-label="ተመለስ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <div class="brand-row">
+        <svg width="36" height="32" viewBox="0 0 100 92" fill="none">
+          <path d="M14 82 C8 52 18 20 46 6" stroke="#9C6B3F" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M86 82 C92 52 82 20 54 6" stroke="#9C6B3F" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M30 82 C26 55 40 30 54 16" stroke="#9C6B3F" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+          <path d="M70 82 C74 55 60 30 46 16" stroke="#9C6B3F" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+          <path d="M40 82 C43 60 48 48 50 36" stroke="#9C6B3F" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+          <path d="M60 82 C57 60 52 48 50 36" stroke="#9C6B3F" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+          <path d="M50 1 L53.8 10 L63 10.8 L56 16.5 L58.2 25.5 L50 20.2 L41.8 25.5 L44 16.5 L37 10.8 L46.2 10 Z" fill="#9C6B3F"/>
+        </svg>
+        <h1>መልከኛ</h1>
+      </div>
+    </div>
+
+    <div class="lang-toggle">
+      <button type="button" id="btnAm" class="active" onclick="setLang('am')">አማርኛ</button>
+      <button type="button" id="btnEn" onclick="setLang('en')">English</button>
+    </div>
+
+    <div class="card">
+      <h2>
+        <span data-lang-am>የግላዊነት ፖሊሲ</span>
+        <span data-lang-en>Privacy Policy</span>
+      </h2>
+      <p class="updated">
+        <span data-lang-am>መጨረሻ የተሻሻለው፡ ነሐሴ 2026</span>
+        <span data-lang-en>Last updated: August 2026</span>
+      </p>
+
+      <div class="section">
+        <h3><span data-lang-am>1. ማን ነን?</span><span data-lang-en>1. Who we are</span></h3>
+        <p data-lang-am>መልከኛ (Melkegna) የውበትና የሰልን ንግዶችን ቀጠሮ፣ ደንበኛ እና ገቢ በቀላሉ እንዲያስተዳድሩ የሚረዳ መድረክ ነው።</p>
+        <p data-lang-en>Melkegna is a platform that helps beauty and salon businesses manage appointments, customers and revenue easily.</p>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>2. ምን መረጃ እንሰበስባለን?</span><span data-lang-en>2. What information we collect</span></h3>
+        <p data-lang-am>የሚከተሉትን መረጃዎች ብቻ እንሰበስባለን፡</p>
+        <p data-lang-en>We only collect the following information:</p>
+        <ul data-lang-am>
+          <li>የንግድ ስም</li>
+          <li>የባለቤት ስም</li>
+          <li>ስልክ ቁጥር</li>
+          <li>የይለፍ ቃል (በደህንነት የተመሰጠረ)</li>
+          <li>የቀጠሮና የደንበኛ መረጃ (እርስዎ የሚያስገቡት)</li>
+        </ul>
+        <ul data-lang-en>
+          <li>Business name</li>
+          <li>Owner name</li>
+          <li>Phone number</li>
+          <li>Password (securely encrypted)</li>
+          <li>Appointment and customer data (that you enter)</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>3. መረጃውን እንዴት እንጠቀማለን?</span><span data-lang-en>3. How we use the information</span></h3>
+        <p data-lang-am>መረጃዎን የምንጠቀመው፡</p>
+        <p data-lang-en>We use your information to:</p>
+        <ul data-lang-am>
+          <li>አካውንትዎን ለመፍጠርና ለማስተዳደር</li>
+          <li>ቀጠሮዎችንና ደንበኞችን ለማስተዳደር</li>
+          <li>አገልግሎታችንን ለማሻሻል</li>
+          <li>አስፈላጊ ሲሆን ድጋፍ ለመስጠት</li>
+        </ul>
+        <ul data-lang-en>
+          <li>Create and manage your account</li>
+          <li>Manage appointments and customers</li>
+          <li>Improve our service</li>
+          <li>Provide support when needed</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>4. ኩኪዎች (Cookies)</span><span data-lang-en>4. Cookies</span></h3>
+        <p data-lang-am>አስፈላጊ ኩኪዎችን ብቻ እንጠቀማለን፡</p>
+        <p data-lang-en>We only use essential cookies:</p>
+        <ul data-lang-am>
+          <li>እንዲገቡ ለማድረግ (session)</li>
+          <li>ቋንቋዎን ለማስታወስ</li>
+        </ul>
+        <ul data-lang-en>
+          <li>To keep you logged in (session)</li>
+          <li>To remember your language preference</li>
+        </ul>
+        <p data-lang-am style="margin-top:8px;">የማስታወቂያ ወይም የመከታተያ ኩኪዎችን አንጠቀምም።</p>
+        <p data-lang-en style="margin-top:8px;">We do not use advertising or tracking cookies.</p>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>5. መረጃዎን ከማን ጋር እናጋራለን?</span><span data-lang-en>5. Do we share your data?</span></h3>
+        <p data-lang-am>የእርስዎን የግል መረጃ ለሶስተኛ ወገን አንሸጥም፣ አናከራይም። መረጃዎ የሚጋራው ሕጋዊ ግዴታ ሲኖር ብቻ ነው።</p>
+        <p data-lang-en>We do not sell or rent your personal information to third parties. We only share data when required by law.</p>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>6. መረጃዎን እንዴት እንጠብቃለን?</span><span data-lang-en>6. How we protect your data</span></h3>
+        <p data-lang-am>የይለፍ ቃልዎ በደህንነት ይመሰጠራል። መረጃዎን ከያልተፈቀደ መዳረሻ ለመጠበቅ ተገቢ የደህንነት እርምጃዎችን እንወስዳለን።</p>
+        <p data-lang-en>Your password is securely encrypted. We take appropriate security measures to protect your data from unauthorized access.</p>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>7. ያለዎት መብቶች</span><span data-lang-en>7. Your rights</span></h3>
+        <p data-lang-am>በማንኛውም ጊዜ የእርስዎን መረጃ ማየት፣ ማስተካከል ወይም መሰረዝ መጠየቅ ይችላሉ። ለዚህ ያግኙን።</p>
+        <p data-lang-en>You can request to view, correct or delete your data at any time. Contact us for this.</p>
+      </div>
+
+      <div class="section">
+        <h3><span data-lang-am>8. ያግኙን</span><span data-lang-en>8. Contact us</span></h3>
+        <p data-lang-am>ስለ ግላዊነት ጥያቄ ካለዎት፡<br><strong>0946332194</strong> ወይም <strong>0955157398</strong></p>
+        <p data-lang-en>If you have questions about privacy:<br><strong>0946332194</strong> or <strong>0955157398</strong></p>
+      </div>
+    </div>
+
+    <p class="footer-note">
+      <span data-lang-am>መልከኛ · Beauty. Built on Trust.</span>
+      <span data-lang-en>Melkegna · Beauty. Built on Trust.</span>
+    </p>
+  </div>
+
+  <script>
+    function setLang(lang) {
+      document.documentElement.lang = lang;
+      document.getElementById('btnAm').classList.toggle('active', lang === 'am');
+      document.getElementById('btnEn').classList.toggle('active', lang === 'en');
+    }
+  </script>
+</body>
+</html>

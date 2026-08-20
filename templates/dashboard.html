@@ -356,7 +356,21 @@
     <aside class="sidebar d-none d-md-flex">
         <div>
             <div class="logo">
-                <i class="fa-solid fa-spa"></i>
+                <svg width="56" height="50" viewBox="0 0 100 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin:0 auto;display:block;">
+                    <!-- Outer left wing -->
+                    <path d="M14 82 C8 52 18 20 46 6" stroke="#9C6B3F" stroke-width="5" stroke-linecap="round" fill="none"/>
+                    <!-- Outer right wing -->
+                    <path d="M86 82 C92 52 82 20 54 6" stroke="#9C6B3F" stroke-width="5" stroke-linecap="round" fill="none"/>
+                    <!-- Inner left (crosses to form X) -->
+                    <path d="M30 82 C26 55 40 30 54 16" stroke="#9C6B3F" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+                    <!-- Inner right (crosses to form X) -->
+                    <path d="M70 82 C74 55 60 30 46 16" stroke="#9C6B3F" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+                    <!-- Center bottom legs of the X -->
+                    <path d="M40 82 C43 60 48 48 50 36" stroke="#9C6B3F" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+                    <path d="M60 82 C57 60 52 48 50 36" stroke="#9C6B3F" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+                    <!-- Diamond star -->
+                    <path d="M50 1 L53.8 10 L63 10.8 L56 16.5 L58.2 25.5 L50 20.2 L41.8 25.5 L44 16.5 L37 10.8 L46.2 10 Z" fill="#9C6B3F"/>
+                </svg>
                 <h2>መልከኛ</h2>
                 <small>MELKEGNA</small>
             </div>
@@ -416,6 +430,9 @@
                 </div>
                 <a href="tel:0946332194">0946332194</a>
                 <a href="tel:0955157398">0955157398</a>
+                <a href="/privacy" style="margin-top:8px;font-size:0.75rem;font-weight:500;opacity:0.85;">
+                    <span data-lang-am>ግላዊነት</span><span data-lang-en>Privacy</span>
+                </a>
             </div>
         </div>
     </aside>
@@ -445,10 +462,8 @@
                 {% if active_tab == 'home' %}
                 <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#bookModal">
                     <i class="fa-solid fa-plus me-1"></i>
-                    <span class="d-none d-sm-inline" data-lang-am>አዲስ ቀጠሮ</span>
-                    <span class="d-none d-sm-inline" data-lang-en>New Booking</span>
-                    <span class="d-sm-none" data-lang-am>አዲስ</span>
-                    <span class="d-sm-none" data-lang-en>New</span>
+                    <span data-lang-am>አዲስ ቀጠሮ</span>
+                    <span data-lang-en>New Booking</span>
                 </button>
                 {% endif %}
                 <a href="/logout" class="btn btn-outline-danger btn-sm d-md-none" onclick="return confirm(document.documentElement.lang==='en'?'Logout?':'ውጣ ይፈልጋሉ?')">
@@ -714,24 +729,10 @@
                                 <form action="/convert-waitlist/{{ w.id }}" method="post" class="convert-waitlist-form">
                                     <div class="d-flex flex-column gap-1">
                                         <input type="date" class="form-control form-control-sm wl-date" value="{{ w.preferred_date }}" required>
-                                        <div class="d-flex gap-1 flex-wrap">
-                                            <select class="form-select form-select-sm wl-period" style="max-width:72px;">
-                                                <option value="ጧት">ጧት</option>
-                                                <option value="ቀን" selected>ቀን</option>
-                                                <option value="ማታ">ማታ</option>
-                                                <option value="ለሊት">ለሊት</option>
-                                            </select>
-                                            <select class="form-select form-select-sm wl-hour" style="max-width:56px;">
-                                                {% for h in range(1,13) %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
-                                            </select>
-                                            <select class="form-select form-select-sm wl-min" style="max-width:56px;">
-                                                <option value="0">00</option>
-                                                <option value="15">15</option>
-                                                <option value="30">30</option>
-                                                <option value="45">45</option>
-                                            </select>
+                                        <div class="d-flex gap-1 align-items-center flex-wrap">
+                                            <input type="time" class="form-control form-control-sm wl-time" value="09:00" style="max-width:120px;" required>
                                             <button type="submit" class="btn btn-sm btn-accent text-nowrap">
-                                                <span data-lang-am>ስጠው</span><span data-lang-en>Book</span>
+                                                <span data-lang-am>ቦታ ስጠው</span><span data-lang-en>Book</span>
                                             </button>
                                         </div>
                                         <input type="hidden" name="appointment_time" class="wl-hidden" value="">
@@ -1161,6 +1162,10 @@
     <span data-lang-am>ድጋፍ</span><span data-lang-en>Support</span>:
     <a href="tel:0946332194">0946332194</a>
     <a href="tel:0955157398">0955157398</a>
+    <span style="margin:0 6px;opacity:.4;">·</span>
+    <a href="/privacy" style="font-size:0.72rem;font-weight:500;">
+        <span data-lang-am>ግላዊነት</span><span data-lang-en>Privacy</span>
+    </a>
 </div>
 
 <!-- Mobile bottom nav -->
@@ -1244,41 +1249,14 @@
                         <label class="form-label small text-muted fw-semibold">
                             <span data-lang-am>ቀን</span><span data-lang-en>Date</span>
                         </label>
-                        <input type="date" id="bookEthDate" class="form-control" value="{{ current_date }}" required>
+                        <input type="date" id="bookDate" class="form-control" value="{{ current_date }}" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
-                            <span data-lang-am>ሰዓት (በኢትዮጵያ ሰዓት)</span>
-                            <span data-lang-en>Time (Ethiopian)</span>
+                            <span data-lang-am>ሰዓት</span>
+                            <span data-lang-en>Time</span>
                         </label>
-                        <div class="eth-time-picker">
-                            <div class="d-flex gap-2 mb-2">
-                                <button type="button" class="eth-period-btn active" data-period="ጧት" data-target="book">ጧት</button>
-                                <button type="button" class="eth-period-btn" data-period="ቀን" data-target="book">ቀን</button>
-                                <button type="button" class="eth-period-btn" data-period="ማታ" data-target="book">ማታ</button>
-                                <button type="button" class="eth-period-btn" data-period="ለሊት" data-target="book">ለሊት</button>
-                            </div>
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <label class="form-label small text-muted mb-1">1–12</label>
-                                    <select id="bookEthHour" class="form-select">
-                                        {% for h in range(1,13) %}
-                                        <option value="{{ h }}" {% if h == 9 %}selected{% endif %}>{{ h }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small text-muted mb-1">ደቂቃ</label>
-                                    <select id="bookEthMinute" class="form-select">
-                                        <option value="0">00</option>
-                                        <option value="15">15</option>
-                                        <option value="30">30</option>
-                                        <option value="45">45</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
-                        </div>
+                        <input type="time" id="bookTime" class="form-control" value="09:00" required>
                         <input type="hidden" name="appointment_time" id="bookAppointmentTime" value="">
                         <p class="small text-muted mt-2 mb-0">{{ salon.hours_label }} · {{ salon.working_days_label }}</p>
                     </div>
@@ -1736,48 +1714,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 });
 
-/* ========== Ethiopian time helpers ========== */
-function ethToWestern(period, displayH, minute) {
-    let wh;
-    if (period === 'ጧት') wh = displayH === 12 ? 6 : 6 + displayH;
-    else if (period === 'ቀን') wh = displayH === 6 ? 12 : 12 + (displayH - 6);
-    else if (period === 'ማታ') wh = displayH === 12 ? 18 : 18 + displayH;
-    else wh = displayH - 6;
-    return { hour: wh, minute };
-}
-
-let bookPeriod = 'ጧት';
-function updateBookEth() {
-    const dateVal = document.getElementById('bookEthDate')?.value;
-    const hour = parseInt(document.getElementById('bookEthHour')?.value || '9', 10);
-    const minute = parseInt(document.getElementById('bookEthMinute')?.value || '0', 10);
-    const preview = document.getElementById('bookEthPreview');
+/* ========== Simple date + time helpers ========== */
+function updateBookTime() {
+    const dateVal = document.getElementById('bookDate')?.value;
+    const timeVal = document.getElementById('bookTime')?.value;
     const hidden = document.getElementById('bookAppointmentTime');
-    if (preview) preview.textContent = `${bookPeriod} ${hour}:${String(minute).padStart(2,'0')} ሰዓት`;
     if (!hidden) return;
-    if (!dateVal) { hidden.value = ''; return; }
-    const w = ethToWestern(bookPeriod, hour, minute);
-    hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+    if (!dateVal || !timeVal) { hidden.value = ''; return; }
+    hidden.value = `${dateVal}T${timeVal}`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.eth-period-btn[data-target="book"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.eth-period-btn[data-target="book"]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            bookPeriod = btn.dataset.period;
-            updateBookEth();
-        });
-    });
-    ['bookEthDate','bookEthHour','bookEthMinute'].forEach(id => {
+    ['bookDate', 'bookTime'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', updateBookEth);
+        if (el) el.addEventListener('change', updateBookTime);
     });
-    updateBookEth();
+    updateBookTime();
     const bookForm = document.querySelector('#bookModal form');
     if (bookForm) {
         bookForm.addEventListener('submit', e => {
-            updateBookEth();
+            updateBookTime();
             if (!document.getElementById('bookAppointmentTime').value) {
                 e.preventDefault();
                 alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
@@ -1789,14 +1745,11 @@ document.addEventListener('DOMContentLoaded', () => {
 /* Waitlist convert forms */
 function updateWlForm(form) {
     const dateVal = form.querySelector('.wl-date')?.value;
-    const period = form.querySelector('.wl-period')?.value || 'ቀን';
-    const hour = parseInt(form.querySelector('.wl-hour')?.value || '7', 10);
-    const minute = parseInt(form.querySelector('.wl-min')?.value || '0', 10);
+    const timeVal = form.querySelector('.wl-time')?.value;
     const hidden = form.querySelector('.wl-hidden');
     if (!hidden) return;
-    if (!dateVal) { hidden.value = ''; return; }
-    const w = ethToWestern(period, hour, minute);
-    hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+    if (!dateVal || !timeVal) { hidden.value = ''; return; }
+    hidden.value = `${dateVal}T${timeVal}`;
 }
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.convert-waitlist-form').forEach(form => {

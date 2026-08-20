@@ -6,4 +6,5 @@ psycopg2-binary
 pyjwt
 pwdlib[bcrypt]
 python-multipart
+python-jose[cryptography]
 jinja2

@@ -512,6 +512,14 @@ def logout():
 
 
 # ---------------------------------------------------------------------------
+# Privacy Policy
+# ---------------------------------------------------------------------------
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page(request: Request):
+    return templates.TemplateResponse(request, "privacy.html", {})
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -1199,3 +1207,12 @@ def public_join_waitlist(
     db.commit()
 
     return RedirectResponse(url=f"/book/{salon_id}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Local / Railway entry point
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

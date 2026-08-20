@@ -1,429 +1,235 @@
 <!DOCTYPE html>
 <html lang="am">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ይመዝገቡ - መልከኛ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Noto+Sans+Ethiopic:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    <style>
-        :root{
-            --ink:#2E2013;
-            --muted:#7A6C5D;
-            --paper:#FFFFFF;
-            --wood:#F3E6CC;
-            --line:#E3D2AE;
-            --accent:#A67C43;
-            --accent-dark:#7A5731;
-        }
-        *{box-sizing:border-box;}
-        body{
-            margin:0;
-            min-height:100vh;
-            font-family:'Noto Sans Ethiopic',sans-serif;
-            color:var(--ink);
-            background:var(--paper);
-            -webkit-font-smoothing:antialiased;
-        }
-        .eng{ font-family:'Fraunces',serif; }
-
-        .screen{ display:flex; min-height:100vh; }
-
-        /* ---------- Left column ---------- */
-        .brand{
-            flex:0 0 46%;
-            background-color:var(--wood);
-            background-image:
-                repeating-linear-gradient(179deg, rgba(122,87,49,.05) 0px, rgba(122,87,49,.05) 2px, transparent 2px, transparent 7px),
-                repeating-linear-gradient(183deg, rgba(122,87,49,.035) 0px, rgba(122,87,49,.035) 1px, transparent 1px, transparent 11px),
-                radial-gradient(ellipse 70px 16px at 18% 28%, rgba(122,87,49,.07), transparent 70%),
-                radial-gradient(ellipse 90px 20px at 78% 68%, rgba(122,87,49,.06), transparent 70%);
-            border-right:1px solid var(--line);
-            padding:64px 64px 44px;
-            display:flex;
-            flex-direction:column;
-            justify-content:space-between;
-        }
-
-        .mark{ display:flex; align-items:center; gap:11px; }
-        .mark .logo-mark{ height:36px; width:auto; flex:none; display:block; }
-        .wordmark{ font-size:1.05rem; font-weight:600; letter-spacing:.01em; color:var(--ink); }
-
-        .eyebrow{
-            font-family:'Fraunces',serif;
-            font-style:italic;
-            font-weight:500;
-            font-size:.72rem;
-            letter-spacing:.16em;
-            text-transform:uppercase;
-            color:var(--accent);
-            margin:56px 0 18px;
-        }
-        .headline{
-            font-size:2.5rem;
-            line-height:1.32;
-            font-weight:700;
-            margin:0 0 20px;
-            color:var(--ink);
-            letter-spacing:-.01em;
-        }
-        .headline .eng{ font-style:italic; font-weight:500; color:var(--accent-dark); }
-        .sub{
-            font-size:.98rem;
-            line-height:1.8;
-            color:var(--muted);
-            max-width:38ch;
-            margin:0;
-        }
-
-        .features{ margin:52px 0 0; padding:0; }
-        .feature-row{
-            display:flex;
-            gap:20px;
-            padding:16px 0;
-            border-top:1px solid var(--line);
-        }
-        .feature-row:last-child{ border-bottom:1px solid var(--line); }
-        .feature-tag{
-            flex:0 0 84px;
-            font-size:.82rem;
-            font-weight:600;
-            color:var(--ink);
-        }
-        .feature-desc{
-            font-size:.88rem;
-            color:var(--muted);
-            line-height:1.6;
-        }
-
-        .brand-quote{
-            border-top:1px solid var(--line);
-            padding-top:20px;
-            margin-top:44px;
-            font-family:'Fraunces',serif;
-            font-style:italic;
-            font-weight:500;
-            font-size:.94rem;
-            color:var(--accent-dark);
-        }
-
-        /* ---------- Right column ---------- */
-        .form-side{
-            flex:1;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            padding:40px 24px;
-            background:var(--paper);
-        }
-        .form-card{ width:100%; max-width:420px; }
-        .form-card h1{
-            font-size:1.5rem;
-            font-weight:700;
-            margin-bottom:6px;
-            color:var(--ink);
-            letter-spacing:-.01em;
-        }
-        .form-card .lede{ color:var(--muted); font-size:.92rem; margin-bottom:40px; }
-
-        .field-label{
-            font-size:.78rem;
-            font-weight:600;
-            color:var(--muted);
-            margin-bottom:8px;
-            display:block;
-        }
-        .form-control{
-            border-radius:0;
-            border:none;
-            border-bottom:1px solid var(--line);
-            background:transparent;
-            min-height:40px;
-            padding:0 2px 8px;
-            font-size:.98rem;
-            color:var(--ink);
-        }
-        .form-control:focus{
-            border-color:var(--ink);
-            box-shadow:none;
-        }
-        .form-control::placeholder{ color:#B8AA97; }
-        .mb-field{ margin-bottom:26px; }
-        .mb-field.tight{ margin-bottom:6px; }
-
-        .hours-row{ display:flex; gap:18px; }
-        .hours-row .mb-field{ flex:1; }
-
-        /* ---------- Password match feedback ---------- */
-        .pw-hint{ font-size:.78rem; color:var(--muted); margin-top:6px; min-height:16px; }
-        .pw-hint.ok{ color:#2F6B34; }
-        .pw-hint.bad{ color:#8A3B2E; }
-        .form-control.pw-bad{ border-color:#B5473F; }
-        .form-control.pw-ok{ border-color:#4C8A52; }
-
-        /* ---------- Working-day picker ---------- */
-        .day-picker{
-            display:flex;
-            flex-wrap:wrap;
-            gap:8px;
-            margin-bottom:6px;
-        }
-        .day-toggle{ position:relative; }
-        .day-toggle input{
-            position:absolute;
-            opacity:0;
-            width:100%;
-            height:100%;
-            margin:0;
-            cursor:pointer;
-        }
-        .day-toggle span{
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            width:44px;
-            height:44px;
-            border-radius:10px;
-            border:1px solid var(--line);
-            font-size:.82rem;
-            font-weight:600;
-            color:var(--muted);
-            transition:all .15s ease;
-        }
-        .day-toggle input:checked + span{
-            background:var(--ink);
-            border-color:var(--ink);
-            color:#fff;
-        }
-        .hint{ font-size:.78rem; color:var(--muted); margin-top:2px; }
-
-        .btn-rose{
-            background:var(--ink); color:#fff; border:none; font-weight:600;
-            min-height:46px; border-radius:6px; width:100%;
-            letter-spacing:.01em;
-            font-size:.95rem;
-            transition:background .15s ease;
-            margin-top:6px;
-        }
-        .btn-rose:hover{ background:var(--accent-dark); color:#fff; }
-        .btn-rose:disabled{ background:#B8AA97; cursor:not-allowed; }
-
-        .alt-link{ text-align:center; font-size:.88rem; color:var(--muted); margin-top:26px; }
-        .alt-link a{ color:var(--ink); font-weight:600; text-decoration:none; border-bottom:1px solid var(--line); }
-        .alt-link a:hover{ border-color:var(--ink); }
-
-        .support-line{ text-align:center; font-size:.82rem; color:var(--muted); margin-top:14px; }
-        .support-line a{ color:var(--accent-dark); font-weight:600; text-decoration:none; margin:0 6px; }
-        .support-line a:hover{ text-decoration:underline; }
-
-        .alert-melk{
-            border:none; border-left:2px solid #B5473F; background:transparent; color:#8A3B2E;
-            border-radius:0; font-size:.86rem; padding:.4rem 0 .4rem .8rem; margin-bottom:22px;
-        }
-
-        /* ---------- Responsive ---------- */
-        @media (max-width: 991.98px){
-            .screen{ flex-direction:column; }
-            .brand{ flex:none; padding:40px 28px 32px; border-right:none; border-bottom:1px solid var(--line); }
-            .headline{ font-size:1.7rem; }
-            .sub{ max-width:none; }
-            .features{ display:none; }
-            .brand-quote{ display:none; }
-            .form-side{ padding:36px 20px 48px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ይመዝገቡ - መልከኛ</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Noto+Sans+Ethiopic:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#2E2013; --muted:#8C7B63; --cream:#F7F1E3; --cream-deep:#EFE3C7;
+    --card:#FFFFFF; --line:#E7D9B9; --field:#FBF7EC; --brown:#3B2A1A;
+    --brown-dark:#231506; --accent:#A67C43; --accent-dark:#7A5731;
+    --danger:#B5473F; --danger-bg:#FBEDEA; --ok:#2F6B34; --ok-dark:#234F27; --ok-bg:#EAF3EA;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    min-height:100vh; font-family:'Noto Sans Ethiopic',sans-serif; color:var(--ink);
+    background:var(--cream); -webkit-font-smoothing:antialiased;
+    display:flex; justify-content:center;
+  }
+  .eng{font-family:'Fraunces',serif;}
+  .phone{width:100%; max-width:420px; min-height:100vh; position:relative; overflow:hidden; background:var(--cream);}
+  .header{
+    background:linear-gradient(160deg, #3B2A1A 0%, #5C3D22 55%, #A67C43 100%);
+    padding:28px 24px 90px; position:relative; color:#fff;
+  }
+  .back-link{
+    position:absolute; top:22px; left:18px; width:36px; height:36px; border-radius:12px;
+    background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center;
+    color:#fff; text-decoration:none; backdrop-filter:blur(4px);
+  }
+  .brand{display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:12px;}
+  .logo-svg{width:64px; height:56px; filter:drop-shadow(0 4px 12px rgba(0,0,0,.25));}
+  .wordmark{font-family:'Fraunces',serif; font-weight:600; font-size:1.35rem; letter-spacing:.06em; color:#fff;}
+  .tagline{font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; opacity:.75; margin-top:2px;}
+  .header-text{text-align:center; margin-top:22px;}
+  .eyebrow{font-family:'Fraunces',serif; font-style:italic; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; opacity:.8; margin-bottom:10px;}
+  .headline{font-size:1.32rem; font-weight:700; line-height:1.4; margin-bottom:8px;}
+  .headline .eng{font-style:italic; font-weight:500; opacity:.9;}
+  .sub{font-size:.86rem; line-height:1.65; opacity:.85; max-width:32ch; margin:0 auto;}
+  .card{
+    background:var(--card); border-radius:28px 28px 0 0; margin-top:-48px;
+    padding:32px 24px 40px; position:relative; z-index:2;
+    box-shadow:0 -12px 40px rgba(46,32,19,.12); min-height:calc(100vh - 280px);
+  }
+  .field{margin-bottom:18px;}
+  .field.tight{margin-bottom:6px;}
+  .field label{display:block; font-size:.78rem; font-weight:600; color:var(--muted); margin-bottom:8px;}
+  .input-wrap{
+    display:flex; align-items:center; gap:10px; background:var(--field);
+    border:1px solid var(--line); border-radius:14px; padding:0 14px; min-height:52px;
+    transition:border-color .15s, background .15s;
+  }
+  .input-wrap:focus-within{border-color:var(--brown); background:#fff;}
+  .input-wrap.pw-bad{border-color:var(--danger);}
+  .input-wrap.pw-ok{border-color:var(--ok);}
+  .input-wrap svg{flex:none; color:var(--muted);}
+  .input-wrap input{
+    flex:1; border:none; outline:none; background:transparent;
+    font-size:.96rem; color:var(--ink); padding:14px 0; min-width:0; font-family:inherit;
+  }
+  .input-wrap input::placeholder{color:#B8AA97;}
+  .eye-toggle{flex:none; border:none; background:transparent; color:var(--muted); padding:6px; display:flex; cursor:pointer;}
+  .eye-toggle:hover{color:var(--ink);}
+  .pw-hint{font-size:.78rem; color:var(--muted); margin:6px 2px 0; min-height:16px;}
+  .pw-hint.ok{color:var(--ok);}
+  .pw-hint.bad{color:var(--danger);}
+  .security-note{
+    display:flex; align-items:flex-start; gap:10px; background:var(--ok-bg);
+    border-radius:14px; padding:13px 14px; margin:20px 0 22px;
+  }
+  .security-note svg{flex:none; color:var(--ok-dark); margin-top:1px;}
+  .security-note p{margin:0; font-size:.82rem; line-height:1.6; color:var(--ok-dark);}
+  .btn-primary{
+    width:100%; min-height:52px; border:none; border-radius:14px;
+    background:var(--ok); color:#fff; font-weight:700; font-size:.98rem;
+    letter-spacing:.02em; cursor:pointer; transition:background .15s; font-family:inherit;
+  }
+  .btn-primary:hover{background:var(--ok-dark);}
+  .btn-primary:disabled{background:#C9C1AE; cursor:not-allowed;}
+  .alert{border-radius:12px; font-size:.84rem; padding:11px 13px; margin-bottom:18px; line-height:1.5; background:var(--danger-bg); color:var(--danger);}
+  .alt-link{text-align:center; font-size:.88rem; color:var(--muted); margin-top:24px;}
+  .alt-link a{color:var(--ok-dark); font-weight:700; text-decoration:none; border-bottom:1px solid var(--line);}
+  .alt-link a:hover{border-color:var(--ok-dark);}
+  .support-line{text-align:center; font-size:.8rem; color:var(--muted); margin-top:16px; padding-bottom:8px;}
+  .support-line a{color:var(--accent-dark); font-weight:600; text-decoration:none; margin:0 4px;}
+  .support-line a:hover{text-decoration:underline;}
+  .privacy-link{text-align:center; font-size:.75rem; margin-top:10px; padding-bottom:24px;}
+  .privacy-link a{color:var(--muted); text-decoration:none; font-weight:500;}
+  .privacy-link a:hover{color:var(--accent-dark); text-decoration:underline;}
+  @media (max-width:380px){
+    .header{padding:24px 18px 80px;} .headline{font-size:1.2rem;} .card{padding:28px 18px 36px;}
+  }
+</style>
 </head>
 <body>
-    <div class="screen">
-
-        <!-- ============ LEFT COLUMN ============ -->
-        <aside class="brand">
-            <div>
-                <div class="mark">
-                    <span class="wordmark">መልከኛ</span>
-                </div>
-
-                <p class="eyebrow">for high-performing entrepreneurs</p>
-                <h1 class="headline">ጫናዎን እናቃልል፣<br>አፈጻጸምዎን <span class="eng">እንደግፍ</span></h1>
-                <p class="sub">መልከኛ ስራዎን ፈጣን፣ ትክክለኛ እና ከፍተኛ ጥራት ባለው መንገድ እንዲመሩ ያግዝዎታል፤ ቀጠሮ፣ ደንበኛ እና ገቢ ሁሉም በአንድ ቦታ፣ በቅጽበት ላይ።</p>
-
-                <div class="features">
-                    <div class="feature-row">
-                        <div class="feature-tag">ቀጠሮ</div>
-                        <div class="feature-desc">ቀጠሮዎችን በሰከንዶች ውስጥ ያደራጁ፤ ጊዜ አያባክኑ</div>
-                    </div>
-                    <div class="feature-row">
-                        <div class="feature-tag">ደንበኛ</div>
-                        <div class="feature-desc">ደንበኛ ተሞክሮዎን ደረጃ ከፍ ያድርጉ</div>
-                    </div>
-                    <div class="feature-row">
-                        <div class="feature-tag">ገቢ</div>
-                        <div class="feature-desc">ገቢዎን በቀጥታ፣ በስልክዎ ላይ ይከታተሉ</div>
-                    </div>
-                </div>
-            </div>
-
-            <p class="brand-quote">"ፈጣን ብቻ በቂ አይደለም፤ ትክክለኛም መሆን አለበት።"</p>
-        </aside>
-
-        <!-- ============ RIGHT COLUMN ============ -->
-        <main class="form-side">
-            <div class="form-card">
-                <h1>ንግድዎን ይመዝገቡ</h1>
-                <p class="lede">ነጻ አካውንት ይክፈቱ፣ ከሁለት ደቂቃ በታች ውስጥ ይጀምሩ።</p>
-
-                {% if error == 'exists' %}
-                <div class="alert alert-melk">ይህ ስልክ ቁጥር አስቀድሞ ተመዝግቧል።</div>
-                {% endif %}
-                {% if error == 'invalid_phone' %}
-                <div class="alert alert-melk">ትክክለኛ የስልክ ቁጥር ያስገቡ (ለምሳሌ፡ 0911223344)።</div>
-                {% endif %}
-                {% if error == 'invalid_hours' %}
-                <div class="alert alert-melk">የስራ መጨረሻ ሰዓት ከመጀመሪያ ሰዓት በኋላ መሆን አለበት።</div>
-                {% endif %}
-                {% if error == 'invalid_days' %}
-                <div class="alert alert-melk">ቢያንስ አንድ የስራ ቀን ይምረጡ።</div>
-                {% endif %}
-                {% if error == 'weak_password' %}
-                <div class="alert alert-melk">የይለፍ ቃል ቢያንስ 8 ፊደላት/ቁጥሮች ሊኖረው ይገባል።</div>
-                {% endif %}
-                {% if error == 'password_mismatch' %}
-                <div class="alert alert-melk">ሁለቱ የይለፍ ቃሎች አንድ አይነት አይደሉም።</div>
-                {% endif %}
-
-                <form action="/register" method="post" novalidate id="registerForm">
-                    <div class="mb-field">
-                        <label class="field-label">የንግድ ስም</label>
-                        <input type="text" name="name" class="form-control" required placeholder="የንግድዎን ስም ያስገቡ">
-                    </div>
-                    <div class="mb-field">
-                        <label class="field-label">የባለቤት ስም</label>
-                        <input type="text" name="owner_name" class="form-control" required placeholder="ሙሉ ስም">
-                    </div>
-                    <div class="mb-field">
-                        <label class="field-label">ስልክ ቁጥር</label>
-                        <input type="tel" name="phone" class="form-control" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
-                    </div>
-
-                    <div class="mb-field tight">
-                        <label class="field-label">የይለፍ ቃል</label>
-                        <input type="password" name="password" id="password" class="form-control" required minlength="8" placeholder="ቢያንስ 8 ፊደላት/ቁጥሮች" autocomplete="new-password">
-                    </div>
-
-                    <div class="mb-field">
-                        <label class="field-label">የይለፍ ቃል ድጋሚ ያስገቡ</label>
-                        <input type="password" name="confirm_password" id="confirmPassword" class="form-control" required minlength="8" placeholder="የይለፍ ቃልዎን በድጋሚ ያስገቡ" autocomplete="new-password">
-                        <p class="pw-hint" id="pwHint"></p>
-                    </div>
-
-                    <!-- Working hours -->
-                    <div class="hours-row">
-                        <div class="mb-field">
-                            <label class="field-label">የስራ መጀመሪያ ሰዓት</label>
-                            <input type="time" name="opening_time" class="form-control" value="08:00" required>
-                        </div>
-                        <div class="mb-field">
-                            <label class="field-label">የስራ መጨረሻ ሰዓት</label>
-                            <input type="time" name="closing_time" class="form-control" value="20:00" required>
-                        </div>
-                    </div>
-
-                    <!-- Working days -->
-                    <div class="mb-field">
-                        <label class="field-label">የስራ ቀናት</label>
-                        <div class="day-picker">
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="0" checked>
-                                <span>ሰኞ</span>
-                            </label>
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="1" checked>
-                                <span>ማክሰ</span>
-                            </label>
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="2" checked>
-                                <span>ረቡዕ</span>
-                            </label>
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="3" checked>
-                                <span>ሐሙስ</span>
-                            </label>
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="4" checked>
-                                <span>ዓርብ</span>
-                            </label>
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="5" checked>
-                                <span>ቅዳሜ</span>
-                            </label>
-                            <label class="day-toggle">
-                                <input type="checkbox" name="working_days" value="6">
-                                <span>እሁድ</span>
-                            </label>
-                        </div>
-                        <p class="hint">ስራ የማይሰሩበትን ቀን ምልክት ያንሱት (ነባሪው፡ ከሰኞ-ቅዳሜ ክፍት፣ እሁድ ዝግ)።</p>
-                    </div>
-
-                    <button type="submit" class="btn btn-rose" id="submitBtn">ይመዝገቡ</button>
-                </form>
-
-                <p class="alt-link">አካውንት አለዎት? <a href="/login">ይግቡ</a></p>
-
-                <p class="support-line">
-                    የደንበኛ ድጋፍ /
-                    <a href="tel:0946332194">0946332194</a>
-                    ወይም
-                    <a href="tel:0955157398">0955157398</a>
-                </p>
-            </div>
-        </main>
-
+  <div class="phone">
+    <div class="header">
+      <a href="/login" class="back-link" aria-label="ተመለስ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <div class="brand">
+        <svg class="logo-svg" viewBox="0 0 100 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 82 C8 52 18 20 46 6" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M86 82 C92 52 82 20 54 6" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M30 82 C26 55 40 30 54 16" stroke="#fff" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+          <path d="M70 82 C74 55 60 30 46 16" stroke="#fff" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+          <path d="M40 82 C43 60 48 48 50 36" stroke="#fff" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+          <path d="M60 82 C57 60 52 48 50 36" stroke="#fff" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+          <path d="M50 1 L53.8 10 L63 10.8 L56 16.5 L58.2 25.5 L50 20.2 L41.8 25.5 L44 16.5 L37 10.8 L46.2 10 Z" fill="#fff"/>
+        </svg>
+        <div class="wordmark">መልከኛ</div>
+        <div class="tagline">Beauty · Built on Trust</div>
+      </div>
+      <div class="header-text">
+        <p class="eyebrow">for high-performing entrepreneurs</p>
+        <h1 class="headline">ጫናዎን እናቃልል፣<br>አፈጻጸምዎን <span class="eng">እንደግፍ</span></h1>
+        <p class="sub">መልከኛ ስራዎን ፈጣን፣ ትክክለኛ እና ከፍተኛ ጥራት ባለው መንገድ እንዲመሩ ያግዝዎታል፤ ቀጠሮ፣ ደንበኛ እና ገቢ ሁሉም በአንድ ቦታ፣ በቅጽበት ላይ።</p>
+      </div>
     </div>
 
-    <script>
-        (function () {
-            const pw = document.getElementById('password');
-            const confirm = document.getElementById('confirmPassword');
-            const hint = document.getElementById('pwHint');
-            const submitBtn = document.getElementById('submitBtn');
-            const form = document.getElementById('registerForm');
+    <div class="card">
+      {% if error == 'exists' %}
+      <div class="alert">ይህ ስልክ ቁጥር አስቀድሞ ተመዝግቧል።</div>
+      {% endif %}
+      {% if error == 'invalid_phone' %}
+      <div class="alert">ትክክለኛ የስልክ ቁጥር ያስገቡ (ለምሳሌ፡ 0911223344)።</div>
+      {% endif %}
+      {% if error == 'weak_password' %}
+      <div class="alert">የይለፍ ቃል ቢያንስ 8 ፊደላት/ቁጥሮች ሊኖረው ይገባል።</div>
+      {% endif %}
+      {% if error == 'password_mismatch' %}
+      <div class="alert">ሁለቱ የይለፍ ቃሎች አንድ አይነት አይደሉም።</div>
+      {% endif %}
 
-            function check() {
-                if (!confirm.value) {
-                    hint.textContent = '';
-                    hint.className = 'pw-hint';
-                    confirm.className = 'form-control';
-                    return true;
-                }
-                if (pw.value !== confirm.value) {
-                    hint.textContent = 'የይለፍ ቃሎቹ አንድ አይነት አይደሉም';
-                    hint.className = 'pw-hint bad';
-                    confirm.className = 'form-control pw-bad';
-                    return false;
-                }
-                hint.textContent = 'ተመሳሳይ ነው ✓';
-                hint.className = 'pw-hint ok';
-                confirm.className = 'form-control pw-ok';
-                return true;
-            }
+      <form action="/register" method="post" novalidate id="registerForm">
+        <div class="field">
+          <label>የንግድ ስም</label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M14 9h1M14 13h1M9 21v-4h6v4"/></svg>
+            <input type="text" name="name" required placeholder="የንግድዎን ስም ያስገቡ">
+          </div>
+        </div>
+        <div class="field">
+          <label>የባለቤት ስም</label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" name="owner_name" required placeholder="ሙሉ ስም">
+          </div>
+        </div>
+        <div class="field">
+          <label>ስልክ ቁጥር</label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <input type="tel" name="phone" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
+          </div>
+        </div>
+        <div class="field tight">
+          <label>የይለፍ ቃል</label>
+          <div class="input-wrap" id="pwWrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <input type="password" name="password" id="password" required minlength="8" placeholder="ቢያንስ 8 ፊደላት/ቁጥሮች" autocomplete="new-password">
+            <button type="button" class="eye-toggle" data-target="password" aria-label="የይለፍ ቃል አሳይ">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>የይለፍ ቃል ድጋሚ ያስገቡ</label>
+          <div class="input-wrap" id="confirmWrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <input type="password" name="confirm_password" id="confirmPassword" required minlength="8" placeholder="የይለፍ ቃልዎን በድጋሚ ያስገቡ" autocomplete="new-password">
+            <button type="button" class="eye-toggle" data-target="confirmPassword" aria-label="የይለፍ ቃል አሳይ">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <p class="pw-hint" id="pwHint"></p>
+        </div>
+        <div class="security-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <p>እርስዎ ስራ ላይ ያተኩሩ፤ አያያዙን ለመልከኛ ይተዉት።</p>
+        </div>
+        <button type="submit" class="btn-primary" id="submitBtn">ይመዝገቡ</button>
+      </form>
 
-            pw.addEventListener('input', check);
-            confirm.addEventListener('input', check);
+      <p class="alt-link">አካውንት አለዎት? <a href="/login">ይግቡ</a></p>
+      <p class="support-line">
+        የደንበኛ ድጋፍ /
+        <a href="tel:0946332194">0946332194</a>
+        ወይም
+        <a href="tel:0955157398">0955157398</a>
+      </p>
+      <p class="privacy-link">
+        <a href="/privacy">ግላዊነት · Privacy</a>
+      </p>
+    </div>
+  </div>
 
-            form.addEventListener('submit', function (e) {
-                if (pw.value.length < 8) {
-                    e.preventDefault();
-                    hint.textContent = 'ቢያንስ 8 ፊደላት/ቁጥሮች ያስፈልጋል';
-                    hint.className = 'pw-hint bad';
-                    pw.focus();
-                    return;
-                }
-                if (!check()) {
-                    e.preventDefault();
-                    confirm.focus();
-                }
-            });
-        })();
-    </script>
+  <script>
+    document.querySelectorAll('.eye-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.dataset.target);
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    });
+    (function () {
+      const pw = document.getElementById('password');
+      const confirm = document.getElementById('confirmPassword');
+      const pwWrap = document.getElementById('pwWrap');
+      const confirmWrap = document.getElementById('confirmWrap');
+      const hint = document.getElementById('pwHint');
+      const form = document.getElementById('registerForm');
+      function check() {
+        if (!confirm.value) {
+          hint.textContent = ''; hint.className = 'pw-hint'; confirmWrap.className = 'input-wrap'; return true;
+        }
+        if (pw.value !== confirm.value) {
+          hint.textContent = 'የይለፍ ቃሎቹ አንድ አይነት አይደሉም'; hint.className = 'pw-hint bad'; confirmWrap.className = 'input-wrap pw-bad'; return false;
+        }
+        hint.textContent = 'ተመሳሳይ ነው ✓'; hint.className = 'pw-hint ok'; confirmWrap.className = 'input-wrap pw-ok'; return true;
+      }
+      pw.addEventListener('input', check);
+      confirm.addEventListener('input', check);
+      form.addEventListener('submit', function (e) {
+        if (pw.value.length < 8) {
+          e.preventDefault();
+          hint.textContent = 'ቢያንስ 8 ፊደላት/ቁጥሮች ያስፈልጋል'; hint.className = 'pw-hint bad';
+          pwWrap.className = 'input-wrap pw-bad'; pw.focus(); return;
+        }
+        if (!check()) { e.preventDefault(); confirm.focus(); }
+      });
+    })();
+  </script>
 </body>
 </html>
