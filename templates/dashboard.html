@@ -265,6 +265,8 @@
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
             z-index: 2;
+            cursor: grab;
+            user-select: none;
         }
         .wheel-col::-webkit-scrollbar { display: none; }
         .wheel-col.wheel-period { width: 76px; }
@@ -281,6 +283,7 @@
             scroll-snap-align: center;
             transition: color .12s ease, font-size .12s ease;
             user-select: none;
+            cursor: pointer;
         }
         .wheel-item.active {
             color: var(--accent);
@@ -1812,7 +1815,7 @@ function westernToEth(h, m) {
     return { period, hour: displayH, minute: em };
 }
 
-/* ========== Generic scroll-wheel picker (touch-friendly, snaps to nearest item) ========== */
+/* ========== Generic scroll-wheel picker (touch + mouse friendly, snaps to nearest item) ========== */
 const WHEEL_ITEM_HEIGHT = 42;
 
 function buildWheel(container, values) {
@@ -1853,6 +1856,47 @@ function initWheel(container, values, initialValue, onChange) {
             markActive(idx);
         }, 110);
     }, { passive: true });
+
+    // Click an item to jump straight to it (works great with a mouse)
+    items.forEach((it, i) => {
+        it.addEventListener('click', () => {
+            scrollToIndex(i, true);
+            markActive(i);
+        });
+    });
+
+    // Mouse drag-to-scroll (laptops/desktops don't fire touch events)
+    let isDragging = false;
+    let dragStartY = 0;
+    let scrollStartTop = 0;
+    let dragMoved = false;
+
+    container.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragMoved = false;
+        dragStartY = e.clientY;
+        scrollStartTop = container.scrollTop;
+        container.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dy = e.clientY - dragStartY;
+        if (Math.abs(dy) > 3) dragMoved = true;
+        container.scrollTop = scrollStartTop - dy;
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        container.style.cursor = 'grab';
+        if (dragMoved) {
+            const idx = currentIndex();
+            scrollToIndex(idx, true);
+            markActive(idx);
+        }
+    });
 
     const startIdx = Math.max(0, values.indexOf(initialValue));
     requestAnimationFrame(() => {
