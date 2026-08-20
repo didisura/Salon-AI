@@ -225,18 +225,79 @@
             background: var(--accent); border-color: var(--accent); color: #fff;
         }
 
-        /* ---------- Ethiopian time picker ---------- */
+        /* ---------- Ethiopian time picker (scroll wheel) ---------- */
         .eth-time-picker {
             background: #F6ECE1; border: 1px solid var(--border);
             border-radius: 12px; padding: 12px;
         }
-        .eth-period-btn {
-            flex: 1; min-height: 38px; border-radius: 9px;
-            border: 1px solid var(--border); background: #fff;
-            font-weight: 600; font-size: 0.78rem; color: var(--text-muted);
+        .eth-wheel-shell {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0 10px;
         }
-        .eth-period-btn.active {
-            background: var(--accent); border-color: var(--accent); color: #fff;
+        .eth-wheel-highlight {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 42px;
+            border-radius: 9px;
+            background: rgba(156,107,63,0.10);
+            border-top: 1px solid rgba(156,107,63,0.35);
+            border-bottom: 1px solid rgba(156,107,63,0.35);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .wheel-col {
+            position: relative;
+            height: 126px;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            padding-top: 42px;
+            padding-bottom: 42px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            z-index: 2;
+        }
+        .wheel-col::-webkit-scrollbar { display: none; }
+        .wheel-col.wheel-period { width: 76px; }
+        .wheel-col.wheel-hour { width: 54px; }
+        .wheel-col.wheel-minute { width: 54px; }
+        .wheel-item {
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #C9BBA2;
+            scroll-snap-align: center;
+            transition: color .12s ease, font-size .12s ease;
+            user-select: none;
+        }
+        .wheel-item.active {
+            color: var(--accent);
+            font-size: 1.15rem;
+        }
+        .wheel-sep {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1.1rem;
+            z-index: 2;
+        }
+        .wheel-suffix {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            z-index: 2;
+            padding-left: 4px;
         }
         .eth-preview {
             margin-top: 8px; font-weight: 700; color: var(--accent);
@@ -1204,7 +1265,7 @@
 <div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form action="/book-appointment" method="post">
+            <form action="/book-appointment" method="post" id="bookModalForm">
                 <div class="modal-header">
                     <h5 class="fw-bold m-0">
                         <span data-lang-am>አዲስ ቀጠሮ</span>
@@ -1253,10 +1314,20 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
-                            <span data-lang-am>ሰዓት</span>
-                            <span data-lang-en>Time</span>
+                            <span data-lang-am>ሰዓት (በኢትዮጵያ ሰዓት)</span>
+                            <span data-lang-en>Time (Ethiopian)</span>
                         </label>
-                        <input type="time" id="bookTime" class="form-control" value="09:00" required>
+                        <div class="eth-time-picker">
+                            <div class="eth-wheel-shell">
+                                <div class="eth-wheel-highlight"></div>
+                                <div class="wheel-col wheel-period" id="wheelPeriodBook"></div>
+                                <div class="wheel-col wheel-hour" id="wheelHourBook"></div>
+                                <div class="wheel-sep">:</div>
+                                <div class="wheel-col wheel-minute" id="wheelMinuteBook"></div>
+                                <div class="wheel-suffix">ሰዓት</div>
+                            </div>
+                            <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
+                        </div>
                         <input type="hidden" name="appointment_time" id="bookAppointmentTime" value="">
                         <p class="small text-muted mt-2 mb-0">{{ salon.hours_label }} · {{ salon.working_days_label }}</p>
                     </div>
@@ -1714,26 +1785,138 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 });
 
-/* ========== Simple date + time helpers ========== */
-function updateBookTime() {
+/* ========== Ethiopian time conversion (client-side, mirrors backend) ========== */
+function ethToWestern(period, displayH, minute) {
+    let wh;
+    if (period === 'ጧት') {
+        wh = displayH === 12 ? 6 : 6 + displayH;
+    } else if (period === 'ቀን') {
+        wh = displayH === 6 ? 12 : 12 + (displayH - 6);
+    } else if (period === 'ማታ') {
+        wh = displayH === 12 ? 18 : 18 + displayH;
+    } else { // ለሊት
+        wh = displayH - 6;
+    }
+    return { hour: wh, minute: minute };
+}
+
+function westernToEth(h, m) {
+    const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
+    const eh = Math.floor(total / 60);
+    const em = total % 60;
+    let period, displayH;
+    if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
+    else if (eh < 12) { period = 'ቀን'; displayH = eh; }
+    else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
+    else { period = 'ለሊት'; displayH = eh - 12; }
+    return { period, hour: displayH, minute: em };
+}
+
+/* ========== Generic scroll-wheel picker (touch-friendly, snaps to nearest item) ========== */
+const WHEEL_ITEM_HEIGHT = 42;
+
+function buildWheel(container, values) {
+    container.innerHTML = values.map(v => `<div class="wheel-item" data-value="${v}">${v}</div>`).join('');
+    return Array.from(container.querySelectorAll('.wheel-item'));
+}
+
+function initWheel(container, values, initialValue, onChange) {
+    const items = buildWheel(container, values);
+    let current = null;
+
+    function scrollToIndex(idx, smooth) {
+        idx = Math.max(0, Math.min(values.length - 1, idx));
+        container.scrollTo({ top: idx * WHEEL_ITEM_HEIGHT, behavior: smooth ? 'smooth' : 'auto' });
+    }
+
+    function currentIndex() {
+        const idx = Math.round(container.scrollTop / WHEEL_ITEM_HEIGHT);
+        return Math.max(0, Math.min(values.length - 1, idx));
+    }
+
+    function markActive(idx) {
+        items.forEach((it, i) => it.classList.toggle('active', i === idx));
+        const val = values[idx];
+        if (val !== current) {
+            current = val;
+            onChange(val);
+        }
+    }
+
+    let settleTimer;
+    container.addEventListener('scroll', () => {
+        markActive(currentIndex());
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+            const idx = currentIndex();
+            scrollToIndex(idx, true);
+            markActive(idx);
+        }, 110);
+    }, { passive: true });
+
+    const startIdx = Math.max(0, values.indexOf(initialValue));
+    requestAnimationFrame(() => {
+        scrollToIndex(startIdx, false);
+        markActive(startIdx);
+    });
+
+    return {
+        set: (val) => scrollToIndex(values.indexOf(val), true)
+    };
+}
+
+/* ========== New Booking modal: Ethiopian scroll-wheel time picker ========== */
+let bookSelectedPeriod = 'ጧት';
+let bookSelectedHour = 9;
+let bookSelectedMinute = 0;
+let bookWheelsReady = false;
+
+function updateBookPreviewAndHidden() {
     const dateVal = document.getElementById('bookDate')?.value;
-    const timeVal = document.getElementById('bookTime')?.value;
+    const preview = document.getElementById('bookEthPreview');
     const hidden = document.getElementById('bookAppointmentTime');
     if (!hidden) return;
-    if (!dateVal || !timeVal) { hidden.value = ''; return; }
-    hidden.value = `${dateVal}T${timeVal}`;
+
+    if (preview) preview.textContent = `${bookSelectedPeriod} ${bookSelectedHour}:${String(bookSelectedMinute).padStart(2,'0')} ሰዓት`;
+
+    if (!dateVal) { hidden.value = ''; return; }
+    const w = ethToWestern(bookSelectedPeriod, bookSelectedHour, bookSelectedMinute);
+    const hh = String(w.hour).padStart(2,'0');
+    const mm = String(w.minute).padStart(2,'0');
+    hidden.value = `${dateVal}T${hh}:${mm}`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    ['bookDate', 'bookTime'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', updateBookTime);
+    const bookModalEl = document.getElementById('bookModal');
+    if (!bookModalEl) return;
+
+    // Wheels only need to be built once (elements persist across modal open/close)
+    bookModalEl.addEventListener('shown.bs.modal', () => {
+        if (!bookWheelsReady) {
+            initWheel(document.getElementById('wheelPeriodBook'), ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => {
+                bookSelectedPeriod = val;
+                updateBookPreviewAndHidden();
+            });
+            initWheel(document.getElementById('wheelHourBook'), Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => {
+                bookSelectedHour = parseInt(val, 10);
+                updateBookPreviewAndHidden();
+            });
+            initWheel(document.getElementById('wheelMinuteBook'), ['00','15','30','45'], '00', (val) => {
+                bookSelectedMinute = parseInt(val, 10);
+                updateBookPreviewAndHidden();
+            });
+            bookWheelsReady = true;
+        }
+        updateBookPreviewAndHidden();
     });
-    updateBookTime();
-    const bookForm = document.querySelector('#bookModal form');
+
+    const bookDateEl = document.getElementById('bookDate');
+    if (bookDateEl) bookDateEl.addEventListener('change', updateBookPreviewAndHidden);
+
+    const bookForm = document.getElementById('bookModalForm');
     if (bookForm) {
         bookForm.addEventListener('submit', e => {
-            updateBookTime();
+            updateBookPreviewAndHidden();
             if (!document.getElementById('bookAppointmentTime').value) {
                 e.preventDefault();
                 alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');

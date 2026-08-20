@@ -75,31 +75,81 @@
             font-size: 0.85rem;
         }
 
-
-
-        /* Ethiopian time picker */
+        /* ---------- Ethiopian time picker (scroll wheel) ---------- */
         .eth-time-picker {
             background: #F6ECE1;
             border: 1px solid #E3D3C0;
             border-radius: 14px;
             padding: 14px;
         }
-        .eth-time-picker .row-gap { gap: 10px; }
-        .eth-period-btn {
-            flex: 1;
-            min-height: 42px;
-            border-radius: 10px;
-            border: 1px solid #E3D3C0;
+        .eth-wheel-shell {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
             background: #fff;
-            font-weight: 600;
-            font-size: 0.82rem;
-            color: #7A6E6E;
-            transition: all 0.15s ease;
+            border: 1px solid #E3D3C0;
+            border-radius: 12px;
+            padding: 0 10px;
         }
-        .eth-period-btn.active {
-            background: #9C6B3F;
-            border-color: #9C6B3F;
-            color: #fff;
+        .eth-wheel-highlight {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 42px;
+            border-radius: 9px;
+            background: rgba(156,107,63,0.10);
+            border-top: 1px solid rgba(156,107,63,0.35);
+            border-bottom: 1px solid rgba(156,107,63,0.35);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .wheel-col {
+            position: relative;
+            height: 126px;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            padding-top: 42px;
+            padding-bottom: 42px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            z-index: 2;
+        }
+        .wheel-col::-webkit-scrollbar { display: none; }
+        .wheel-col.wheel-period { width: 76px; }
+        .wheel-col.wheel-hour { width: 54px; }
+        .wheel-col.wheel-minute { width: 54px; }
+        .wheel-item {
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #B9A990;
+            scroll-snap-align: center;
+            transition: color .12s ease, font-size .12s ease;
+            user-select: none;
+        }
+        .wheel-item.active {
+            color: #5A4936;
+            font-size: 1.15rem;
+        }
+        .wheel-sep {
+            font-weight: 700;
+            color: #9C6B3F;
+            font-size: 1.1rem;
+            z-index: 2;
+        }
+        .wheel-suffix {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #7A6E6E;
+            z-index: 2;
+            padding-left: 4px;
         }
         .eth-preview {
             margin-top: 10px;
@@ -107,6 +157,12 @@
             color: #9C6B3F;
             font-size: 1.05rem;
             text-align: center;
+        }
+        .eth-hint {
+            text-align: center;
+            font-size: 0.74rem;
+            color: #9C8A70;
+            margin-top: 6px;
         }
     </style>
 </head>
@@ -264,7 +320,7 @@
                     </select>
                 </div>
 
-                <!-- ========== ETHIOPIAN TIME PICKER ========== -->
+                <!-- ========== ETHIOPIAN TIME PICKER (SCROLL WHEEL, 15-MIN STEPS) ========== -->
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ቀን</label>
                     <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
@@ -272,32 +328,16 @@
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ሰዓት (በኢትዮጵያ ሰዓት)</label>
                     <div class="eth-time-picker">
-                        <div class="d-flex row-gap mb-2">
-                            <button type="button" class="eth-period-btn active" data-period="ጧት">ጧት</button>
-                            <button type="button" class="eth-period-btn" data-period="ቀን">ቀን</button>
-                            <button type="button" class="eth-period-btn" data-period="ማታ">ማታ</button>
-                            <button type="button" class="eth-period-btn" data-period="ለሊት">ለሊት</button>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label class="form-label small text-muted mb-1">ሰዓት (1-12)</label>
-                                <select id="ethHour" class="form-select">
-                                    {% for h in range(1,13) %}
-                                    <option value="{{ h }}" {% if h == 9 %}selected{% endif %}>{{ h }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small text-muted mb-1">ደቂቃ (15)</label>
-                                <select id="ethMinute" class="form-select">
-                                    <option value="0">00</option>
-                                    <option value="15">15</option>
-                                    <option value="30">30</option>
-                                    <option value="45">45</option>
-                                </select>
-                            </div>
+                        <div class="eth-wheel-shell">
+                            <div class="eth-wheel-highlight"></div>
+                            <div class="wheel-col wheel-period" id="wheelPeriod"></div>
+                            <div class="wheel-col wheel-hour" id="wheelHour"></div>
+                            <div class="wheel-sep">:</div>
+                            <div class="wheel-col wheel-minute" id="wheelMinute"></div>
+                            <div class="wheel-suffix">ሰዓት</div>
                         </div>
                         <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
+                        <div class="eth-hint">ወደላይ/ታች ጠቅ አድርገው ይሸብልሉ (እያንዳንዱ ደረጃ 15 ደቂቃ)</div>
                     </div>
                     <!-- Hidden field that the backend expects -->
                     <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
@@ -340,41 +380,94 @@
             return { period, hour: displayH, minute: em };
         }
 
+        // ===== Generic scroll-wheel picker (touch-friendly, snaps to nearest item) =====
+        const WHEEL_ITEM_HEIGHT = 42;
+
+        function buildWheel(container, values) {
+            container.innerHTML = values.map(v => `<div class="wheel-item" data-value="${v}">${v}</div>`).join('');
+            return Array.from(container.querySelectorAll('.wheel-item'));
+        }
+
+        function initWheel(container, values, initialValue, onChange) {
+            const items = buildWheel(container, values);
+            let current = null;
+
+            function scrollToIndex(idx, smooth) {
+                idx = Math.max(0, Math.min(values.length - 1, idx));
+                container.scrollTo({ top: idx * WHEEL_ITEM_HEIGHT, behavior: smooth ? 'smooth' : 'auto' });
+            }
+
+            function currentIndex() {
+                const idx = Math.round(container.scrollTop / WHEEL_ITEM_HEIGHT);
+                return Math.max(0, Math.min(values.length - 1, idx));
+            }
+
+            function markActive(idx) {
+                items.forEach((it, i) => it.classList.toggle('active', i === idx));
+                const val = values[idx];
+                if (val !== current) {
+                    current = val;
+                    onChange(val);
+                }
+            }
+
+            let settleTimer;
+            container.addEventListener('scroll', () => {
+                markActive(currentIndex());
+                clearTimeout(settleTimer);
+                settleTimer = setTimeout(() => {
+                    const idx = currentIndex();
+                    scrollToIndex(idx, true);
+                    markActive(idx);
+                }, 110);
+            }, { passive: true });
+
+            const startIdx = Math.max(0, values.indexOf(initialValue));
+            requestAnimationFrame(() => {
+                scrollToIndex(startIdx, false);
+                markActive(startIdx);
+            });
+
+            return {
+                set: (val) => scrollToIndex(values.indexOf(val), true)
+            };
+        }
+
         let selectedPeriod = 'ጧት';
+        let selectedHour = 9;
+        let selectedMinute = 0;
 
         function updatePreviewAndHidden() {
             const dateVal = document.getElementById('ethDate').value;
-            const hour = parseInt(document.getElementById('ethHour').value, 10);
-            const minute = parseInt(document.getElementById('ethMinute').value, 10);
             const preview = document.getElementById('ethPreview');
             const hidden = document.getElementById('appointmentTimeHidden');
 
-            preview.textContent = `${selectedPeriod} ${hour}:${String(minute).padStart(2,'0')} ሰዓት`;
+            preview.textContent = `${selectedPeriod} ${selectedHour}:${String(selectedMinute).padStart(2,'0')} ሰዓት`;
 
             if (!dateVal) {
                 hidden.value = '';
                 return;
             }
-            const w = ethToWestern(selectedPeriod, hour, minute);
-            // Format YYYY-MM-DDTHH:MM (what backend expects)
+            const w = ethToWestern(selectedPeriod, selectedHour, selectedMinute);
             const hh = String(w.hour).padStart(2,'0');
             const mm = String(w.minute).padStart(2,'0');
             hidden.value = `${dateVal}T${hh}:${mm}`;
         }
 
-        // Period buttons
-        document.querySelectorAll('.eth-period-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.eth-period-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedPeriod = btn.dataset.period;
-                updatePreviewAndHidden();
-            });
+        const periodWheel = initWheel(document.getElementById('wheelPeriod'), ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => {
+            selectedPeriod = val;
+            updatePreviewAndHidden();
+        });
+        const hourWheel = initWheel(document.getElementById('wheelHour'), Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => {
+            selectedHour = parseInt(val, 10);
+            updatePreviewAndHidden();
+        });
+        const minuteWheel = initWheel(document.getElementById('wheelMinute'), ['00','15','30','45'], '00', (val) => {
+            selectedMinute = parseInt(val, 10);
+            updatePreviewAndHidden();
         });
 
-        ['ethDate', 'ethHour', 'ethMinute'].forEach(id => {
-            document.getElementById(id).addEventListener('change', updatePreviewAndHidden);
-        });
+        document.getElementById('ethDate').addEventListener('change', updatePreviewAndHidden);
 
         // Staff hours hint (still show Western for precision, or convert if you prefer)
         const dayNames = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
@@ -410,14 +503,14 @@
                     const [hh, mm] = timePart.split(':').map(Number);
                     const eth = westernToEth(hh, mm || 0);
                     document.getElementById('ethDate').value = datePart;
+                    // snap minute to nearest 15
+                    const snappedMinute = Math.round((eth.minute || 0) / 15) * 15 % 60;
                     selectedPeriod = eth.period;
-                    document.querySelectorAll('.eth-period-btn').forEach(b => {
-                        b.classList.toggle('active', b.dataset.period === eth.period);
-                    });
-                    document.getElementById('ethHour').value = eth.hour;
-                    // snap minute to 15
-                    const snapped = Math.round((eth.minute || 0) / 15) * 15 % 60;
-                    document.getElementById('ethMinute').value = snapped;
+                    selectedHour = eth.hour;
+                    selectedMinute = snappedMinute;
+                    periodWheel.set(eth.period);
+                    hourWheel.set(String(eth.hour));
+                    minuteWheel.set(String(snappedMinute).padStart(2,'0'));
                     updatePreviewAndHidden();
                 } catch(e) {}
             }
