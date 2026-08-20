@@ -15,9 +15,14 @@
                 <h1 class="text-3xl font-bold tracking-tight text-white">Melkegna Admin Portal</h1>
                 <p class="text-slate-400 text-sm mt-1">Manage salon accounts, approvals, and subscription extensions.</p>
             </div>
-            <span class="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-mono border border-slate-700">
-                Super Admin Access
-            </span>
+            <div class="flex items-center gap-3">
+                <span class="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-mono border border-slate-700">
+                    Super Admin Access
+                </span>
+                <a href="/admin/logout" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 transition-colors">
+                    Log out
+                </a>
+            </div>
         </div>
 
         <!-- Salons Table Container -->
@@ -62,7 +67,6 @@
                                 <div class="flex items-center justify-center gap-3">
                                     <!-- Approve / Extend Form -->
                                     <form action="/admin/approve/{{ salon.id }}" method="post" class="flex items-center gap-2">
-                                        <input type="hidden" name="key" value="{{ admin_key }}">
                                         <div class="relative flex items-center">
                                             <input type="number" name="days" value="30" min="1" required 
                                                    class="w-16 bg-slate-900 border border-slate-600 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-500 text-center">
@@ -75,7 +79,6 @@
 
                                     <!-- Suspend Form -->
                                     <form action="/admin/suspend/{{ salon.id }}" method="post">
-                                        <input type="hidden" name="key" value="{{ admin_key }}">
                                         <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm"
                                                 onclick="return confirm('Are you sure you want to suspend {{ salon.name }}?')">
                                             Suspend

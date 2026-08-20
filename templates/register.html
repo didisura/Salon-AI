@@ -149,9 +149,17 @@
         }
         .form-control::placeholder{ color:#B8AA97; }
         .mb-field{ margin-bottom:26px; }
+        .mb-field.tight{ margin-bottom:6px; }
 
         .hours-row{ display:flex; gap:18px; }
         .hours-row .mb-field{ flex:1; }
+
+        /* ---------- Password match feedback ---------- */
+        .pw-hint{ font-size:.78rem; color:var(--muted); margin-top:6px; min-height:16px; }
+        .pw-hint.ok{ color:#2F6B34; }
+        .pw-hint.bad{ color:#8A3B2E; }
+        .form-control.pw-bad{ border-color:#B5473F; }
+        .form-control.pw-ok{ border-color:#4C8A52; }
 
         /* ---------- Working-day picker ---------- */
         .day-picker{
@@ -198,6 +206,7 @@
             margin-top:6px;
         }
         .btn-rose:hover{ background:var(--accent-dark); color:#fff; }
+        .btn-rose:disabled{ background:#B8AA97; cursor:not-allowed; }
 
         .alt-link{ text-align:center; font-size:.88rem; color:var(--muted); margin-top:26px; }
         .alt-link a{ color:var(--ink); font-weight:600; text-decoration:none; border-bottom:1px solid var(--line); }
@@ -275,8 +284,14 @@
                 {% if error == 'invalid_days' %}
                 <div class="alert alert-melk">ቢያንስ አንድ የስራ ቀን ይምረጡ።</div>
                 {% endif %}
+                {% if error == 'weak_password' %}
+                <div class="alert alert-melk">የይለፍ ቃል ቢያንስ 8 ፊደላት/ቁጥሮች ሊኖረው ይገባል።</div>
+                {% endif %}
+                {% if error == 'password_mismatch' %}
+                <div class="alert alert-melk">ሁለቱ የይለፍ ቃሎች አንድ አይነት አይደሉም።</div>
+                {% endif %}
 
-                <form action="/register" method="post" novalidate>
+                <form action="/register" method="post" novalidate id="registerForm">
                     <div class="mb-field">
                         <label class="field-label">የንግድ ስም</label>
                         <input type="text" name="name" class="form-control" required placeholder="የንግድዎን ስም ያስገቡ">
@@ -289,9 +304,16 @@
                         <label class="field-label">ስልክ ቁጥር</label>
                         <input type="tel" name="phone" class="form-control" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
                     </div>
-                    <div class="mb-field">
+
+                    <div class="mb-field tight">
                         <label class="field-label">የይለፍ ቃል</label>
-                        <input type="password" name="password" class="form-control" required minlength="6" placeholder="ቢያንስ 6 ፊደላት">
+                        <input type="password" name="password" id="password" class="form-control" required minlength="8" placeholder="ቢያንስ 8 ፊደላት/ቁጥሮች" autocomplete="new-password">
+                    </div>
+
+                    <div class="mb-field">
+                        <label class="field-label">የይለፍ ቃል ድጋሚ ያስገቡ</label>
+                        <input type="password" name="confirm_password" id="confirmPassword" class="form-control" required minlength="8" placeholder="የይለፍ ቃልዎን በድጋሚ ያስገቡ" autocomplete="new-password">
+                        <p class="pw-hint" id="pwHint"></p>
                     </div>
 
                     <!-- Working hours -->
@@ -342,7 +364,7 @@
                         <p class="hint">ስራ የማይሰሩበትን ቀን ምልክት ያንሱት (ነባሪው፡ ከሰኞ-ቅዳሜ ክፍት፣ እሁድ ዝግ)።</p>
                     </div>
 
-                    <button type="submit" class="btn btn-rose">ይመዝገቡ</button>
+                    <button type="submit" class="btn btn-rose" id="submitBtn">ይመዝገቡ</button>
                 </form>
 
                 <p class="alt-link">አካውንት አለዎት? <a href="/login">ይግቡ</a></p>
@@ -357,5 +379,51 @@
         </main>
 
     </div>
+
+    <script>
+        (function () {
+            const pw = document.getElementById('password');
+            const confirm = document.getElementById('confirmPassword');
+            const hint = document.getElementById('pwHint');
+            const submitBtn = document.getElementById('submitBtn');
+            const form = document.getElementById('registerForm');
+
+            function check() {
+                if (!confirm.value) {
+                    hint.textContent = '';
+                    hint.className = 'pw-hint';
+                    confirm.className = 'form-control';
+                    return true;
+                }
+                if (pw.value !== confirm.value) {
+                    hint.textContent = 'የይለፍ ቃሎቹ አንድ አይነት አይደሉም';
+                    hint.className = 'pw-hint bad';
+                    confirm.className = 'form-control pw-bad';
+                    return false;
+                }
+                hint.textContent = 'ተመሳሳይ ነው ✓';
+                hint.className = 'pw-hint ok';
+                confirm.className = 'form-control pw-ok';
+                return true;
+            }
+
+            pw.addEventListener('input', check);
+            confirm.addEventListener('input', check);
+
+            form.addEventListener('submit', function (e) {
+                if (pw.value.length < 8) {
+                    e.preventDefault();
+                    hint.textContent = 'ቢያንስ 8 ፊደላት/ቁጥሮች ያስፈልጋል';
+                    hint.className = 'pw-hint bad';
+                    pw.focus();
+                    return;
+                }
+                if (!check()) {
+                    e.preventDefault();
+                    confirm.focus();
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

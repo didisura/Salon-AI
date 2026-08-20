@@ -1,4 +1,7 @@
 import os
+import secrets
+import time
+from collections import defaultdict, deque
 from datetime import datetime, date, timedelta
 from typing import List, Optional
 from urllib.parse import urlencode
@@ -18,7 +21,9 @@ from security import (
     hash_password,
     verify_password,
     create_access_token,
+    create_admin_token,
     get_current_salon,
+    get_current_admin,
     NotAuthenticatedException,
 )
 
@@ -30,9 +35,34 @@ templates = Jinja2Templates(directory="templates")
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
 SLOT_STEP_MINUTES = 15
 
+# ---------------------------------------------------------------------------
+# Very simple in-memory rate limiting for login endpoints.
+# Good enough for a single-instance deployment; resets on restart and does
+# NOT share state across multiple server processes/replicas. If you scale
+# to multiple Railway instances, move this to Redis or a DB table instead.
+# ---------------------------------------------------------------------------
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 5 * 60  # 5 minutes
+
+_login_attempts: dict[str, deque] = defaultdict(deque)
+
+
+def _is_rate_limited(bucket_key: str) -> bool:
+    now = time.time()
+    attempts = _login_attempts[bucket_key]
+    while attempts and now - attempts[0] > LOGIN_WINDOW_SECONDS:
+        attempts.popleft()
+    return len(attempts) >= LOGIN_MAX_ATTEMPTS
+
+
+def _record_attempt(bucket_key: str) -> None:
+    _login_attempts[bucket_key].append(time.time())
+
 
 def _valid_admin_key(key: Optional[str]) -> bool:
-    return bool(key) and key == ADMIN_SECRET_KEY
+    if not key:
+        return False
+    return secrets.compare_digest(key, ADMIN_SECRET_KEY)
 
 
 def _eth_display(dt: Optional[datetime]) -> Optional[str]:
@@ -54,6 +84,9 @@ def _eth_display(dt: Optional[datetime]) -> Optional[str]:
 
 @app.exception_handler(NotAuthenticatedException)
 async def not_authenticated_handler(request: Request, exc: NotAuthenticatedException):
+    # Admin routes redirect to the admin login; everything else to salon login.
+    if request.url.path.startswith("/admin"):
+        return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -291,39 +324,57 @@ def admin_login_page(request: Request, error: Optional[str] = None):
 
 
 @app.post("/admin/login")
-def admin_login(password: str = Form(...)):
+def admin_login(request: Request, password: str = Form(...)):
+    bucket_key = f"admin:{request.client.host if request.client else 'unknown'}"
+    if _is_rate_limited(bucket_key):
+        return RedirectResponse(
+            url="/admin/login?error=Too many attempts, please wait a few minutes",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     if not _valid_admin_key(password):
+        _record_attempt(bucket_key)
         return RedirectResponse(
             url="/admin/login?error=የተሳሳተ ቁልፍ (Invalid admin key)",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    return RedirectResponse(url=f"/admin?key={password}", status_code=status.HTTP_303_SEE_OTHER)
+
+    redirect = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.set_cookie(
+        key="admin_token",
+        value=create_admin_token(),
+        httponly=True,
+        samesite="lax",
+        secure=True,
+        max_age=8 * 60 * 60,
+    )
+    return redirect
+
+
+@app.get("/admin/logout")
+def admin_logout():
+    redirect = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.delete_cookie("admin_token")
+    return redirect
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_dashboard(request: Request, key: Optional[str] = None, db: Session = Depends(get_db)):
-    if not _valid_admin_key(key):
-        return RedirectResponse(
-            url="/admin/login?error=Session expired, please log in again",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
+def admin_dashboard(
+    request: Request,
+    _: bool = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     salons = db.query(Salon).order_by(Salon.id.desc()).all()
-    return templates.TemplateResponse(request, "admin.html", {"salons": salons, "admin_key": key})
+    return templates.TemplateResponse(request, "admin.html", {"salons": salons})
 
 
 @app.post("/admin/approve/{salon_id}")
 def admin_approve(
     salon_id: int,
-    key: str = Form(...),
     days: int = Form(...),
+    _: bool = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    if not _valid_admin_key(key):
-        return RedirectResponse(
-            url="/admin/login?error=Session expired, please log in again",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
-
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if salon:
         now = datetime.utcnow()
@@ -332,27 +383,21 @@ def admin_approve(
         salon.status = "active"
         db.commit()
 
-    return RedirectResponse(url=f"/admin?key={key}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.post("/admin/suspend/{salon_id}")
 def admin_suspend(
     salon_id: int,
-    key: str = Form(...),
+    _: bool = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    if not _valid_admin_key(key):
-        return RedirectResponse(
-            url="/admin/login?error=Session expired, please log in again",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
-
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if salon:
         salon.status = "suspended"
         db.commit()
 
-    return RedirectResponse(url=f"/admin?key={key}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +419,7 @@ def register_salon(
     owner_name: str = Form(...),
     phone: str = Form(...),
     password: str = Form(...),
+    confirm_password: str = Form(...),
     opening_time: str = Form("08:00"),
     closing_time: str = Form("20:00"),
     working_days: List[str] = Form(default=[]),
@@ -382,6 +428,15 @@ def register_salon(
     phone_clean = _normalize_phone(phone)
     if len(phone_clean) < 9:
         return RedirectResponse(url="/register?error=invalid_phone", status_code=status.HTTP_303_SEE_OTHER)
+
+    # Password checks happen before the DB lookup below, on purpose:
+    # it's cheaper, and it avoids leaking "this phone number exists"
+    # to someone just probing the form with garbage passwords.
+    if len(password) < 8:
+        return RedirectResponse(url="/register?error=weak_password", status_code=status.HTTP_303_SEE_OTHER)
+
+    if password != confirm_password:
+        return RedirectResponse(url="/register?error=password_mismatch", status_code=status.HTTP_303_SEE_OTHER)
 
     if db.query(Salon.id).filter(Salon.phone == phone_clean).first():
         return RedirectResponse(url="/register?error=exists", status_code=status.HTTP_303_SEE_OTHER)
@@ -421,13 +476,19 @@ def login_page(request: Request, error: Optional[str] = None, registered: Option
 
 @app.post("/login")
 def login(
+    request: Request,
     phone: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
     phone_clean = _normalize_phone(phone)
+    bucket_key = f"login:{phone_clean}"
+    if _is_rate_limited(bucket_key):
+        return RedirectResponse(url="/login?error=too_many_attempts", status_code=status.HTTP_303_SEE_OTHER)
+
     salon = db.query(Salon).filter(Salon.phone == phone_clean).first()
     if not salon or not verify_password(password, salon.hashed_password):
+        _record_attempt(bucket_key)
         return RedirectResponse(url="/login?error=invalid", status_code=status.HTTP_303_SEE_OTHER)
 
     token = create_access_token({"sub": str(salon.id)})
@@ -437,6 +498,7 @@ def login(
         value=token,
         httponly=True,
         samesite="lax",
+        secure=True,
         max_age=60 * 60,
     )
     return redirect
