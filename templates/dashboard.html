@@ -230,6 +230,7 @@
             background: #F6ECE1; border: 1px solid var(--border);
             border-radius: 12px; padding: 12px;
         }
+        .eth-time-picker.compact { padding: 8px; }
         .eth-wheel-shell {
             position: relative;
             display: flex;
@@ -374,7 +375,7 @@
         .modal-header, .modal-footer { border-color: var(--border); }
 
         .hours-row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .hours-row > div { flex: 1; min-width: 130px; }
+        .hours-row > div { flex: 1; min-width: 160px; }
 
         .ptr-indicator {
             position: absolute; top: -48px; left: 50%; transform: translateX(-50%);
@@ -422,7 +423,7 @@
         .staff-day-hours .day-name { width: 52px; font-weight: 700; font-size: 0.82rem; }
         .staff-day-hours .day-off-chk { margin-right: 4px; }
         .staff-day-hours .half-toggle { font-size: 0.75rem; color: var(--text-muted); }
-        .staff-day-hours input[type="time"] { max-width: 110px; min-height: 36px; padding: 6px 8px; }
+        .staff-day-hours .eth-time-picker.compact { min-width: 168px; }
 
         /* Block-level bilingual helpers */
         .i18n-block-en { display: none; }
@@ -817,7 +818,7 @@
                                 <form action="/convert-waitlist/{{ w.id }}" method="post" class="convert-waitlist-form">
                                     <div class="d-flex flex-column gap-1">
                                         <input type="date" class="form-control form-control-sm wl-date" value="{{ w.preferred_date }}" required>
-                                        <div class="eth-time-picker p-2" style="font-size:0.85rem;">
+                                        <div class="eth-time-picker compact" style="font-size:0.85rem;">
                                             <div class="eth-wheel-shell" style="padding:0 6px;">
                                                 <div class="eth-wheel-highlight" style="height:36px;"></div>
                                                 <div class="wheel-col wheel-period wl-wheel-period" style="height:108px;padding-top:36px;padding-bottom:36px;width:64px;" data-wl-id="{{ w.id }}"></div>
@@ -1015,7 +1016,7 @@
 
                 <!-- Edit staff schedule modal -->
                 <div class="modal fade" id="editStaffModal-{{ st.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="fw-bold m-0">{{ st.name }} —
@@ -1023,7 +1024,7 @@
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <form action="/update-staff-schedule" method="post">
+                            <form action="/update-staff-schedule" method="post" class="staff-schedule-form" data-staff-id="{{ st.id }}">
                                 <div class="modal-body">
                                     <input type="hidden" name="staff_id" value="{{ st.id }}">
                                     <div class="form-check mb-2">
@@ -1037,17 +1038,39 @@
                                     </div>
                                     <div id="hoursFields-{{ st.id }}" class="hours-row mb-3" style="{% if not st.opening_time %}display:none;{% endif %}">
                                         <div>
-                                            <label class="form-label small text-muted">
-                                                <span data-lang-am>መጀመሪያ</span><span data-lang-en>Open</span>
+                                            <label class="form-label small text-muted d-block">
+                                                <span data-lang-am>መጀመሪያ (በኢትዮጵያ ሰዓት)</span><span data-lang-en>Open (Ethiopian)</span>
                                             </label>
-                                            <input type="time" name="opening_time" class="form-control"
+                                            <div class="eth-time-picker staff-main-wheel" data-role="open" data-staff-id="{{ st.id }}">
+                                                <div class="eth-wheel-shell">
+                                                    <div class="eth-wheel-highlight"></div>
+                                                    <div class="wheel-col wheel-period" id="wheelPeriodStaffOpen-{{ st.id }}"></div>
+                                                    <div class="wheel-col wheel-hour" id="wheelHourStaffOpen-{{ st.id }}"></div>
+                                                    <div class="wheel-sep">:</div>
+                                                    <div class="wheel-col wheel-minute" id="wheelMinuteStaffOpen-{{ st.id }}"></div>
+                                                    <div class="wheel-suffix">ሰዓት</div>
+                                                </div>
+                                                <div class="eth-preview" id="staffOpenPreview-{{ st.id }}">ጧት 9:00 ሰዓት</div>
+                                            </div>
+                                            <input type="hidden" name="opening_time" id="staffOpeningTime-{{ st.id }}"
                                                    value="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}">
                                         </div>
                                         <div>
-                                            <label class="form-label small text-muted">
-                                                <span data-lang-am>መጨረሻ</span><span data-lang-en>Close</span>
+                                            <label class="form-label small text-muted d-block">
+                                                <span data-lang-am>መጨረሻ (በኢትዮጵያ ሰዓት)</span><span data-lang-en>Close (Ethiopian)</span>
                                             </label>
-                                            <input type="time" name="closing_time" class="form-control"
+                                            <div class="eth-time-picker staff-main-wheel" data-role="close" data-staff-id="{{ st.id }}">
+                                                <div class="eth-wheel-shell">
+                                                    <div class="eth-wheel-highlight"></div>
+                                                    <div class="wheel-col wheel-period" id="wheelPeriodStaffClose-{{ st.id }}"></div>
+                                                    <div class="wheel-col wheel-hour" id="wheelHourStaffClose-{{ st.id }}"></div>
+                                                    <div class="wheel-sep">:</div>
+                                                    <div class="wheel-col wheel-minute" id="wheelMinuteStaffClose-{{ st.id }}"></div>
+                                                    <div class="wheel-suffix">ሰዓት</div>
+                                                </div>
+                                                <div class="eth-preview" id="staffClosePreview-{{ st.id }}">ማታ 6:00 ሰዓት</div>
+                                            </div>
+                                            <input type="hidden" name="closing_time" id="staffClosingTime-{{ st.id }}"
                                                    value="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}">
                                         </div>
                                     </div>
@@ -1076,13 +1099,31 @@
                                                        {% if i in staff_days or (dh and i|string in dh) %}checked{% endif %}>
                                                 <span class="day-name"><span data-lang-am>{{ day_names[i] }}</span><span data-lang-en>{{ day_names_en[i] }}</span></span>
                                             </label>
-                                            <input type="time" name="day_open_{{ i }}" class="form-control form-control-sm"
-                                                   value="{{ dh[i|string].open if dh and i|string in dh and dh[i|string].open else (st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M')) }}"
-                                                   title="Open">
+                                            <div class="eth-time-picker compact staff-day-wheel" data-role="open" data-staff-id="{{ st.id }}" data-day="{{ i }}">
+                                                <div class="eth-wheel-shell" style="padding:0 6px;">
+                                                    <div class="eth-wheel-highlight" style="height:36px;"></div>
+                                                    <div class="wheel-col wheel-period" style="height:108px;padding-top:36px;padding-bottom:36px;width:64px;" id="dayOpenPeriod-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-col wheel-hour" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayOpenHour-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-sep">:</div>
+                                                    <div class="wheel-col wheel-minute" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayOpenMinute-{{ st.id }}-{{ i }}"></div>
+                                                </div>
+                                                <div class="eth-preview" style="font-size:0.78rem;" id="dayOpenPreview-{{ st.id }}-{{ i }}">ጧት 9:00</div>
+                                            </div>
                                             <span class="text-muted small">–</span>
-                                            <input type="time" name="day_close_{{ i }}" class="form-control form-control-sm"
-                                                   value="{{ dh[i|string].close if dh and i|string in dh and dh[i|string].close else (st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M')) }}"
-                                                   title="Close">
+                                            <div class="eth-time-picker compact staff-day-wheel" data-role="close" data-staff-id="{{ st.id }}" data-day="{{ i }}">
+                                                <div class="eth-wheel-shell" style="padding:0 6px;">
+                                                    <div class="eth-wheel-highlight" style="height:36px;"></div>
+                                                    <div class="wheel-col wheel-period" style="height:108px;padding-top:36px;padding-bottom:36px;width:64px;" id="dayClosePeriod-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-col wheel-hour" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayCloseHour-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-sep">:</div>
+                                                    <div class="wheel-col wheel-minute" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayCloseMinute-{{ st.id }}-{{ i }}"></div>
+                                                </div>
+                                                <div class="eth-preview" style="font-size:0.78rem;" id="dayClosePreview-{{ st.id }}-{{ i }}">ማታ 6:00</div>
+                                            </div>
+                                            <input type="hidden" name="day_open_{{ i }}" id="dayOpenHidden-{{ st.id }}-{{ i }}"
+                                                   value="{{ dh[i|string].open if dh and i|string in dh and dh[i|string].open else (st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M')) }}">
+                                            <input type="hidden" name="day_close_{{ i }}" id="dayCloseHidden-{{ st.id }}-{{ i }}"
+                                                   value="{{ dh[i|string].close if dh and i|string in dh and dh[i|string].close else (st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M')) }}">
                                             <span class="half-toggle text-nowrap">
                                                 <span data-lang-am>ግማሽ ቀን</span><span data-lang-en>half-day OK</span>
                                             </span>
@@ -1893,25 +1934,33 @@ function westernToEth(h, m) {
     return { period, hour: displayH, minute: em };
 }
 
-/* ========== Generic scroll-wheel picker (touch + mouse friendly, snaps to nearest item) ========== */
-const WHEEL_ITEM_HEIGHT = 42;
+/* ========== Generic scroll-wheel picker (touch + mouse friendly, snaps to nearest item) ==========
+   FIX: item height is now a parameter instead of a single global constant. Previously every
+   wheel (including the compact waitlist / staff-day wheels) was built assuming a fixed 42px row,
+   while the compact wheels' containers were sized for 36px rows. That mismatch made the
+   highlighted center window drift out of alignment with the actual item under it, so the value
+   that visually looked "selected" was not the value actually being saved (the waitlist booking
+   bug). Passing the real item height fixes the snap/selection math for every wheel size. */
+const WHEEL_ITEM_HEIGHT = 42;      // default (full-size wheels: settings, new booking, staff main hours)
+const WHEEL_ITEM_HEIGHT_COMPACT = 36; // compact wheels: waitlist, staff per-day hours
 
-function buildWheel(container, values) {
-    container.innerHTML = values.map(v => `<div class="wheel-item" data-value="${v}">${v}</div>`).join('');
+function buildWheel(container, values, itemHeight) {
+    container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${itemHeight}px;" data-value="${v}">${v}</div>`).join('');
     return Array.from(container.querySelectorAll('.wheel-item'));
 }
 
-function initWheel(container, values, initialValue, onChange) {
-    const items = buildWheel(container, values);
+function initWheel(container, values, initialValue, onChange, itemHeight) {
+    itemHeight = itemHeight || WHEEL_ITEM_HEIGHT;
+    const items = buildWheel(container, values, itemHeight);
     let current = null;
 
     function scrollToIndex(idx, smooth) {
         idx = Math.max(0, Math.min(values.length - 1, idx));
-        container.scrollTo({ top: idx * WHEEL_ITEM_HEIGHT, behavior: smooth ? 'smooth' : 'auto' });
+        container.scrollTo({ top: idx * itemHeight, behavior: smooth ? 'smooth' : 'auto' });
     }
 
     function currentIndex() {
-        const idx = Math.round(container.scrollTop / WHEEL_ITEM_HEIGHT);
+        const idx = Math.round(container.scrollTop / itemHeight);
         return Math.max(0, Math.min(values.length - 1, idx));
     }
 
@@ -2047,8 +2096,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-/* Waitlist forms handled by initWaitlistWheels (Ethiopian wheels) */
-
 /* ========== Settings Ethiopian time wheels ========== */
 function initSettingsWheels() {
     const openHidden = document.getElementById('settingsOpeningTime');
@@ -2103,9 +2150,7 @@ function initSettingsWheels() {
     syncClose();
 }
 
-/* ========== Waitlist Ethiopian wheels ========== */
-const WHEEL_ITEM_H_WL = 36; // smaller for compact waitlist
-
+/* ========== Waitlist Ethiopian wheels (compact 36px rows) ========== */
 function initWaitlistWheels() {
     document.querySelectorAll('.convert-waitlist-form').forEach(form => {
         if (form.dataset.wheelsReady) return;
@@ -2127,14 +2172,9 @@ function initWaitlistWheels() {
             hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
         }
 
-        // Use smaller item height for compact UI
-        const origH = window.WHEEL_ITEM_HEIGHT;
-        // build with custom height via CSS already set; initWheel uses 42 - override by temporarily
-        // For simplicity, still use initWheel (42px) - scroll will work, visual highlight is 36 but ok
-
-        initWheel(periodCol, ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => { state.period = val; sync(); });
-        initWheel(hourCol, Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => { state.hour = parseInt(val, 10); sync(); });
-        initWheel(minuteCol, ['00','15','30','45'], '00', (val) => { state.minute = parseInt(val, 10); sync(); });
+        initWheel(periodCol, ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => { state.period = val; sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
+        initWheel(hourCol, Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => { state.hour = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
+        initWheel(minuteCol, ['00','15','30','45'], '00', (val) => { state.minute = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
 
         if (dateInput) dateInput.addEventListener('change', sync);
         form.addEventListener('submit', e => {
@@ -2149,9 +2189,89 @@ function initWaitlistWheels() {
     });
 }
 
+/* ========== Staff schedule modal: same Ethiopian wheel picker as New Booking ==========
+   Applies to (1) "custom hours, all days" open/close and (2) each per-day open/close row.
+   Wheels build lazily the first time a staff modal is shown, and write into the same
+   hidden inputs (opening_time / closing_time / day_open_N / day_close_N) the backend
+   already expects — no server-side change required. */
+function parseHHMM(str, fallbackH, fallbackM) {
+    if (!str) return { h: fallbackH, m: fallbackM };
+    const parts = str.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    return { h: isNaN(h) ? fallbackH : h, m: isNaN(m) ? fallbackM : m };
+}
+
+function initStaffScheduleWheels(staffId) {
+    const modal = document.getElementById(`editStaffModal-${staffId}`);
+    if (!modal || modal.dataset.wheelsReady) return;
+    modal.dataset.wheelsReady = '1';
+
+    // --- Main "custom hours, all days" pair ---
+    ['open', 'close'].forEach(role => {
+        const hiddenId = role === 'open' ? `staffOpeningTime-${staffId}` : `staffClosingTime-${staffId}`;
+        const hidden = document.getElementById(hiddenId);
+        if (!hidden) return;
+        const fallback = role === 'open' ? { h: 9, m: 0 } : { h: 18, m: 0 };
+        const parsed = parseHHMM(hidden.value, fallback.h, fallback.m);
+        let state = westernToEth(parsed.h, parsed.m);
+
+        const prefix = role === 'open' ? 'StaffOpen' : 'StaffClose';
+        const previewEl = document.getElementById(role === 'open' ? `staffOpenPreview-${staffId}` : `staffClosePreview-${staffId}`);
+
+        function sync() {
+            const w = ethToWestern(state.period, state.hour, state.minute);
+            hidden.value = `${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+            if (previewEl) previewEl.textContent = `${state.period} ${state.hour}:${String(state.minute).padStart(2,'0')} ሰዓት`;
+        }
+
+        initWheel(document.getElementById(`wheelPeriod${prefix}-${staffId}`), ['ጧት','ቀን','ማታ','ለሊት'], state.period, (val) => { state.period = val; sync(); });
+        initWheel(document.getElementById(`wheelHour${prefix}-${staffId}`), Array.from({length:12}, (_,i) => String(i+1)), String(state.hour), (val) => { state.hour = parseInt(val, 10); sync(); });
+        initWheel(document.getElementById(`wheelMinute${prefix}-${staffId}`), ['00','15','30','45'], String(state.minute).padStart(2,'0'), (val) => { state.minute = parseInt(val, 10); sync(); });
+        sync();
+    });
+
+    // --- Per-day rows (compact 36px wheels, same math fix as waitlist) ---
+    modal.querySelectorAll('.staff-day-wheel').forEach(wheelEl => {
+        const day = wheelEl.dataset.day;
+        const role = wheelEl.dataset.role; // 'open' | 'close'
+        const hiddenId = role === 'open' ? `dayOpenHidden-${staffId}-${day}` : `dayCloseHidden-${staffId}-${day}`;
+        const hidden = document.getElementById(hiddenId);
+        if (!hidden) return;
+        const fallback = role === 'open' ? { h: 9, m: 0 } : { h: 18, m: 0 };
+        const parsed = parseHHMM(hidden.value, fallback.h, fallback.m);
+        let state = westernToEth(parsed.h, parsed.m);
+
+        const idPrefix = role === 'open'
+            ? { period: `dayOpenPeriod-${staffId}-${day}`, hour: `dayOpenHour-${staffId}-${day}`, minute: `dayOpenMinute-${staffId}-${day}`, preview: `dayOpenPreview-${staffId}-${day}` }
+            : { period: `dayClosePeriod-${staffId}-${day}`, hour: `dayCloseHour-${staffId}-${day}`, minute: `dayCloseMinute-${staffId}-${day}`, preview: `dayClosePreview-${staffId}-${day}` };
+
+        const previewEl = document.getElementById(idPrefix.preview);
+
+        function sync() {
+            const w = ethToWestern(state.period, state.hour, state.minute);
+            hidden.value = `${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+            if (previewEl) previewEl.textContent = `${state.period} ${state.hour}:${String(state.minute).padStart(2,'0')}`;
+        }
+
+        initWheel(document.getElementById(idPrefix.period), ['ጧት','ቀን','ማታ','ለሊት'], state.period, (val) => { state.period = val; sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
+        initWheel(document.getElementById(idPrefix.hour), Array.from({length:12}, (_,i) => String(i+1)), String(state.hour), (val) => { state.hour = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
+        initWheel(document.getElementById(idPrefix.minute), ['00','15','30','45'], String(state.minute).padStart(2,'0'), (val) => { state.minute = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
+        sync();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initSettingsWheels();
     initWaitlistWheels();
+
+    document.querySelectorAll('.staff-schedule-form').forEach(form => {
+        const staffId = form.dataset.staffId;
+        const modal = document.getElementById(`editStaffModal-${staffId}`);
+        if (modal) {
+            modal.addEventListener('shown.bs.modal', () => initStaffScheduleWheels(staffId));
+        }
+    });
 });
 
 </script>
