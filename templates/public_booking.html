@@ -75,7 +75,7 @@
             font-size: 0.85rem;
         }
 
-        /* ---------- Ethiopian time picker (scroll wheel) ---------- */
+        /* ---------- Ethiopian time picker (single scrollable wheel, 15-min slots) ---------- */
         .eth-time-picker {
             background: #F6ECE1;
             border: 1px solid #E3D3C0;
@@ -109,11 +109,11 @@
         }
         .wheel-col {
             position: relative;
-            height: 126px;
+            height: 168px;
             overflow-y: scroll;
             scroll-snap-type: y mandatory;
-            padding-top: 42px;
-            padding-bottom: 42px;
+            padding-top: 63px;
+            padding-bottom: 63px;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
             z-index: 2;
@@ -121,15 +121,13 @@
             user-select: none;
         }
         .wheel-col::-webkit-scrollbar { display: none; }
-        .wheel-col.wheel-period { width: 76px; }
-        .wheel-col.wheel-hour { width: 54px; }
-        .wheel-col.wheel-minute { width: 54px; }
+        .wheel-col.wheel-eth { width: 100%; }
         .wheel-item {
             height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.95rem;
+            font-size: 1rem;
             font-weight: 600;
             color: #B9A990;
             scroll-snap-align: center;
@@ -139,20 +137,7 @@
         }
         .wheel-item.active {
             color: #5A4936;
-            font-size: 1.15rem;
-        }
-        .wheel-sep {
-            font-weight: 700;
-            color: #9C6B3F;
-            font-size: 1.1rem;
-            z-index: 2;
-        }
-        .wheel-suffix {
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #7A6E6E;
-            z-index: 2;
-            padding-left: 4px;
+            font-size: 1.2rem;
         }
         .eth-preview {
             margin-top: 10px;
@@ -323,7 +308,7 @@
                     </select>
                 </div>
 
-                <!-- ========== ETHIOPIAN TIME PICKER (SCROLL WHEEL, 15-MIN STEPS) ========== -->
+                <!-- ========== ETHIOPIAN TIME PICKER (SINGLE SCROLLABLE WHEEL, 15-MIN SLOTS) ========== -->
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ቀን</label>
                     <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
@@ -333,14 +318,10 @@
                     <div class="eth-time-picker">
                         <div class="eth-wheel-shell">
                             <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col wheel-period" id="wheelPeriod"></div>
-                            <div class="wheel-col wheel-hour" id="wheelHour"></div>
-                            <div class="wheel-sep">:</div>
-                            <div class="wheel-col wheel-minute" id="wheelMinute"></div>
-                            <div class="wheel-suffix">ሰዓት</div>
+                            <div class="wheel-col wheel-eth" id="wheelEth"></div>
                         </div>
                         <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
-                        <div class="eth-hint">ወደላይ/ታች ጠቅ አድርገው ይሸብልሉ (እያንዳንዱ ደረጃ 15 ደቂቃ)</div>
+                        <div class="eth-hint">ወደላይ/ታች ጠቅ አድርገው ይሸብልሉ ወይም ይንኩ (15 ደቂቃ ልዩነት)</div>
                     </div>
                     <!-- Hidden field that the backend expects -->
                     <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
@@ -386,22 +367,23 @@
         // ===== Generic scroll-wheel picker (touch + mouse friendly, snaps to nearest item) =====
         const WHEEL_ITEM_HEIGHT = 42;
 
-        function buildWheel(container, values) {
-            container.innerHTML = values.map(v => `<div class="wheel-item" data-value="${v}">${v}</div>`).join('');
+        function buildWheel(container, values, itemHeight) {
+            container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${itemHeight}px;" data-value="${v}">${v}</div>`).join('');
             return Array.from(container.querySelectorAll('.wheel-item'));
         }
 
-        function initWheel(container, values, initialValue, onChange) {
-            const items = buildWheel(container, values);
+        function initWheel(container, values, initialValue, onChange, itemHeight) {
+            itemHeight = itemHeight || WHEEL_ITEM_HEIGHT;
+            const items = buildWheel(container, values, itemHeight);
             let current = null;
 
             function scrollToIndex(idx, smooth) {
                 idx = Math.max(0, Math.min(values.length - 1, idx));
-                container.scrollTo({ top: idx * WHEEL_ITEM_HEIGHT, behavior: smooth ? 'smooth' : 'auto' });
+                container.scrollTo({ top: idx * itemHeight, behavior: smooth ? 'smooth' : 'auto' });
             }
 
             function currentIndex() {
-                const idx = Math.round(container.scrollTop / WHEEL_ITEM_HEIGHT);
+                const idx = Math.round(container.scrollTop / itemHeight);
                 return Math.max(0, Math.min(values.length - 1, idx));
             }
 
@@ -477,37 +459,56 @@
             };
         }
 
-        let selectedPeriod = 'ጧት';
-        let selectedHour = 9;
-        let selectedMinute = 0;
+        // ===== Single flat list of every 15-min Ethiopian time slot in the day =====
+        // Ordered starting at ጧት 12:00 (western 06:00) through ለሊት 11:45 (western 05:45),
+        // matching how an Ethiopian day is actually spoken. Scrolling to a row and tapping
+        // it picks the whole time (period + hour + minute) in one motion — no separate wheels.
+        function buildEthSlots() {
+            const slots = [];
+            for (let i = 0; i < 96; i++) {
+                const wh = (6 + Math.floor(i / 4)) % 24;
+                const mm = (i % 4) * 15;
+                const eth = westernToEth(wh, mm);
+                const label = `${eth.period} ${eth.hour}:${String(eth.minute).padStart(2, '0')}`;
+                slots.push({ label, hhmm: `${String(wh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` });
+            }
+            return slots;
+        }
+
+        function initEthSlotWheel(container, initialHHMM, onChange, itemHeight) {
+            const slots = buildEthSlots();
+            const labels = slots.map(s => s.label);
+            const byLabel = {};
+            slots.forEach(s => { byLabel[s.label] = s.hhmm; });
+            const initialSlot = slots.find(s => s.hhmm === initialHHMM) || slots[0];
+            const wheel = initWheel(container, labels, initialSlot.label, (label) => {
+                onChange(byLabel[label], label);
+            }, itemHeight);
+            onChange(byLabel[initialSlot.label], initialSlot.label);
+            return {
+                set: (hhmm) => {
+                    const s = slots.find(x => x.hhmm === hhmm) || slots[0];
+                    wheel.set(s.label);
+                }
+            };
+        }
+
+        let selectedHHMM = '09:00';
 
         function updatePreviewAndHidden() {
             const dateVal = document.getElementById('ethDate').value;
-            const preview = document.getElementById('ethPreview');
             const hidden = document.getElementById('appointmentTimeHidden');
-
-            preview.textContent = `${selectedPeriod} ${selectedHour}:${String(selectedMinute).padStart(2,'0')} ሰዓት`;
-
             if (!dateVal) {
                 hidden.value = '';
                 return;
             }
-            const w = ethToWestern(selectedPeriod, selectedHour, selectedMinute);
-            const hh = String(w.hour).padStart(2,'0');
-            const mm = String(w.minute).padStart(2,'0');
-            hidden.value = `${dateVal}T${hh}:${mm}`;
+            hidden.value = `${dateVal}T${selectedHHMM}`;
         }
 
-        const periodWheel = initWheel(document.getElementById('wheelPeriod'), ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => {
-            selectedPeriod = val;
-            updatePreviewAndHidden();
-        });
-        const hourWheel = initWheel(document.getElementById('wheelHour'), Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => {
-            selectedHour = parseInt(val, 10);
-            updatePreviewAndHidden();
-        });
-        const minuteWheel = initWheel(document.getElementById('wheelMinute'), ['00','15','30','45'], '00', (val) => {
-            selectedMinute = parseInt(val, 10);
+        const ethWheel = initEthSlotWheel(document.getElementById('wheelEth'), selectedHHMM, (hhmm, label) => {
+            selectedHHMM = hhmm;
+            const preview = document.getElementById('ethPreview');
+            if (preview) preview.textContent = `${label} ሰዓት`;
             updatePreviewAndHidden();
         });
 
@@ -545,16 +546,12 @@
                 try {
                     const [datePart, timePart] = conflictTime.split('T');
                     const [hh, mm] = timePart.split(':').map(Number);
-                    const eth = westernToEth(hh, mm || 0);
-                    document.getElementById('ethDate').value = datePart;
                     // snap minute to nearest 15
-                    const snappedMinute = Math.round((eth.minute || 0) / 15) * 15 % 60;
-                    selectedPeriod = eth.period;
-                    selectedHour = eth.hour;
-                    selectedMinute = snappedMinute;
-                    periodWheel.set(eth.period);
-                    hourWheel.set(String(eth.hour));
-                    minuteWheel.set(String(snappedMinute).padStart(2,'0'));
+                    const snappedMinute = Math.round((mm || 0) / 15) * 15 % 60;
+                    const hhmm = `${String(hh).padStart(2,'0')}:${String(snappedMinute).padStart(2,'0')}`;
+                    document.getElementById('ethDate').value = datePart;
+                    selectedHHMM = hhmm;
+                    ethWheel.set(hhmm);
                     updatePreviewAndHidden();
                 } catch(e) {}
             }

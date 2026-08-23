@@ -273,6 +273,9 @@
         .wheel-col.wheel-period { width: 76px; }
         .wheel-col.wheel-hour { width: 54px; }
         .wheel-col.wheel-minute { width: 54px; }
+        .wheel-col.wheel-eth { width: 100%; min-width: 150px; }
+        .wheel-col.wheel-eth .wheel-item { font-size: 0.88rem; }
+        .wheel-col.wheel-eth .wheel-item.active { font-size: 1.08rem; }
         .wheel-item {
             height: 42px;
             display: flex;
@@ -821,11 +824,7 @@
                                         <div class="eth-time-picker compact" style="font-size:0.85rem;">
                                             <div class="eth-wheel-shell" style="padding:0 6px;">
                                                 <div class="eth-wheel-highlight" style="height:36px;"></div>
-                                                <div class="wheel-col wheel-period wl-wheel-period" style="height:108px;padding-top:36px;padding-bottom:36px;width:64px;" data-wl-id="{{ w.id }}"></div>
-                                                <div class="wheel-col wheel-hour wl-wheel-hour" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" data-wl-id="{{ w.id }}"></div>
-                                                <div class="wheel-sep">:</div>
-                                                <div class="wheel-col wheel-minute wl-wheel-minute" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" data-wl-id="{{ w.id }}"></div>
-                                                <div class="wheel-suffix" style="font-size:0.72rem;">ሰዓት</div>
+                                                <div class="wheel-col wheel-eth wl-wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;width:118px;" data-wl-id="{{ w.id }}"></div>
                                             </div>
                                             <div class="eth-preview wl-eth-preview" style="font-size:0.85rem;margin-top:4px;">ጧት 9:00 ሰዓት</div>
                                         </div>
@@ -1044,11 +1043,7 @@
                                             <div class="eth-time-picker staff-main-wheel" data-role="open" data-staff-id="{{ st.id }}">
                                                 <div class="eth-wheel-shell">
                                                     <div class="eth-wheel-highlight"></div>
-                                                    <div class="wheel-col wheel-period" id="wheelPeriodStaffOpen-{{ st.id }}"></div>
-                                                    <div class="wheel-col wheel-hour" id="wheelHourStaffOpen-{{ st.id }}"></div>
-                                                    <div class="wheel-sep">:</div>
-                                                    <div class="wheel-col wheel-minute" id="wheelMinuteStaffOpen-{{ st.id }}"></div>
-                                                    <div class="wheel-suffix">ሰዓት</div>
+                                                    <div class="wheel-col wheel-eth" id="wheelEthStaffOpen-{{ st.id }}"></div>
                                                 </div>
                                                 <div class="eth-preview" id="staffOpenPreview-{{ st.id }}">ጧት 9:00 ሰዓት</div>
                                             </div>
@@ -1062,11 +1057,7 @@
                                             <div class="eth-time-picker staff-main-wheel" data-role="close" data-staff-id="{{ st.id }}">
                                                 <div class="eth-wheel-shell">
                                                     <div class="eth-wheel-highlight"></div>
-                                                    <div class="wheel-col wheel-period" id="wheelPeriodStaffClose-{{ st.id }}"></div>
-                                                    <div class="wheel-col wheel-hour" id="wheelHourStaffClose-{{ st.id }}"></div>
-                                                    <div class="wheel-sep">:</div>
-                                                    <div class="wheel-col wheel-minute" id="wheelMinuteStaffClose-{{ st.id }}"></div>
-                                                    <div class="wheel-suffix">ሰዓት</div>
+                                                    <div class="wheel-col wheel-eth" id="wheelEthStaffClose-{{ st.id }}"></div>
                                                 </div>
                                                 <div class="eth-preview" id="staffClosePreview-{{ st.id }}">ማታ 6:00 ሰዓት</div>
                                             </div>
@@ -1102,10 +1093,7 @@
                                             <div class="eth-time-picker compact staff-day-wheel" data-role="open" data-staff-id="{{ st.id }}" data-day="{{ i }}">
                                                 <div class="eth-wheel-shell" style="padding:0 6px;">
                                                     <div class="eth-wheel-highlight" style="height:36px;"></div>
-                                                    <div class="wheel-col wheel-period" style="height:108px;padding-top:36px;padding-bottom:36px;width:64px;" id="dayOpenPeriod-{{ st.id }}-{{ i }}"></div>
-                                                    <div class="wheel-col wheel-hour" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayOpenHour-{{ st.id }}-{{ i }}"></div>
-                                                    <div class="wheel-sep">:</div>
-                                                    <div class="wheel-col wheel-minute" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayOpenMinute-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;width:104px;" id="dayOpenEth-{{ st.id }}-{{ i }}"></div>
                                                 </div>
                                                 <div class="eth-preview" style="font-size:0.78rem;" id="dayOpenPreview-{{ st.id }}-{{ i }}">ጧት 9:00</div>
                                             </div>
@@ -1113,10 +1101,7 @@
                                             <div class="eth-time-picker compact staff-day-wheel" data-role="close" data-staff-id="{{ st.id }}" data-day="{{ i }}">
                                                 <div class="eth-wheel-shell" style="padding:0 6px;">
                                                     <div class="eth-wheel-highlight" style="height:36px;"></div>
-                                                    <div class="wheel-col wheel-period" style="height:108px;padding-top:36px;padding-bottom:36px;width:64px;" id="dayClosePeriod-{{ st.id }}-{{ i }}"></div>
-                                                    <div class="wheel-col wheel-hour" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayCloseHour-{{ st.id }}-{{ i }}"></div>
-                                                    <div class="wheel-sep">:</div>
-                                                    <div class="wheel-col wheel-minute" style="height:108px;padding-top:36px;padding-bottom:36px;width:46px;" id="dayCloseMinute-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;width:104px;" id="dayCloseEth-{{ st.id }}-{{ i }}"></div>
                                                 </div>
                                                 <div class="eth-preview" style="font-size:0.78rem;" id="dayClosePreview-{{ st.id }}-{{ i }}">ማታ 6:00</div>
                                             </div>
@@ -1202,11 +1187,7 @@
                     <div class="eth-time-picker" id="settingsOpenPicker">
                         <div class="eth-wheel-shell">
                             <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col wheel-period" id="wheelPeriodOpen"></div>
-                            <div class="wheel-col wheel-hour" id="wheelHourOpen"></div>
-                            <div class="wheel-sep">:</div>
-                            <div class="wheel-col wheel-minute" id="wheelMinuteOpen"></div>
-                            <div class="wheel-suffix">ሰዓት</div>
+                            <div class="wheel-col wheel-eth" id="wheelEthOpen"></div>
                         </div>
                         <div class="eth-preview" id="openEthPreview">ጧት 9:00 ሰዓት</div>
                     </div>
@@ -1220,11 +1201,7 @@
                     <div class="eth-time-picker" id="settingsClosePicker">
                         <div class="eth-wheel-shell">
                             <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col wheel-period" id="wheelPeriodClose"></div>
-                            <div class="wheel-col wheel-hour" id="wheelHourClose"></div>
-                            <div class="wheel-sep">:</div>
-                            <div class="wheel-col wheel-minute" id="wheelMinuteClose"></div>
-                            <div class="wheel-suffix">ሰዓት</div>
+                            <div class="wheel-col wheel-eth" id="wheelEthClose"></div>
                         </div>
                         <div class="eth-preview" id="closeEthPreview">ማታ 6:00 ሰዓት</div>
                     </div>
@@ -1431,11 +1408,7 @@
                         <div class="eth-time-picker">
                             <div class="eth-wheel-shell">
                                 <div class="eth-wheel-highlight"></div>
-                                <div class="wheel-col wheel-period" id="wheelPeriodBook"></div>
-                                <div class="wheel-col wheel-hour" id="wheelHourBook"></div>
-                                <div class="wheel-sep">:</div>
-                                <div class="wheel-col wheel-minute" id="wheelMinuteBook"></div>
-                                <div class="wheel-suffix">ሰዓት</div>
+                                <div class="wheel-col wheel-eth" id="wheelEthBook"></div>
                             </div>
                             <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
                         </div>
@@ -2036,44 +2009,65 @@ function initWheel(container, values, initialValue, onChange, itemHeight) {
     };
 }
 
+/* ========== Single flat list of every 15-min Ethiopian time slot ==========
+   Ordered starting at ጧት 12:00 (western 06:00) through ለሊት 11:45 (western 05:45),
+   matching how an Ethiopian day is actually spoken. One scroll + tap on a row picks
+   the whole time (period + hour + minute) at once — no separate period/hour/minute
+   wheels to combine by hand. Used everywhere a time is picked: New Booking, Settings,
+   Waitlist, and Staff hours (both "all days" and per-day). */
+function buildEthSlots() {
+    const slots = [];
+    for (let i = 0; i < 96; i++) {
+        const wh = (6 + Math.floor(i / 4)) % 24;
+        const mm = (i % 4) * 15;
+        const eth = westernToEth(wh, mm);
+        const label = `${eth.period} ${eth.hour}:${String(eth.minute).padStart(2, '0')}`;
+        slots.push({ label, hhmm: `${String(wh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` });
+    }
+    return slots;
+}
+
+function initEthSlotWheel(container, initialHHMM, onChange, itemHeight) {
+    const slots = buildEthSlots();
+    const labels = slots.map(s => s.label);
+    const byLabel = {};
+    slots.forEach(s => { byLabel[s.label] = s.hhmm; });
+    const initialSlot = slots.find(s => s.hhmm === initialHHMM) || slots[0];
+    const wheel = initWheel(container, labels, initialSlot.label, (label) => {
+        onChange(byLabel[label], label);
+    }, itemHeight);
+    onChange(byLabel[initialSlot.label], initialSlot.label);
+    return {
+        set: (hhmm) => {
+            const s = slots.find(x => x.hhmm === hhmm) || slots[0];
+            wheel.set(s.label);
+        }
+    };
+}
+
 /* ========== New Booking modal: Ethiopian scroll-wheel time picker ========== */
-let bookSelectedPeriod = 'ጧት';
-let bookSelectedHour = 9;
-let bookSelectedMinute = 0;
+let bookSelectedHHMM = '09:00';
 let bookWheelsReady = false;
 
 function updateBookPreviewAndHidden() {
     const dateVal = document.getElementById('bookDate')?.value;
-    const preview = document.getElementById('bookEthPreview');
     const hidden = document.getElementById('bookAppointmentTime');
     if (!hidden) return;
-
-    if (preview) preview.textContent = `${bookSelectedPeriod} ${bookSelectedHour}:${String(bookSelectedMinute).padStart(2,'0')} ሰዓት`;
-
     if (!dateVal) { hidden.value = ''; return; }
-    const w = ethToWestern(bookSelectedPeriod, bookSelectedHour, bookSelectedMinute);
-    const hh = String(w.hour).padStart(2,'0');
-    const mm = String(w.minute).padStart(2,'0');
-    hidden.value = `${dateVal}T${hh}:${mm}`;
+    hidden.value = `${dateVal}T${bookSelectedHHMM}`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const bookModalEl = document.getElementById('bookModal');
     if (!bookModalEl) return;
 
-    // Wheels only need to be built once (elements persist across modal open/close)
+    // Wheel only needs to be built once (elements persist across modal open/close)
     bookModalEl.addEventListener('shown.bs.modal', () => {
         if (!bookWheelsReady) {
-            initWheel(document.getElementById('wheelPeriodBook'), ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => {
-                bookSelectedPeriod = val;
-                updateBookPreviewAndHidden();
-            });
-            initWheel(document.getElementById('wheelHourBook'), Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => {
-                bookSelectedHour = parseInt(val, 10);
-                updateBookPreviewAndHidden();
-            });
-            initWheel(document.getElementById('wheelMinuteBook'), ['00','15','30','45'], '00', (val) => {
-                bookSelectedMinute = parseInt(val, 10);
+            initEthSlotWheel(document.getElementById('wheelEthBook'), bookSelectedHHMM, (hhmm, label) => {
+                bookSelectedHHMM = hhmm;
+                const preview = document.getElementById('bookEthPreview');
+                if (preview) preview.textContent = `${label} ሰዓት`;
                 updateBookPreviewAndHidden();
             });
             bookWheelsReady = true;
@@ -2100,81 +2094,44 @@ document.addEventListener('DOMContentLoaded', () => {
 function initSettingsWheels() {
     const openHidden = document.getElementById('settingsOpeningTime');
     const closeHidden = document.getElementById('settingsClosingTime');
-    if (!openHidden || !document.getElementById('wheelPeriodOpen')) return;
+    if (!openHidden || !document.getElementById('wheelEthOpen')) return;
 
-    // Parse existing western HH:MM into eth
-    function parseHidden(el) {
-        const v = (el.value || '09:00').split(':');
-        const h = parseInt(v[0], 10) || 9;
-        const m = parseInt(v[1], 10) || 0;
-        return westernToEth(h, m);
-    }
-
-    let openState = parseHidden(openHidden);
-    let closeState = parseHidden(closeHidden);
-
-    function syncOpen() {
-        const w = ethToWestern(openState.period, openState.hour, openState.minute);
-        openHidden.value = `${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+    initEthSlotWheel(document.getElementById('wheelEthOpen'), openHidden.value || '09:00', (hhmm, label) => {
+        openHidden.value = hhmm;
         const prev = document.getElementById('openEthPreview');
-        if (prev) prev.textContent = `${openState.period} ${openState.hour}:${String(openState.minute).padStart(2,'0')} ሰዓት`;
-    }
-    function syncClose() {
-        const w = ethToWestern(closeState.period, closeState.hour, closeState.minute);
-        closeHidden.value = `${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+        if (prev) prev.textContent = `${label} ሰዓት`;
+    });
+
+    initEthSlotWheel(document.getElementById('wheelEthClose'), closeHidden.value || '18:00', (hhmm, label) => {
+        closeHidden.value = hhmm;
         const prev = document.getElementById('closeEthPreview');
-        if (prev) prev.textContent = `${closeState.period} ${closeState.hour}:${String(closeState.minute).padStart(2,'0')} ሰዓት`;
-    }
-
-    initWheel(document.getElementById('wheelPeriodOpen'), ['ጧት','ቀን','ማታ','ለሊት'], openState.period, (val) => {
-        openState.period = val; syncOpen();
+        if (prev) prev.textContent = `${label} ሰዓት`;
     });
-    initWheel(document.getElementById('wheelHourOpen'), Array.from({length:12}, (_,i) => String(i+1)), String(openState.hour), (val) => {
-        openState.hour = parseInt(val, 10); syncOpen();
-    });
-    initWheel(document.getElementById('wheelMinuteOpen'), ['00','15','30','45'], String(openState.minute).padStart(2,'0'), (val) => {
-        openState.minute = parseInt(val, 10); syncOpen();
-    });
-
-    initWheel(document.getElementById('wheelPeriodClose'), ['ጧት','ቀን','ማታ','ለሊት'], closeState.period, (val) => {
-        closeState.period = val; syncClose();
-    });
-    initWheel(document.getElementById('wheelHourClose'), Array.from({length:12}, (_,i) => String(i+1)), String(closeState.hour), (val) => {
-        closeState.hour = parseInt(val, 10); syncClose();
-    });
-    initWheel(document.getElementById('wheelMinuteClose'), ['00','15','30','45'], String(closeState.minute).padStart(2,'0'), (val) => {
-        closeState.minute = parseInt(val, 10); syncClose();
-    });
-
-    syncOpen();
-    syncClose();
 }
 
-/* ========== Waitlist Ethiopian wheels (compact 36px rows) ========== */
+/* ========== Waitlist Ethiopian wheels (compact 36px rows, single slot list) ========== */
 function initWaitlistWheels() {
     document.querySelectorAll('.convert-waitlist-form').forEach(form => {
         if (form.dataset.wheelsReady) return;
-        const periodCol = form.querySelector('.wl-wheel-period');
-        const hourCol = form.querySelector('.wl-wheel-hour');
-        const minuteCol = form.querySelector('.wl-wheel-minute');
+        const wheelCol = form.querySelector('.wl-wheel-eth');
         const preview = form.querySelector('.wl-eth-preview');
         const hidden = form.querySelector('.wl-hidden');
         const dateInput = form.querySelector('.wl-date');
-        if (!periodCol || !hourCol || !minuteCol || !hidden) return;
+        if (!wheelCol || !hidden) return;
 
-        let state = { period: 'ጧት', hour: 9, minute: 0 };
+        let currentHHMM = '09:00';
 
         function sync() {
-            if (preview) preview.textContent = `${state.period} ${state.hour}:${String(state.minute).padStart(2,'0')} ሰዓት`;
             const dateVal = dateInput ? dateInput.value : '';
             if (!dateVal) { hidden.value = ''; return; }
-            const w = ethToWestern(state.period, state.hour, state.minute);
-            hidden.value = `${dateVal}T${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
+            hidden.value = `${dateVal}T${currentHHMM}`;
         }
 
-        initWheel(periodCol, ['ጧት','ቀን','ማታ','ለሊት'], 'ጧት', (val) => { state.period = val; sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
-        initWheel(hourCol, Array.from({length:12}, (_,i) => String(i+1)), '9', (val) => { state.hour = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
-        initWheel(minuteCol, ['00','15','30','45'], '00', (val) => { state.minute = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
+        initEthSlotWheel(wheelCol, currentHHMM, (hhmm, label) => {
+            currentHHMM = hhmm;
+            if (preview) preview.textContent = `${label} ሰዓት`;
+            sync();
+        }, WHEEL_ITEM_HEIGHT_COMPACT);
 
         if (dateInput) dateInput.addEventListener('change', sync);
         form.addEventListener('submit', e => {
@@ -2189,19 +2146,11 @@ function initWaitlistWheels() {
     });
 }
 
-/* ========== Staff schedule modal: same Ethiopian wheel picker as New Booking ==========
+/* ========== Staff schedule modal: same single-wheel Ethiopian picker as New Booking ==========
    Applies to (1) "custom hours, all days" open/close and (2) each per-day open/close row.
    Wheels build lazily the first time a staff modal is shown, and write into the same
    hidden inputs (opening_time / closing_time / day_open_N / day_close_N) the backend
    already expects — no server-side change required. */
-function parseHHMM(str, fallbackH, fallbackM) {
-    if (!str) return { h: fallbackH, m: fallbackM };
-    const parts = str.split(':');
-    const h = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    return { h: isNaN(h) ? fallbackH : h, m: isNaN(m) ? fallbackM : m };
-}
-
 function initStaffScheduleWheels(staffId) {
     const modal = document.getElementById(`editStaffModal-${staffId}`);
     if (!modal || modal.dataset.wheelsReady) return;
@@ -2212,52 +2161,31 @@ function initStaffScheduleWheels(staffId) {
         const hiddenId = role === 'open' ? `staffOpeningTime-${staffId}` : `staffClosingTime-${staffId}`;
         const hidden = document.getElementById(hiddenId);
         if (!hidden) return;
-        const fallback = role === 'open' ? { h: 9, m: 0 } : { h: 18, m: 0 };
-        const parsed = parseHHMM(hidden.value, fallback.h, fallback.m);
-        let state = westernToEth(parsed.h, parsed.m);
-
-        const prefix = role === 'open' ? 'StaffOpen' : 'StaffClose';
+        const wheelId = role === 'open' ? `wheelEthStaffOpen-${staffId}` : `wheelEthStaffClose-${staffId}`;
         const previewEl = document.getElementById(role === 'open' ? `staffOpenPreview-${staffId}` : `staffClosePreview-${staffId}`);
+        const fallback = role === 'open' ? '09:00' : '18:00';
 
-        function sync() {
-            const w = ethToWestern(state.period, state.hour, state.minute);
-            hidden.value = `${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
-            if (previewEl) previewEl.textContent = `${state.period} ${state.hour}:${String(state.minute).padStart(2,'0')} ሰዓት`;
-        }
-
-        initWheel(document.getElementById(`wheelPeriod${prefix}-${staffId}`), ['ጧት','ቀን','ማታ','ለሊት'], state.period, (val) => { state.period = val; sync(); });
-        initWheel(document.getElementById(`wheelHour${prefix}-${staffId}`), Array.from({length:12}, (_,i) => String(i+1)), String(state.hour), (val) => { state.hour = parseInt(val, 10); sync(); });
-        initWheel(document.getElementById(`wheelMinute${prefix}-${staffId}`), ['00','15','30','45'], String(state.minute).padStart(2,'0'), (val) => { state.minute = parseInt(val, 10); sync(); });
-        sync();
+        initEthSlotWheel(document.getElementById(wheelId), hidden.value || fallback, (hhmm, label) => {
+            hidden.value = hhmm;
+            if (previewEl) previewEl.textContent = `${label} ሰዓት`;
+        });
     });
 
-    // --- Per-day rows (compact 36px wheels, same math fix as waitlist) ---
+    // --- Per-day rows (compact 36px, single slot list — same fix as waitlist) ---
     modal.querySelectorAll('.staff-day-wheel').forEach(wheelEl => {
         const day = wheelEl.dataset.day;
         const role = wheelEl.dataset.role; // 'open' | 'close'
         const hiddenId = role === 'open' ? `dayOpenHidden-${staffId}-${day}` : `dayCloseHidden-${staffId}-${day}`;
         const hidden = document.getElementById(hiddenId);
         if (!hidden) return;
-        const fallback = role === 'open' ? { h: 9, m: 0 } : { h: 18, m: 0 };
-        const parsed = parseHHMM(hidden.value, fallback.h, fallback.m);
-        let state = westernToEth(parsed.h, parsed.m);
+        const wheelColId = role === 'open' ? `dayOpenEth-${staffId}-${day}` : `dayCloseEth-${staffId}-${day}`;
+        const previewEl = document.getElementById(role === 'open' ? `dayOpenPreview-${staffId}-${day}` : `dayClosePreview-${staffId}-${day}`);
+        const fallback = role === 'open' ? '09:00' : '18:00';
 
-        const idPrefix = role === 'open'
-            ? { period: `dayOpenPeriod-${staffId}-${day}`, hour: `dayOpenHour-${staffId}-${day}`, minute: `dayOpenMinute-${staffId}-${day}`, preview: `dayOpenPreview-${staffId}-${day}` }
-            : { period: `dayClosePeriod-${staffId}-${day}`, hour: `dayCloseHour-${staffId}-${day}`, minute: `dayCloseMinute-${staffId}-${day}`, preview: `dayClosePreview-${staffId}-${day}` };
-
-        const previewEl = document.getElementById(idPrefix.preview);
-
-        function sync() {
-            const w = ethToWestern(state.period, state.hour, state.minute);
-            hidden.value = `${String(w.hour).padStart(2,'0')}:${String(w.minute).padStart(2,'0')}`;
-            if (previewEl) previewEl.textContent = `${state.period} ${state.hour}:${String(state.minute).padStart(2,'0')}`;
-        }
-
-        initWheel(document.getElementById(idPrefix.period), ['ጧት','ቀን','ማታ','ለሊት'], state.period, (val) => { state.period = val; sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
-        initWheel(document.getElementById(idPrefix.hour), Array.from({length:12}, (_,i) => String(i+1)), String(state.hour), (val) => { state.hour = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
-        initWheel(document.getElementById(idPrefix.minute), ['00','15','30','45'], String(state.minute).padStart(2,'0'), (val) => { state.minute = parseInt(val, 10); sync(); }, WHEEL_ITEM_HEIGHT_COMPACT);
-        sync();
+        initEthSlotWheel(document.getElementById(wheelColId), hidden.value || fallback, (hhmm, label) => {
+            hidden.value = hhmm;
+            if (previewEl) previewEl.textContent = label;
+        }, WHEEL_ITEM_HEIGHT_COMPACT);
     });
 }
 
