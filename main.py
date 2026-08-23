@@ -958,7 +958,7 @@ def convert_waitlist(
         return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
 
     appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
-    staff_id = entry.staff_id or db.query(Staff.id).filter(Staff.salon_id == salon.id).scalar()
+    staff_id = entry.staff_id or db.query(Staff.id).filter(Staff.salon_id == salon.id).limit(1).scalar()
     staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
     c_duration = _service_duration(db, entry.service_id)
     c_end = appt_dt + timedelta(minutes=c_duration)
