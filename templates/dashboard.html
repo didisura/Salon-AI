@@ -434,6 +434,17 @@
         html[lang="en"] .i18n-block-en { display: block !important; }
         html[lang="am"] .i18n-block-am { display: block !important; }
         html[lang="am"] .i18n-block-en { display: none !important; }
+
+        /* Selected-day badge on the home appointments board */
+        .selected-day-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #F6ECE1; border: 1px solid var(--border);
+            color: var(--accent); font-weight: 700; font-size: 0.82rem;
+            padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+        }
+        .search-result-day {
+            color: var(--accent); font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -695,11 +706,18 @@
                     <span data-lang-am>የቀጠሮዎች ሰሌዳ</span>
                     <span data-lang-en>Appointments</span>
                 </h5>
-                <form action="/dashboard" method="get" class="d-flex align-items-center gap-2">
-                    <input type="hidden" name="tab" value="home">
-                    <input type="date" name="selected_date" value="{{ selected_date or current_date }}"
-                           class="form-control form-control-sm" style="width:auto;" onchange="this.form.submit()">
-                </form>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="selected-day-badge">
+                        <i class="fa-solid fa-calendar-day"></i>
+                        <span data-lang-am>{{ selected_day_am }}</span><span data-lang-en>{{ selected_day_en }}</span>
+                        <span>· {{ selected_date or current_date }}</span>
+                    </span>
+                    <form action="/dashboard" method="get" class="d-flex align-items-center gap-2">
+                        <input type="hidden" name="tab" value="home">
+                        <input type="date" name="selected_date" value="{{ selected_date or current_date }}"
+                               class="form-control form-control-sm" style="width:auto;" onchange="this.form.submit()">
+                    </form>
+                </div>
             </div>
 
             <div class="table-stack">
@@ -1703,12 +1721,15 @@ function searchCustomer() {
                 const card = document.createElement('div');
                 card.className = 'p-3 rounded-3';
                 card.style.cssText = 'background:var(--bg-cream);border:1px solid var(--border);';
+                const dayLabel = document.documentElement.lang === 'en' ? (c.day_en || '') : (c.day_am || '');
+                const dateTimeLine = [dayLabel, c.appointment_date, c.appointment_time].filter(Boolean).join(' · ');
                 card.innerHTML = `
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <div class="fw-bold">${c.customer_name || ''}</div>
                             <div class="text-muted small">${c.customer_phone || ''}</div>
-                            ${c.service_name ? `<div class="text-muted small mt-1"><i class="fa-solid fa-scissors me-1"></i>${c.service_name}${c.appointment_time ? ' — ' + c.appointment_time : ''}</div>` : ''}
+                            ${c.service_name ? `<div class="text-muted small mt-1"><i class="fa-solid fa-scissors me-1"></i>${c.service_name}</div>` : ''}
+                            ${dateTimeLine ? `<div class="search-result-day small mt-1"><i class="fa-solid fa-calendar-day me-1"></i>${dateTimeLine}</div>` : ''}
                             ${c.status ? `<span class="badge bg-secondary mt-1">${c.status}</span>` : ''}
                         </div>
                         <div class="d-flex flex-column gap-1">

@@ -84,6 +84,24 @@ def _eth_display(dt: Optional[datetime]) -> Optional[str]:
     return f"{p} {h}:{em:02d} ሰዓት"
 
 
+# ---------------------------------------------------------------------------
+# Day-of-week names (Amharic short form + English full form), used anywhere
+# we want to show "which day" a date falls on rather than just the date
+# itself — e.g. the home dashboard header and customer search results.
+# Index is Python's date.weekday() (0=Monday ... 6=Sunday).
+# ---------------------------------------------------------------------------
+_DAY_NAMES_AM = ["ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ", "እሁድ"]
+_DAY_NAMES_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+def _day_names(d: Optional[date]):
+    """Returns (amharic_name, english_name) for a given date, or (None, None)."""
+    if not d:
+        return None, None
+    idx = d.weekday()
+    return _DAY_NAMES_AM[idx], _DAY_NAMES_EN[idx]
+
+
 @app.exception_handler(NotAuthenticatedException)
 async def not_authenticated_handler(request: Request, exc: NotAuthenticatedException):
     # Admin routes redirect to the admin login; everything else to salon login.
@@ -629,6 +647,13 @@ def dashboard(
         context["appointments"] = appointments
         context["selected_date"] = sel_date.isoformat()
 
+        # Day-of-week name for whichever date is selected, so the board
+        # header reads e.g. "ሰኞ / Monday · 2026-08-24" instead of just the
+        # raw date — easier to recognize the day at a glance.
+        sel_day_am, sel_day_en = _day_names(sel_date)
+        context["selected_day_am"] = sel_day_am
+        context["selected_day_en"] = sel_day_en
+
         if error == "conflict" and conflict_time and conflict_service and conflict_staff:
             conflict_dt = datetime.strptime(conflict_time, "%Y-%m-%dT%H:%M")
             c_duration = _service_duration(db, conflict_service)
@@ -879,11 +904,16 @@ def search_customer(
         if a.customer_phone in seen_phones:
             continue
         seen_phones.add(a.customer_phone)
+        appt_date = a.appointment_datetime.date()
+        day_am, day_en = _day_names(appt_date)
         results.append({
             "customer_name": a.customer_name,
             "customer_phone": a.customer_phone,
             "service_name": a.service_name,
+            "appointment_date": appt_date.isoformat(),
             "appointment_time": a.appointment_time,
+            "day_am": day_am,
+            "day_en": day_en,
             "status": a.status.value,
         })
 
