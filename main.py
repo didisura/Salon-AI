@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import secrets
 import time
@@ -9,7 +11,7 @@ from urllib.parse import urlencode
 from fastapi import (
     FastAPI, Request, Depends, Form, WebSocket, WebSocketDisconnect, status
 )
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -167,6 +169,24 @@ def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: dat
         .scalar()
     )
     return float(total or 0)
+
+
+def _revenue_details_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime):
+    """Every completed appointment in the given window, oldest first — the
+    itemized, customer-by-customer breakdown behind the revenue totals.
+    Used by both the dashboard's revenue tab and the CSV export, so the
+    on-screen table and the downloaded file always agree."""
+    return (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.status == AppointmentStatus.completed,
+            Appointment.appointment_datetime >= start_dt,
+            Appointment.appointment_datetime < end_dt,
+        )
+        .order_by(Appointment.appointment_datetime)
+        .all()
+    )
 
 
 def _service_duration(db: Session, service_id: int) -> int:
@@ -651,17 +671,73 @@ def dashboard(
         context["start_date"] = start_date or current_date
         context["end_date"] = end_date or current_date
 
+        # Itemized, customer-by-customer breakdown for whatever range is
+        # selected (defaults to today). Same query backs the on-screen
+        # table and the /export-revenue file, so they always match, and an
+        # owner can pull up any past day or month, not just a total.
         custom_rev = None
+        custom_details = []
         s, e = _parse_date(start_date), _parse_date(end_date)
         if s and e:
-            custom_rev = _revenue_between(
-                db, salon.id,
-                datetime.combine(s, datetime.min.time()),
-                datetime.combine(e, datetime.min.time()) + timedelta(days=1),
-            )
+            range_start = datetime.combine(s, datetime.min.time())
+            range_end = datetime.combine(e, datetime.min.time()) + timedelta(days=1)
+            custom_rev = _revenue_between(db, salon.id, range_start, range_end)
+            custom_details = _revenue_details_between(db, salon.id, range_start, range_end)
         context["custom_rev"] = custom_rev
+        context["custom_details"] = custom_details
 
     return templates.TemplateResponse(request, "dashboard.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Revenue export — itemized CSV for any date range, so an owner can pull
+# up a detailed, per-customer/per-staff record of revenue even months later.
+# ---------------------------------------------------------------------------
+@app.get("/export-revenue")
+def export_revenue(
+    start_date: str,
+    end_date: str,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    s = _parse_date(start_date)
+    e = _parse_date(end_date)
+    if not s or not e:
+        return RedirectResponse(url="/dashboard?tab=revenue", status_code=status.HTTP_303_SEE_OTHER)
+
+    start_dt = datetime.combine(s, datetime.min.time())
+    end_dt = datetime.combine(e, datetime.min.time()) + timedelta(days=1)
+
+    appts = _revenue_details_between(db, salon.id, start_dt, end_dt)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Date", "Time", "Customer Name", "Phone", "Service", "Staff", "Price (ETB)"])
+
+    total = 0.0
+    for a in appts:
+        price = float(a.service_price or 0)
+        total += price
+        writer.writerow([
+            a.appointment_datetime.date().isoformat(),
+            a.appointment_time,
+            a.customer_name,
+            a.customer_phone,
+            a.service_name,
+            a.staff_name,
+            f"{price:.2f}",
+        ])
+
+    writer.writerow([])
+    writer.writerow(["", "", "", "", "", "TOTAL", f"{total:.2f}"])
+
+    buffer.seek(0)
+    filename = f"{salon.name}_revenue_{s.isoformat()}_to_{e.isoformat()}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------------------------------------------------------------------------
