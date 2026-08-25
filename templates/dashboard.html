@@ -635,6 +635,17 @@
         </div>
         {% endif %}
 
+        {% if error == 'staff_unavailable' %}
+        <div class="card-soft mb-3" style="border-color:#f5c2c7;background:#fff5f5;">
+            <i class="fa-solid fa-user-slash me-2" style="color:#dc3545;"></i>
+            <span style="color:#842029;" data-lang-am>ባለሙያው በዚህ ሰዓት አይገኝም። እባክዎ ሌላ ሰዓት ወይም ሌላ ባለሙያ ይምረጡ።</span>
+            <span style="color:#842029;" data-lang-en>This staff member is not available at that time. Please choose another time or staff.</span>
+            {% if unavailable_staff_name %}
+            <span style="color:#842029;"> — {{ unavailable_staff_name }}{% if unavailable_time %} ({{ unavailable_time }}){% endif %}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {% if error == 'invalid_hours' %}
         <div class="card-soft mb-3" style="border-color:#f5c2c7;background:#fff5f5;">
             <i class="fa-solid fa-triangle-exclamation me-2" style="color:#dc3545;"></i>
@@ -1480,7 +1491,7 @@
                         <label class="form-label small text-muted fw-semibold">
                             <span data-lang-am>ባለሙያ</span><span data-lang-en>Staff</span>
                         </label>
-                        <select name="staff_id" class="form-select" required>
+                        <select name="staff_id" id="bookStaffSelect" class="form-select" required>
                             {% for st in staff_members %}
                             <option value="{{ st.id }}">{{ st.name }}</option>
                             {% endfor %}
@@ -1505,14 +1516,22 @@
                             <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
                         </div>
                         <input type="hidden" name="appointment_time" id="bookAppointmentTime" value="">
-                        <p class="small text-muted mt-2 mb-0">{{ salon.hours_label }} · {{ salon.working_days_label }}</p>
+                        <p class="small text-muted mt-2 mb-0" id="bookSalonHoursHint">{{ salon.hours_label }} · {{ salon.working_days_label }}</p>
+                        <div id="bookStaffAvailAlert" class="mt-2 p-2 rounded-3 d-none" style="border:1px solid #f5c2c7;background:#fff5f5;">
+                            <i class="fa-solid fa-user-slash me-1" style="color:#dc3545;"></i>
+                            <span id="bookStaffAvailMsg" style="color:#842029;font-size:0.88rem;font-weight:600;"></span>
+                        </div>
+                        <div id="bookStaffAvailOk" class="mt-2 p-2 rounded-3 d-none" style="border:1px solid #c3e6cb;background:#f0fff4;">
+                            <i class="fa-solid fa-circle-check me-1" style="color:#2E7D32;"></i>
+                            <span id="bookStaffAvailOkMsg" style="color:#1e4620;font-size:0.85rem;font-weight:600;"></span>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
                         <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
                     </button>
-                    <button type="submit" class="btn btn-accent">
+                    <button type="submit" class="btn btn-accent" id="bookSubmitBtn">
                         <span data-lang-am>መዝግብ</span><span data-lang-en>Book</span>
                     </button>
                 </div>
@@ -1975,6 +1994,148 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 });
 
+/* ========== Staff + salon schedule for availability checks (Mon=0 … Sun=6) ========== */
+const SALON_SCHEDULE = {
+    open: "{{ salon.opening_time.strftime('%H:%M') }}",
+    close: "{{ salon.closing_time.strftime('%H:%M') }}",
+    days: [{% for d in salon.working_days_set %}{{ d }}{% if not loop.last %},{% endif %}{% endfor %}]
+};
+const STAFF_SCHEDULE = {
+{% for st in staff_members %}
+    "{{ st.id }}": {
+        name: {{ st.name|tojson }},
+        open: "{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}",
+        close: "{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}",
+        useCustomHours: {% if st.opening_time %}true{% else %}false{% endif %},
+        days: [{% if st.working_days %}{% for d in st.working_days.split(',') %}{{ d|int }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}],
+        dayHours: {
+            {% if st.day_hours %}{% for k, v in st.day_hours.items() %}
+            "{{ k }}": { open: "{{ v.open }}", close: "{{ v.close }}" }{% if not loop.last %},{% endif %}
+            {% endfor %}{% endif %}
+        },
+        dayOffs: [{% if st.day_offs %}{% for off in st.day_offs %}"{{ off.off_date }}"{% if not loop.last %},{% endif %}{% endfor %}{% endif %}]
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+
+/** JS Date Sunday=0 → app weekday Monday=0 … Sunday=6 */
+function dateToAppWeekday(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    const js = d.getDay(); // 0=Sun … 6=Sat
+    return js === 0 ? 6 : js - 1;
+}
+
+function hhmmToMinutes(hhmm) {
+    if (!hhmm || typeof hhmm !== 'string') return null;
+    const parts = hhmm.split(':');
+    if (parts.length < 2) return null;
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
+/**
+ * Returns { ok, reason, staffName, windowLabel }
+ * reason: 'no_staff' | 'day_off' | 'not_working_day' | 'outside_hours' | null
+ */
+function checkStaffAvailability(staffId, dateStr, hhmm) {
+    const st = STAFF_SCHEDULE[String(staffId)];
+    if (!st) return { ok: false, reason: 'no_staff', staffName: '', windowLabel: '' };
+
+    const weekday = dateToAppWeekday(dateStr);
+    if (weekday == null || !hhmm) return { ok: true, reason: null, staffName: st.name, windowLabel: '' };
+
+    // Explicit day off
+    if (st.dayOffs && st.dayOffs.indexOf(dateStr) !== -1) {
+        return { ok: false, reason: 'day_off', staffName: st.name, windowLabel: '' };
+    }
+
+    // Working days: staff custom list if non-empty, else salon days
+    const workDays = (st.days && st.days.length) ? st.days : SALON_SCHEDULE.days;
+    if (workDays && workDays.length && workDays.indexOf(weekday) === -1) {
+        return { ok: false, reason: 'not_working_day', staffName: st.name, windowLabel: '' };
+    }
+
+    // Hours for this weekday: per-day override → staff custom → salon
+    let open = SALON_SCHEDULE.open;
+    let close = SALON_SCHEDULE.close;
+    if (st.useCustomHours) {
+        open = st.open || open;
+        close = st.close || close;
+    }
+    const dh = st.dayHours && st.dayHours[String(weekday)];
+    if (dh && dh.open && dh.close) {
+        open = dh.open;
+        close = dh.close;
+    }
+
+    const t = hhmmToMinutes(hhmm);
+    const o = hhmmToMinutes(open);
+    const c = hhmmToMinutes(close);
+    if (t == null || o == null || c == null) {
+        return { ok: true, reason: null, staffName: st.name, windowLabel: `${open}–${close}` };
+    }
+    // Allow start at open inclusive, must be before close
+    if (t < o || t >= c) {
+        return { ok: false, reason: 'outside_hours', staffName: st.name, windowLabel: `${open}–${close}` };
+    }
+    return { ok: true, reason: null, staffName: st.name, windowLabel: `${open}–${close}` };
+}
+
+function formatAvailMessage(result) {
+    const en = document.documentElement.lang === 'en';
+    if (result.ok) {
+        if (!result.windowLabel) return en ? 'Staff is available.' : 'ባለሙያው ይገኛል።';
+        return en
+            ? `${result.staffName} is available (${result.windowLabel}).`
+            : `${result.staffName} ይገኛል (${result.windowLabel})።`;
+    }
+    if (result.reason === 'day_off') {
+        return en
+            ? `${result.staffName} has a day off on this date.`
+            : `${result.staffName} በዚህ ቀን ፈቃድ አለው/አላት።`;
+    }
+    if (result.reason === 'not_working_day') {
+        return en
+            ? `${result.staffName} does not work on this day.`
+            : `${result.staffName} በዚህ ቀን አይሰራም።`;
+    }
+    if (result.reason === 'outside_hours') {
+        return en
+            ? `${result.staffName} is not available at this time` + (result.windowLabel ? ` (works ${result.windowLabel}).` : '.')
+            : `${result.staffName} በዚህ ሰዓት አይገኝም` + (result.windowLabel ? ` (ስራ ${result.windowLabel})።` : '።');
+    }
+    return en ? 'Staff is not available at that time.' : 'ባለሙያው በዚህ ሰዓት አይገኝም።';
+}
+
+function updateBookStaffAvailability() {
+    const alertEl = document.getElementById('bookStaffAvailAlert');
+    const okEl = document.getElementById('bookStaffAvailOk');
+    const alertMsg = document.getElementById('bookStaffAvailMsg');
+    const okMsg = document.getElementById('bookStaffAvailOkMsg');
+    const submitBtn = document.getElementById('bookSubmitBtn');
+    const staffSel = document.getElementById('bookStaffSelect');
+    const dateEl = document.getElementById('bookDate');
+    if (!alertEl || !staffSel || !dateEl) return;
+
+    const staffId = staffSel.value;
+    const dateStr = dateEl.value;
+    const result = checkStaffAvailability(staffId, dateStr, bookSelectedHHMM);
+    const msg = formatAvailMessage(result);
+
+    if (result.ok) {
+        alertEl.classList.add('d-none');
+        okEl.classList.remove('d-none');
+        if (okMsg) okMsg.textContent = msg;
+        if (submitBtn) submitBtn.disabled = false;
+    } else {
+        okEl.classList.add('d-none');
+        alertEl.classList.remove('d-none');
+        if (alertMsg) alertMsg.textContent = msg;
+        if (submitBtn) submitBtn.disabled = true;
+    }
+}
+
 /* ========== Ethiopian time conversion (client-side, mirrors backend) ========== */
 function ethToWestern(period, displayH, minute) {
     let wh;
@@ -2164,14 +2325,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const preview = document.getElementById('bookEthPreview');
                 if (preview) preview.textContent = `${label} ሰዓት`;
                 updateBookPreviewAndHidden();
+                updateBookStaffAvailability();
             });
             bookWheelsReady = true;
         }
         updateBookPreviewAndHidden();
+        updateBookStaffAvailability();
     });
 
     const bookDateEl = document.getElementById('bookDate');
-    if (bookDateEl) bookDateEl.addEventListener('change', updateBookPreviewAndHidden);
+    if (bookDateEl) {
+        bookDateEl.addEventListener('change', () => {
+            updateBookPreviewAndHidden();
+            updateBookStaffAvailability();
+        });
+    }
+
+    const bookStaffSel = document.getElementById('bookStaffSelect');
+    if (bookStaffSel) {
+        bookStaffSel.addEventListener('change', updateBookStaffAvailability);
+    }
 
     const bookForm = document.getElementById('bookModalForm');
     if (bookForm) {
@@ -2180,6 +2353,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!document.getElementById('bookAppointmentTime').value) {
                 e.preventDefault();
                 alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
+                return;
+            }
+            const staffId = document.getElementById('bookStaffSelect')?.value;
+            const dateStr = document.getElementById('bookDate')?.value;
+            const avail = checkStaffAvailability(staffId, dateStr, bookSelectedHHMM);
+            if (!avail.ok) {
+                e.preventDefault();
+                updateBookStaffAvailability();
+                alert(formatAvailMessage(avail));
             }
         });
     }
