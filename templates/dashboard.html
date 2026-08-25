@@ -1160,8 +1160,8 @@
                                     </div>
                                     <div id="daysFields-{{ st.id }}" class="mb-3" style="{% if not st.working_days and not st.day_hours %}display:none;{% endif %}">
                                         <p class="small text-muted mb-2">
-                                            <span data-lang-am>እያንዳንዱን ቀን ያብሩና የጀመረ/የጨረሰ ሰዓት ያስገቡ (ግማሽ ቀን ለማድረግ የተለየ ሰዓት ያስቀምጡ)</span>
-                                            <span data-lang-en>Enable each day and set open/close. Use different times for half-days.</span>
+                                            <span data-lang-am>እያንዳንዱን ቀን ያብሩና መጀመሪያ/መጨረሻ ሰዓት ያስገቡ። ለአጭር ሰዓት (ለምሳሌ 2 ሰዓት ወይም 6 ሰዓት) የተለየ መጀመሪያና መጨረሻ ብቻ ያስቀምጡ። ቀን ካልበራ በዚያ ቀን አይገኝም።</span>
+                                            <span data-lang-en>Enable each day and set open/close. For short shifts (e.g. 2 hours or 6 hours) just pick closer open and close times. Unchecked days = not available.</span>
                                         </p>
                                         {% set day_names = ['ሰኞ','ማክሰ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'] %}
                                         {% set day_names_en = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
@@ -1527,12 +1527,13 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
+                                <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                        <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
                     </button>
                     <button type="submit" class="btn btn-accent" id="bookSubmitBtn">
-                        <span data-lang-am>መዝግብ</span><span data-lang-en>Book</span>
+                        <i class="fa-solid fa-check me-1"></i>
+                        <span data-lang-am>ቀጠሮ ይያዙ</span><span data-lang-en>Book</span>
                     </button>
                 </div>
             </form>
@@ -1540,14 +1541,14 @@
     </div>
 </div>
 
-<!-- Add waitlist -->
+<!-- Add Waitlist -->
 <div class="modal fade" id="addWaitlistModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form action="/add-waitlist" method="post">
                 <div class="modal-header">
                     <h5 class="fw-bold m-0">
-                        <span data-lang-am>ተጠባባቂ መመዝገቢያ</span>
+                        <span data-lang-am>ተጠባባቂ ጨምር</span>
                         <span data-lang-en>Add to waitlist</span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -1555,7 +1556,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
-                            <span data-lang-am>ስም</span><span data-lang-en>Name</span>
+                            <span data-lang-am>የደንበኛ ስም</span><span data-lang-en>Customer name</span>
                         </label>
                         <input type="text" name="customer_name" class="form-control" required>
                     </div>
@@ -1577,10 +1578,9 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
-                            <span data-lang-am>ባለሙያ</span><span data-lang-en>Preferred staff</span>
+                            <span data-lang-am>ባለሙያ</span><span data-lang-en>Staff</span>
                         </label>
-                        <select name="staff_id" class="form-select">
-                            <option value="">ማንኛውም / Any</option>
+                        <select name="staff_id" class="form-select" required>
                             {% for st in staff_members %}
                             <option value="{{ st.id }}">{{ st.name }}</option>
                             {% endfor %}
@@ -1588,17 +1588,17 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
-                            <span data-lang-am>ቀን</span><span data-lang-en>Preferred date</span>
+                            <span data-lang-am>የሚፈለግ ቀን</span><span data-lang-en>Preferred date</span>
                         </label>
                         <input type="date" name="preferred_date" class="form-control" value="{{ current_date }}" required>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                        <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
                     </button>
                     <button type="submit" class="btn btn-accent">
-                        <span data-lang-am>መዝግብ</span><span data-lang-en>Save</span>
+                        <span data-lang-am>ጨምር</span><span data-lang-en>Add</span>
                     </button>
                 </div>
             </form>
@@ -1606,7 +1606,7 @@
     </div>
 </div>
 
-<!-- Add service -->
+<!-- Add Service -->
 <div class="modal fade" id="addServiceModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -1623,27 +1623,27 @@
                         <label class="form-label small text-muted fw-semibold">
                             <span data-lang-am>ስም</span><span data-lang-en>Name</span>
                         </label>
-                        <input type="text" name="name" class="form-control" required placeholder="ፀጉር መቁረጥ">
+                        <input type="text" name="name" class="form-control" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
                             <span data-lang-am>ዋጋ (ETB)</span><span data-lang-en>Price (ETB)</span>
                         </label>
-                        <input type="number" step="0.01" name="price" class="form-control" required placeholder="300.00">
+                        <input type="number" name="price" class="form-control" step="0.01" min="0" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
-                            <span data-lang-am>ጊዜ (ደቂቃ)</span><span data-lang-en>Duration (minutes)</span>
+                            <span data-lang-am>ርዝመት (ደቂቃ)</span><span data-lang-en>Duration (minutes)</span>
                         </label>
-                        <input type="number" name="duration_minutes" class="form-control" required value="60">
+                        <input type="number" name="duration_minutes" class="form-control" min="5" step="5" value="30" required>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                        <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
                     </button>
                     <button type="submit" class="btn btn-accent">
-                        <span data-lang-am>መዝግብ</span><span data-lang-en>Save</span>
+                        <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
                     </button>
                 </div>
             </form>
@@ -1651,33 +1651,7 @@
     </div>
 </div>
 
-<!-- Search customer -->
-<div class="modal fade" id="searchCustomerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="fw-bold m-0">
-                    <span data-lang-am>ደንበኛ ፈልግ</span>
-                    <span data-lang-en>Search customer</span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="d-flex gap-2 mb-3">
-                    <input type="tel" id="customerSearchInput" class="form-control"
-                           placeholder="ስልክ ወይም ስም / Phone or name" autocomplete="off">
-                    <button type="button" class="btn btn-accent text-nowrap" onclick="searchCustomer()">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </button>
-                </div>
-                <div id="customerSearchStatus" class="text-muted small mb-2"></div>
-                <div id="customerSearchResults" class="d-flex flex-column gap-2" style="max-height:55vh;overflow-y:auto;"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add staff -->
+<!-- Add Staff -->
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -1694,15 +1668,19 @@
                         <label class="form-label small text-muted fw-semibold">
                             <span data-lang-am>ስም</span><span data-lang-en>Name</span>
                         </label>
-                        <input type="text" name="name" class="form-control" required placeholder="ሰለሞን">
+                        <input type="text" name="name" class="form-control" required>
                     </div>
+                    <p class="small text-muted mb-0">
+                        <span data-lang-am>ከተጨመረ በኋላ ከ «ሰዓት» ቁልፍ ላይ ለእያንዳንዱ ቀን የተለየ ሰዓት (2 ሰዓት፣ 6 ሰዓት ወዘተ) ማስተካከል ይችላሉ።</span>
+                        <span data-lang-en>After adding, use the Hours button to set different open/close times per day (e.g. 2 hours or 6 hours).</span>
+                    </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                        <span data-lang-am>ዝጋ</span><span data-lang-en>Close</span>
                     </button>
                     <button type="submit" class="btn btn-accent">
-                        <span data-lang-am>መዝግብ</span><span data-lang-en>Save</span>
+                        <span data-lang-am>ጨምር</span><span data-lang-en>Add</span>
                     </button>
                 </div>
             </form>
@@ -1710,855 +1688,451 @@
     </div>
 </div>
 
+<!-- Search customer -->
+<div class="modal fade" id="searchCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="fw-bold m-0">
+                    <span data-lang-am>ደንበኛ ፈልግ</span>
+                    <span data-lang-en>Search customer</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="customerSearchInput" class="form-control mb-3" placeholder="ስም ወይም ስልክ / Name or phone" oninput="searchCustomers(this.value)">
+                <div id="customerSearchResults" class="table-stack">
+                    <p class="text-muted small text-center py-3">
+                        <span data-lang-am>ስም ወይም ስልክ ይፃፉ…</span>
+                        <span data-lang-en>Type a name or phone…</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-/* ========== Language toggle ========== */
-function applyLang(lang) {
-    document.documentElement.lang = lang;
-    localStorage.setItem('melkegna_lang', lang);
-    const label = lang === 'en' ? 'አማ' : 'EN';
-    const side = document.getElementById('langLabelSidebar');
-    if (side) side.textContent = label;
-}
+/* ========== Language ========== */
 function toggleLang() {
-    const next = document.documentElement.lang === 'en' ? 'am' : 'en';
-    applyLang(next);
+    const html = document.documentElement;
+    const next = html.lang === 'am' ? 'en' : 'am';
+    html.lang = next;
+    localStorage.setItem('melkegna_lang', next);
+    document.querySelectorAll('#langLabelSidebar').forEach(el => el.textContent = next === 'am' ? 'EN' : 'አማ');
 }
-(function initLang() {
+(function() {
     const saved = localStorage.getItem('melkegna_lang') || 'am';
-    applyLang(saved);
+    document.documentElement.lang = saved;
+    document.querySelectorAll('#langLabelSidebar').forEach(el => el.textContent = saved === 'am' ? 'EN' : 'አማ');
 })();
 
-/* ========== Copy booking link ========== */
-function copyBookingLink() {
-    const input = document.getElementById('bookingLinkInput');
-    input.select();
-    navigator.clipboard.writeText(input.value).then(() => {
-        const btn = document.getElementById('copyBookingBtn');
-        btn.innerHTML = document.documentElement.lang==='en' ? '<i class="fa-solid fa-check me-1"></i> Copied!' : '<i class="fa-solid fa-check me-1"></i> ተቀድቷል!';
-        setTimeout(() => { btn.innerHTML = document.documentElement.lang==='en' ? '<i class="fa-solid fa-copy me-1"></i> Copy' : '<i class="fa-solid fa-copy me-1"></i> ቅዳ'; }, 1800);
-    });
-}
-
-/* ========== Customer search ========== */
-function searchCustomer() {
-    const q = document.getElementById('customerSearchInput').value.trim();
-    const statusEl = document.getElementById('customerSearchStatus');
-    const resultsEl = document.getElementById('customerSearchResults');
-    resultsEl.innerHTML = '';
-    if (!q) {
-        statusEl.textContent = document.documentElement.lang === 'en' ? 'Enter phone or name.' : 'ስልክ ወይም ስም ያስገቡ።';
-        return;
-    }
-    statusEl.textContent = document.documentElement.lang === 'en' ? 'Searching…' : 'በመፈለግ ላይ...';
-    fetch(`/search-customer?q=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' } })
-        .then(r => r.json())
-        .then(data => {
-            const results = data.results || [];
-            if (!results.length) {
-                statusEl.textContent = document.documentElement.lang === 'en' ? 'No results.' : 'ምንም ውጤት አልተገኘም።';
-                return;
-            }
-            statusEl.textContent = `${results.length} ` + (document.documentElement.lang === 'en' ? 'result(s)' : 'ውጤት(ት)');
-            results.forEach(c => {
-                const card = document.createElement('div');
-                card.className = 'p-3 rounded-3';
-                card.style.cssText = 'background:var(--bg-cream);border:1px solid var(--border);';
-                const dayLabel = document.documentElement.lang === 'en' ? (c.day_en || '') : (c.day_am || '');
-                const dateTimeLine = [dayLabel, c.appointment_date, c.appointment_time].filter(Boolean).join(' · ');
-                card.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <div class="fw-bold">${c.customer_name || ''}</div>
-                            <div class="text-muted small">${c.customer_phone || ''}</div>
-                            ${c.service_name ? `<div class="text-muted small mt-1"><i class="fa-solid fa-scissors me-1"></i>${c.service_name}</div>` : ''}
-                            ${dateTimeLine ? `<div class="search-result-day small mt-1"><i class="fa-solid fa-calendar-day me-1"></i>${dateTimeLine}</div>` : ''}
-                            ${c.status ? `<span class="badge bg-secondary mt-1">${c.status}</span>` : ''}
-                        </div>
-                        <div class="d-flex flex-column gap-1">
-                            <a href="tel:${c.customer_phone}" class="btn btn-sm btn-accent"><i class="fa-solid fa-phone"></i></a>
-                            <a href="sms:${c.customer_phone}" class="btn btn-sm btn-outline-soft"><i class="fa-solid fa-comment-sms"></i></a>
-                        </div>
-                    </div>`;
-                resultsEl.appendChild(card);
-            });
-        })
-        .catch(() => {
-            statusEl.textContent = document.documentElement.lang === 'en' ? 'Error. Try again.' : 'ስህተት ተፈጥሯል።';
-        });
-}
-document.addEventListener('DOMContentLoaded', () => {
-    const si = document.getElementById('customerSearchInput');
-    if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); searchCustomer(); } });
-    const sm = document.getElementById('searchCustomerModal');
-    if (sm) sm.addEventListener('shown.bs.modal', () => si && si.focus());
-});
-
-/* ========== Status AJAX ========== */
-function submitStatusAjax(form, id) {
-    const fd = new FormData(form);
-    fetch('/update-appointment-status', {
-        method: 'POST', body: fd,
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data.success) return;
-        const badge = document.querySelector(`.status-badge-${id}`);
-        if (!badge) return;
-        const map = {
-            'Confirmed': {am:'ተያዘ', en:'Confirmed'},
-            'Completed': {am:'ተሰርቷል', en:'Completed'},
-            'No-Show': {am:'አልመጣም', en:'No-Show'},
-            'Cancelled': {am:'ተሰርዟል', en:'Cancelled'}
-        };
-        const t = map[data.status] || {am:data.status, en:data.status};
-        badge.innerHTML = `<span data-lang-am>${t.am}</span><span data-lang-en>${t.en}</span>`;
-        badge.dataset.status = data.status;
-        badge.className = `badge ms-2 status-badge-${id}`;
-        if (data.status === 'Completed') badge.classList.add('bg-success');
-        else if (data.status === 'Cancelled') badge.classList.add('bg-danger');
-        else if (data.status === 'No-Show') badge.classList.add('bg-dark');
-        else badge.classList.add('bg-warning', 'text-dark');
-        // re-apply lang visibility
-        applyLang(document.documentElement.lang);
-    })
-    .catch(console.error);
-}
-
-/* ========== Swipe ========== */
-function attachSwipe(content) {
-    let startX = 0, currentX = 0, swiping = false;
-    content.addEventListener('touchstart', e => {
-        startX = e.touches[0].clientX; swiping = true; content.style.transition = 'none';
-    }, { passive: true });
-    content.addEventListener('touchmove', e => {
-        if (!swiping) return;
-        currentX = e.touches[0].clientX - startX;
-        if (Math.abs(currentX) < 140) content.style.transform = `translateX(${currentX}px)`;
-    }, { passive: true });
-    content.addEventListener('touchend', () => {
-        if (!swiping) return;
-        swiping = false;
-        content.style.transition = 'transform 0.2s ease-out';
-        const cardId = content.closest('.swipe-card-wrapper').id.replace('appt-card-', '');
-        const sel = document.getElementById(`status-select-${cardId}`);
-        const form = document.getElementById(`status-form-${cardId}`);
-        if (currentX > 80 && sel) { sel.value = 'Completed'; submitStatusAjax(form, cardId); }
-        else if (currentX < -80 && sel) { sel.value = 'No-Show'; submitStatusAjax(form, cardId); }
-        content.style.transform = 'translateX(0)';
-        currentX = 0;
-    });
-}
-
-/* ========== Pull to refresh ========== */
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.swipe-card-content').forEach(attachSwipe);
-
-    const main = document.getElementById('mainScrollArea');
-    const ptr = document.getElementById('ptrIndicator');
-    let startY = 0, pullY = 0;
-    main.addEventListener('touchstart', e => {
-        if (main.scrollTop === 0) startY = e.touches[0].clientY;
-    }, { passive: true });
-    main.addEventListener('touchmove', e => {
-        if (startY > 0 && main.scrollTop === 0) {
-            pullY = e.touches[0].clientY - startY;
-            if (pullY > 0 && pullY < 110) ptr.style.transform = `translate(-50%, ${pullY}px) rotate(${pullY * 2}deg)`;
+/* ========== Ethiopian time (15-min steps) ==========
+   Ethiopian clock: 12h periods ጧት/ማታ style labels used in previews.
+   Internal storage remains Western 24h HH:MM for the backend. */
+const ETH_SLOTS = [];
+(function buildSlots() {
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 15) {
+            const hh = String(h).padStart(2, '0');
+            const mm = String(m).padStart(2, '0');
+            ETH_SLOTS.push({ western: `${hh}:${mm}`, label: ethLabel(h, m) });
         }
-    }, { passive: true });
-    main.addEventListener('touchend', () => {
-        if (pullY > 65) { ptr.style.transform = 'translate(-50%, 55px) rotate(360deg)'; location.reload(); }
-        else ptr.style.transform = 'translate(-50%, -48px)';
-        startY = 0; pullY = 0;
-    });
-});
-
-/* ========== Live notifications ========== */
-let newBookingCount = 0;
-function playBeep() {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.value = 880; g.gain.value = 0.08; o.start();
-        setTimeout(() => { o.frequency.value = 1175; }, 90);
-        setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2); o.stop(ctx.currentTime + 0.22); }, 180);
-    } catch (_) {}
-}
-function showBookingToast(appt) {
-    const toast = document.getElementById('bookingToast');
-    const body = document.getElementById('bookingToastBody');
-    if (!toast || !body) return;
-    body.innerHTML = `<strong>${appt.customer_name || ''}</strong> · ${appt.service_name || ''}<br>
-        <span style="color:var(--accent)">${appt.appointment_time || ''}</span> · ${appt.staff_name || ''}`;
-    toast.classList.add('show');
-    clearTimeout(window._toastTimer);
-    window._toastTimer = setTimeout(hideBookingToast, 12000);
-}
-function hideBookingToast() {
-    const t = document.getElementById('bookingToast');
-    if (t) t.classList.remove('show');
-}
-function bumpBadges() {
-    newBookingCount += 1;
-    ['sidebarNewBookingBadge', 'mobileNewBookingBadge'].forEach(id => {
-        const b = document.getElementById(id);
-        if (b) { b.textContent = newBookingCount; b.classList.remove('d-none'); }
-    });
-}
-function requestNotif() {
-    if ('Notification' in window && Notification.permission === 'default')
-        Notification.requestPermission().catch(() => {});
-}
-function showBrowserNotif(appt) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    try {
-        const n = new Notification(document.documentElement.lang==='en' ? 'Melkegna · New booking' : 'መልከኛ · አዲስ ቀጠሮ', {
-            body: `${appt.customer_name || ''} — ${appt.service_name || ''} · ${appt.appointment_time || ''}`,
-            icon: '/favicon.ico', tag: 'melkegna-' + (appt.id || Date.now())
-        });
-        n.onclick = () => { window.focus(); n.close(); };
-        setTimeout(() => n.close(), 10000);
-    } catch (_) {}
-}
-document.addEventListener('DOMContentLoaded', () => setTimeout(requestNotif, 2500));
-
-/* WebSocket */
-document.addEventListener('DOMContentLoaded', () => {
-    const salonId = {{ salon.id }};
-    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${wsProto}//${location.host}/ws/salon/${salonId}`);
-    socket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        if (data.event !== 'new_booking') return;
-        const appt = data.appointment;
-        const isOnline = !appt.source || appt.source === 'online';
-        if (isOnline) {
-            bumpBadges();
-            showBookingToast(appt);
-            playBeep();
-            showBrowserNotif(appt);
-        }
-        const counter = document.getElementById('metricTodayApptCount');
-        if (counter) counter.textContent = parseInt(counter.textContent || '0') + 1;
-
-        const table = document.getElementById('appointmentsListTable');
-        const noRow = document.getElementById('noAppointmentsRow');
-        if (noRow) noRow.remove();
-        if (!table) return;
-
-        const html = `
-        <tr class="swipe-row p-0">
-          <td colspan="7" class="p-0 border-0">
-            <div class="swipe-card-wrapper new-booking-highlight" id="appt-card-${appt.id}">
-              <div class="swipe-action-bg swipe-action-left bg-success text-white">
-                <i class="fa-solid fa-circle-check fs-5"></i><span class="fw-bold small ms-2"><span data-lang-am>ተሰርቷል</span><span data-lang-en>Completed</span></span>
-              </div>
-              <div class="swipe-action-bg swipe-action-right bg-dark text-white">
-                <span class="fw-bold small me-2"><span data-lang-am>አልመጣም</span><span data-lang-en>No-Show</span></span><i class="fa-solid fa-user-slash fs-5"></i>
-              </div>
-              <div class="swipe-card-content p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <div>
-                    <span class="fw-bold fs-6">${appt.appointment_time}</span>
-                    <span class="badge ms-2 status-badge-${appt.id} bg-warning text-dark" data-status="${appt.status}"><span data-lang-am>ተያዘ</span><span data-lang-en>Confirmed</span></span>
-                  </div>
-                  <span class="fw-bold" style="color:var(--accent);">${appt.service_price} ETB</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-end">
-                  <div>
-                    <div class="fw-bold">${appt.customer_name}</div>
-                    <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>${appt.customer_phone}</div>
-                    <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>${appt.service_name} · ${appt.staff_name}</div>
-                  </div>
-                  <form action="/update-appointment-status" method="post" id="status-form-${appt.id}">
-                    <input type="hidden" name="appointment_id" value="${appt.id}">
-                    <select name="status" id="status-select-${appt.id}" onchange="submitStatusAjax(this.form,'${appt.id}')"
-                            class="form-select form-select-sm fw-semibold" style="width:auto;">
-                      <option value="Confirmed" selected>ተያዘ / Confirmed</option>
-                      <option value="Completed">ተሰርቷል / Completed</option>
-                      <option value="No-Show">አልመጣም / No-Show</option>
-                      <option value="Cancelled">ተሰርዟል / Cancelled</option>
-                    </select>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </td>
-        </tr>`;
-        table.insertAdjacentHTML('afterbegin', html);
-        const nc = document.querySelector(`#appt-card-${appt.id} .swipe-card-content`);
-        if (nc) attachSwipe(nc);
-        applyLang(document.documentElement.lang);
-    };
-});
-
-/* ========== Staff + salon schedule for availability checks (Mon=0 … Sun=6) ========== */
-const SALON_SCHEDULE = {
-    open: "{{ salon.opening_time.strftime('%H:%M') }}",
-    close: "{{ salon.closing_time.strftime('%H:%M') }}",
-    days: [{% for d in salon.working_days_set %}{{ d }}{% if not loop.last %},{% endif %}{% endfor %}]
-};
-const STAFF_SCHEDULE = {
-{% for st in staff_members %}
-    "{{ st.id }}": {
-        name: {{ st.name|tojson }},
-        open: "{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}",
-        close: "{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}",
-        useCustomHours: {% if st.opening_time %}true{% else %}false{% endif %},
-        days: [{% if st.working_days %}{% for d in st.working_days.split(',') %}{{ d|int }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}],
-        dayHours: {
-            {% if st.day_hours %}{% for k, v in st.day_hours.items() %}
-            "{{ k }}": { open: "{{ v.open }}", close: "{{ v.close }}" }{% if not loop.last %},{% endif %}
-            {% endfor %}{% endif %}
-        },
-        dayOffs: [{% if st.day_offs %}{% for off in st.day_offs %}"{{ off.off_date }}"{% if not loop.last %},{% endif %}{% endfor %}{% endif %}]
-    }{% if not loop.last %},{% endif %}
-{% endfor %}
-};
-
-/** JS Date Sunday=0 → app weekday Monday=0 … Sunday=6 */
-function dateToAppWeekday(dateStr) {
-    if (!dateStr) return null;
-    const d = new Date(dateStr + 'T12:00:00');
-    if (isNaN(d.getTime())) return null;
-    const js = d.getDay(); // 0=Sun … 6=Sat
-    return js === 0 ? 6 : js - 1;
-}
-
-function hhmmToMinutes(hhmm) {
-    if (!hhmm || typeof hhmm !== 'string') return null;
-    const parts = hhmm.split(':');
-    if (parts.length < 2) return null;
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-}
-
-/**
- * Returns { ok, reason, staffName, windowLabel }
- * reason: 'no_staff' | 'day_off' | 'not_working_day' | 'outside_hours' | null
- */
-function checkStaffAvailability(staffId, dateStr, hhmm) {
-    const st = STAFF_SCHEDULE[String(staffId)];
-    if (!st) return { ok: false, reason: 'no_staff', staffName: '', windowLabel: '' };
-
-    const weekday = dateToAppWeekday(dateStr);
-    if (weekday == null || !hhmm) return { ok: true, reason: null, staffName: st.name, windowLabel: '' };
-
-    // Explicit day off
-    if (st.dayOffs && st.dayOffs.indexOf(dateStr) !== -1) {
-        return { ok: false, reason: 'day_off', staffName: st.name, windowLabel: '' };
     }
-
-    // Working days: staff custom list if non-empty, else salon days
-    const workDays = (st.days && st.days.length) ? st.days : SALON_SCHEDULE.days;
-    if (workDays && workDays.length && workDays.indexOf(weekday) === -1) {
-        return { ok: false, reason: 'not_working_day', staffName: st.name, windowLabel: '' };
-    }
-
-    // Hours for this weekday: per-day override → staff custom → salon
-    let open = SALON_SCHEDULE.open;
-    let close = SALON_SCHEDULE.close;
-    if (st.useCustomHours) {
-        open = st.open || open;
-        close = st.close || close;
-    }
-    const dh = st.dayHours && st.dayHours[String(weekday)];
-    if (dh && dh.open && dh.close) {
-        open = dh.open;
-        close = dh.close;
-    }
-
-    const t = hhmmToMinutes(hhmm);
-    const o = hhmmToMinutes(open);
-    const c = hhmmToMinutes(close);
-    if (t == null || o == null || c == null) {
-        return { ok: true, reason: null, staffName: st.name, windowLabel: `${open}–${close}` };
-    }
-    // Allow start at open inclusive, must be before close
-    if (t < o || t >= c) {
-        return { ok: false, reason: 'outside_hours', staffName: st.name, windowLabel: `${open}–${close}` };
-    }
-    return { ok: true, reason: null, staffName: st.name, windowLabel: `${open}–${close}` };
-}
-
-function formatAvailMessage(result) {
-    const en = document.documentElement.lang === 'en';
-    if (result.ok) {
-        if (!result.windowLabel) return en ? 'Staff is available.' : 'ባለሙያው ይገኛል።';
-        return en
-            ? `${result.staffName} is available (${result.windowLabel}).`
-            : `${result.staffName} ይገኛል (${result.windowLabel})።`;
-    }
-    if (result.reason === 'day_off') {
-        return en
-            ? `${result.staffName} has a day off on this date.`
-            : `${result.staffName} በዚህ ቀን ፈቃድ አለው/አላት።`;
-    }
-    if (result.reason === 'not_working_day') {
-        return en
-            ? `${result.staffName} does not work on this day.`
-            : `${result.staffName} በዚህ ቀን አይሰራም።`;
-    }
-    if (result.reason === 'outside_hours') {
-        return en
-            ? `${result.staffName} is not available at this time` + (result.windowLabel ? ` (works ${result.windowLabel}).` : '.')
-            : `${result.staffName} በዚህ ሰዓት አይገኝም` + (result.windowLabel ? ` (ስራ ${result.windowLabel})።` : '።');
-    }
-    return en ? 'Staff is not available at that time.' : 'ባለሙያው በዚህ ሰዓት አይገኝም።';
-}
-
-function updateBookStaffAvailability() {
-    const alertEl = document.getElementById('bookStaffAvailAlert');
-    const okEl = document.getElementById('bookStaffAvailOk');
-    const alertMsg = document.getElementById('bookStaffAvailMsg');
-    const okMsg = document.getElementById('bookStaffAvailOkMsg');
-    const submitBtn = document.getElementById('bookSubmitBtn');
-    const staffSel = document.getElementById('bookStaffSelect');
-    const dateEl = document.getElementById('bookDate');
-    if (!alertEl || !staffSel || !dateEl) return;
-
-    const staffId = staffSel.value;
-    const dateStr = dateEl.value;
-    const result = checkStaffAvailability(staffId, dateStr, bookSelectedHHMM);
-    const msg = formatAvailMessage(result);
-
-    if (result.ok) {
-        alertEl.classList.add('d-none');
-        okEl.classList.remove('d-none');
-        if (okMsg) okMsg.textContent = msg;
-        if (submitBtn) submitBtn.disabled = false;
-    } else {
-        okEl.classList.add('d-none');
-        alertEl.classList.remove('d-none');
-        if (alertMsg) alertMsg.textContent = msg;
-        if (submitBtn) submitBtn.disabled = true;
-    }
-}
-
-/* ========== Ethiopian time conversion (client-side, mirrors backend) ========== */
-function ethToWestern(period, displayH, minute) {
-    let wh;
-    if (period === 'ጧት') {
-        wh = displayH === 12 ? 6 : 6 + displayH;
-    } else if (period === 'ቀን') {
-        wh = displayH === 6 ? 12 : 12 + (displayH - 6);
-    } else if (period === 'ማታ') {
-        wh = displayH === 12 ? 18 : 18 + displayH;
-    } else { // ለሊት
-        wh = displayH - 6;
-    }
-    return { hour: wh, minute: minute };
-}
-
-function westernToEth(h, m) {
-    const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
-    const eh = Math.floor(total / 60);
-    const em = total % 60;
+})();
+function ethLabel(h, m) {
+    // Simple Ethiopian-style display: period + 1-12 hour
     let period, displayH;
-    if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
-    else if (eh < 12) { period = 'ቀን'; displayH = eh; }
-    else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
-    else { period = 'ለሊት'; displayH = eh - 12; }
-    return { period, hour: displayH, minute: em };
+    if (h >= 0 && h < 6) { period = 'ሌሊት'; displayH = h === 0 ? 12 : h; }
+    else if (h >= 6 && h < 12) { period = 'ጧት'; displayH = h; }
+    else if (h >= 12 && h < 18) { period = 'ከሰዓት'; displayH = h === 12 ? 12 : h - 12; }
+    else { period = 'ማታ'; displayH = h - 12; }
+    const mm = String(m).padStart(2, '0');
+    return `${period} ${displayH}:${mm}`;
 }
 
-/* ========== Generic scroll-wheel picker (touch + mouse friendly, snaps to nearest item) ==========
-   FIX: item height is now a parameter instead of a single global constant. Previously every
-   wheel (including the compact waitlist / staff-day wheels) was built assuming a fixed 42px row,
-   while the compact wheels' containers were sized for 36px rows. That mismatch made the
-   highlighted center window drift out of alignment with the actual item under it, so the value
-   that visually looked "selected" was not the value actually being saved (the waitlist booking
-   bug). Passing the real item height fixes the snap/selection math for every wheel size. */
-const WHEEL_ITEM_HEIGHT = 42;      // default (full-size wheels: settings, new booking, staff main hours)
-const WHEEL_ITEM_HEIGHT_COMPACT = 36; // compact wheels: waitlist, staff per-day hours
-
-function buildWheel(container, values, itemHeight) {
-    container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${itemHeight}px;" data-value="${v}">${v}</div>`).join('');
-    return Array.from(container.querySelectorAll('.wheel-item'));
-}
-
-function initWheel(container, values, initialValue, onChange, itemHeight) {
-    itemHeight = itemHeight || WHEEL_ITEM_HEIGHT;
-    const items = buildWheel(container, values, itemHeight);
-    let current = null;
-
-    function scrollToIndex(idx, smooth) {
-        idx = Math.max(0, Math.min(values.length - 1, idx));
-        container.scrollTo({ top: idx * itemHeight, behavior: smooth ? 'smooth' : 'auto' });
-    }
-
-    function currentIndex() {
-        const idx = Math.round(container.scrollTop / itemHeight);
-        return Math.max(0, Math.min(values.length - 1, idx));
-    }
-
-    function markActive(idx) {
+function fillWheel(col, initialWestern, onChange) {
+    if (!col) return;
+    col.innerHTML = '';
+    let activeIdx = 0;
+    ETH_SLOTS.forEach((s, i) => {
+        const div = document.createElement('div');
+        div.className = 'wheel-item';
+        div.textContent = s.label;
+        div.dataset.western = s.western;
+        if (s.western === initialWestern) activeIdx = i;
+        div.addEventListener('click', () => {
+            col.scrollTop = i * 42;
+            updateActive();
+        });
+        col.appendChild(div);
+    });
+    function updateActive() {
+        const items = col.querySelectorAll('.wheel-item');
+        const idx = Math.round(col.scrollTop / 42);
         items.forEach((it, i) => it.classList.toggle('active', i === idx));
-        const val = values[idx];
-        if (val !== current) {
-            current = val;
-            onChange(val);
-        }
+        const chosen = items[Math.max(0, Math.min(idx, items.length - 1))];
+        if (chosen && onChange) onChange(chosen.dataset.western, chosen.textContent);
     }
-
-    let settleTimer;
-    container.addEventListener('scroll', () => {
-        markActive(currentIndex());
-        clearTimeout(settleTimer);
-        settleTimer = setTimeout(() => {
-            const idx = currentIndex();
-            scrollToIndex(idx, true);
-            markActive(idx);
-        }, 110);
-    }, { passive: true });
-
-    // Click an item to jump straight to it (works great with a mouse)
-    items.forEach((it, i) => {
-        it.addEventListener('click', () => {
-            scrollToIndex(i, true);
-            markActive(i);
-        });
+    col.addEventListener('scroll', () => {
+        clearTimeout(col._snapT);
+        col._snapT = setTimeout(() => {
+            const idx = Math.round(col.scrollTop / 42);
+            col.scrollTo({ top: idx * 42, behavior: 'smooth' });
+            updateActive();
+        }, 80);
     });
-
-    // Mouse drag-to-scroll (laptops/desktops don't fire touch events)
-    let isDragging = false;
-    let dragStartY = 0;
-    let scrollStartTop = 0;
-    let dragMoved = false;
-
-    container.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        dragMoved = false;
-        dragStartY = e.clientY;
-        scrollStartTop = container.scrollTop;
-        container.style.cursor = 'grabbing';
-        e.preventDefault();
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const dy = e.clientY - dragStartY;
-        if (Math.abs(dy) > 3) dragMoved = true;
-        container.scrollTop = scrollStartTop - dy;
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (!isDragging) return;
-        isDragging = false;
-        container.style.cursor = 'grab';
-        if (dragMoved) {
-            const idx = currentIndex();
-            scrollToIndex(idx, true);
-            markActive(idx);
-        }
-    });
-
-    const startIdx = Math.max(0, values.indexOf(initialValue));
+    // set initial
     requestAnimationFrame(() => {
-        scrollToIndex(startIdx, false);
-        markActive(startIdx);
-    });
-
-    return {
-        set: (val) => scrollToIndex(values.indexOf(val), true)
-    };
-}
-
-/* ========== Single flat list of every 15-min Ethiopian time slot ==========
-   Ordered starting at ጧት 12:00 (western 06:00) through ለሊት 11:45 (western 05:45),
-   matching how an Ethiopian day is actually spoken. One scroll + tap on a row picks
-   the whole time (period + hour + minute) at once — no separate period/hour/minute
-   wheels to combine by hand. Used everywhere a time is picked: New Booking, Settings,
-   Waitlist, and Staff hours (both "all days" and per-day). */
-function buildEthSlots() {
-    const slots = [];
-    for (let i = 0; i < 96; i++) {
-        const wh = (6 + Math.floor(i / 4)) % 24;
-        const mm = (i % 4) * 15;
-        const eth = westernToEth(wh, mm);
-        const label = `${eth.period} ${eth.hour}:${String(eth.minute).padStart(2, '0')}`;
-        slots.push({ label, hhmm: `${String(wh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` });
-    }
-    return slots;
-}
-
-function initEthSlotWheel(container, initialHHMM, onChange, itemHeight) {
-    const slots = buildEthSlots();
-    const labels = slots.map(s => s.label);
-    const byLabel = {};
-    slots.forEach(s => { byLabel[s.label] = s.hhmm; });
-    const initialSlot = slots.find(s => s.hhmm === initialHHMM) || slots[0];
-    const wheel = initWheel(container, labels, initialSlot.label, (label) => {
-        onChange(byLabel[label], label);
-    }, itemHeight);
-    onChange(byLabel[initialSlot.label], initialSlot.label);
-    return {
-        set: (hhmm) => {
-            const s = slots.find(x => x.hhmm === hhmm) || slots[0];
-            wheel.set(s.label);
-        }
-    };
-}
-
-/* ========== New Booking modal: Ethiopian scroll-wheel time picker ========== */
-let bookSelectedHHMM = '09:00';
-let bookWheelsReady = false;
-
-function updateBookPreviewAndHidden() {
-    const dateVal = document.getElementById('bookDate')?.value;
-    const hidden = document.getElementById('bookAppointmentTime');
-    if (!hidden) return;
-    if (!dateVal) { hidden.value = ''; return; }
-    hidden.value = `${dateVal}T${bookSelectedHHMM}`;
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const bookModalEl = document.getElementById('bookModal');
-    if (!bookModalEl) return;
-
-    // Wheel only needs to be built once (elements persist across modal open/close)
-    bookModalEl.addEventListener('shown.bs.modal', () => {
-        if (!bookWheelsReady) {
-            initEthSlotWheel(document.getElementById('wheelEthBook'), bookSelectedHHMM, (hhmm, label) => {
-                bookSelectedHHMM = hhmm;
-                const preview = document.getElementById('bookEthPreview');
-                if (preview) preview.textContent = `${label} ሰዓት`;
-                updateBookPreviewAndHidden();
-                updateBookStaffAvailability();
-            });
-            bookWheelsReady = true;
-        }
-        updateBookPreviewAndHidden();
-        updateBookStaffAvailability();
-    });
-
-    const bookDateEl = document.getElementById('bookDate');
-    if (bookDateEl) {
-        bookDateEl.addEventListener('change', () => {
-            updateBookPreviewAndHidden();
-            updateBookStaffAvailability();
-        });
-    }
-
-    const bookStaffSel = document.getElementById('bookStaffSelect');
-    if (bookStaffSel) {
-        bookStaffSel.addEventListener('change', updateBookStaffAvailability);
-    }
-
-    const bookForm = document.getElementById('bookModalForm');
-    if (bookForm) {
-        bookForm.addEventListener('submit', e => {
-            updateBookPreviewAndHidden();
-            if (!document.getElementById('bookAppointmentTime').value) {
-                e.preventDefault();
-                alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
-                return;
-            }
-            const staffId = document.getElementById('bookStaffSelect')?.value;
-            const dateStr = document.getElementById('bookDate')?.value;
-            const avail = checkStaffAvailability(staffId, dateStr, bookSelectedHHMM);
-            if (!avail.ok) {
-                e.preventDefault();
-                updateBookStaffAvailability();
-                alert(formatAvailMessage(avail));
-            }
-        });
-    }
-});
-
-/* ========== Settings Ethiopian time wheels ========== */
-function initSettingsWheels() {
-    const openHidden = document.getElementById('settingsOpeningTime');
-    const closeHidden = document.getElementById('settingsClosingTime');
-    if (!openHidden || !document.getElementById('wheelEthOpen')) return;
-
-    initEthSlotWheel(document.getElementById('wheelEthOpen'), openHidden.value || '09:00', (hhmm, label) => {
-        openHidden.value = hhmm;
-        const prev = document.getElementById('openEthPreview');
-        if (prev) prev.textContent = `${label} ሰዓት`;
-    });
-
-    initEthSlotWheel(document.getElementById('wheelEthClose'), closeHidden.value || '18:00', (hhmm, label) => {
-        closeHidden.value = hhmm;
-        const prev = document.getElementById('closeEthPreview');
-        if (prev) prev.textContent = `${label} ሰዓት`;
+        col.scrollTop = activeIdx * 42;
+        updateActive();
     });
 }
 
-/* ========== Waitlist Ethiopian wheels (compact 36px rows, single slot list) ========== */
-function initWaitlistWheels() {
-    document.querySelectorAll('.convert-waitlist-form').forEach(form => {
-        if (form.dataset.wheelsReady) return;
-        const wheelCol = form.querySelector('.wl-wheel-eth');
-        const preview = form.querySelector('.wl-eth-preview');
-        const hidden = form.querySelector('.wl-hidden');
-        const dateInput = form.querySelector('.wl-date');
-        if (!wheelCol || !hidden) return;
-
-        let currentHHMM = '09:00';
-
-        function sync() {
-            const dateVal = dateInput ? dateInput.value : '';
-            if (!dateVal) { hidden.value = ''; return; }
-            hidden.value = `${dateVal}T${currentHHMM}`;
-        }
-
-        initEthSlotWheel(wheelCol, currentHHMM, (hhmm, label) => {
-            currentHHMM = hhmm;
-            if (preview) preview.textContent = `${label} ሰዓት`;
-            sync();
-        }, WHEEL_ITEM_HEIGHT_COMPACT);
-
-        if (dateInput) dateInput.addEventListener('change', sync);
-        form.addEventListener('submit', e => {
-            sync();
-            if (!hidden.value) {
-                e.preventDefault();
-                alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
-            }
-        });
-        form.dataset.wheelsReady = '1';
-        sync();
-    });
-}
-
-/* ========== Staff schedule modal: same 15-min Ethiopian single-wheel picker as New Booking ==========
-   Applies to (1) "custom hours, all days" open/close and (2) each per-day open/close row.
-   Critical fix: wheels that live inside display:none panels (custom hours / custom days)
-   must be (re)built or re-scrolled AFTER the panel becomes visible, otherwise scrollTop
-   and the highlight window do not line up with the real selected slot — the classic
-   "looks selected but saves the wrong time" bug.
-
-   Controllers are cached so we can call .set(hhmm) to force alignment after layout. */
-const _staffWheelControllers = {}; // key: `${staffId}:main:open` | `${staffId}:day:3:close` → { set }
-
-function _staffWheelKey(staffId, kind, role, day) {
-    return day == null ? `${staffId}:${kind}:${role}` : `${staffId}:${kind}:${day}:${role}`;
-}
-
-/** Replace a wheel column with a clean clone so previous scroll/drag listeners are dropped. */
-function _freshWheelCol(id) {
-    const el = document.getElementById(id);
-    if (!el) return null;
-    const clone = el.cloneNode(false); // keep id/classes/styles, drop children + listeners
-    clone.id = id;
-    el.parentNode.replaceChild(clone, el);
-    return clone;
-}
-
+/* Staff schedule wheels */
 function initStaffScheduleWheels(staffId, force) {
     const modal = document.getElementById(`editStaffModal-${staffId}`);
     if (!modal) return;
-    if (modal.dataset.wheelsReady === '1' && !force) {
-        refreshStaffScheduleWheels(staffId);
-        return;
-    }
+    if (!force && modal.dataset.wheelsReady === '1') return;
     modal.dataset.wheelsReady = '1';
 
-    // --- Main "custom hours, all days" pair (full-size 42px rows) ---
-    ['open', 'close'].forEach(role => {
-        const hiddenId = role === 'open' ? `staffOpeningTime-${staffId}` : `staffClosingTime-${staffId}`;
-        const hidden = document.getElementById(hiddenId);
-        if (!hidden) return;
-        const wheelId = role === 'open' ? `wheelEthStaffOpen-${staffId}` : `wheelEthStaffClose-${staffId}`;
-        const wheelCol = force ? _freshWheelCol(wheelId) : document.getElementById(wheelId);
-        if (!wheelCol) return;
-        const previewEl = document.getElementById(role === 'open' ? `staffOpenPreview-${staffId}` : `staffClosePreview-${staffId}`);
-        const fallback = role === 'open' ? '09:00' : '18:00';
-        const initial = hidden.value || fallback;
-        const key = _staffWheelKey(staffId, 'main', role);
-
-        const ctrl = initEthSlotWheel(wheelCol, initial, (hhmm, label) => {
-            hidden.value = hhmm;
-            if (previewEl) previewEl.textContent = `${label} ሰዓት`;
+    // Main open/close
+    const openHidden = document.getElementById(`staffOpeningTime-${staffId}`);
+    const closeHidden = document.getElementById(`staffClosingTime-${staffId}`);
+    const openCol = document.getElementById(`wheelEthStaffOpen-${staffId}`);
+    const closeCol = document.getElementById(`wheelEthStaffClose-${staffId}`);
+    const openPrev = document.getElementById(`staffOpenPreview-${staffId}`);
+    const closePrev = document.getElementById(`staffClosePreview-${staffId}`);
+    if (openCol && openHidden) {
+        fillWheel(openCol, openHidden.value || '09:00', (w, label) => {
+            openHidden.value = w;
+            if (openPrev) openPrev.textContent = label + ' ሰዓት';
         });
-        _staffWheelControllers[key] = ctrl;
-    });
+    }
+    if (closeCol && closeHidden) {
+        fillWheel(closeCol, closeHidden.value || '18:00', (w, label) => {
+            closeHidden.value = w;
+            if (closePrev) closePrev.textContent = label + ' ሰዓት';
+        });
+    }
 
-    // --- Per-day rows (compact 36px, same 15-min slot list as New Booking) ---
-    // Collect day/role pairs first so we can safely replace nodes while iterating
-    const daySpecs = [];
-    modal.querySelectorAll('.staff-day-wheel').forEach(wheelEl => {
-        daySpecs.push({ day: wheelEl.dataset.day, role: wheelEl.dataset.role });
-    });
-    daySpecs.forEach(({ day, role }) => {
-        const hiddenId = role === 'open' ? `dayOpenHidden-${staffId}-${day}` : `dayCloseHidden-${staffId}-${day}`;
-        const hidden = document.getElementById(hiddenId);
-        if (!hidden) return;
-        const wheelColId = role === 'open' ? `dayOpenEth-${staffId}-${day}` : `dayCloseEth-${staffId}-${day}`;
-        const wheelCol = force ? _freshWheelCol(wheelColId) : document.getElementById(wheelColId);
-        if (!wheelCol) return;
-        const previewEl = document.getElementById(role === 'open' ? `dayOpenPreview-${staffId}-${day}` : `dayClosePreview-${staffId}-${day}`);
-        const fallback = role === 'open' ? '09:00' : '18:00';
-        const initial = hidden.value || fallback;
-        const key = _staffWheelKey(staffId, 'day', role, day);
-
-        const ctrl = initEthSlotWheel(wheelCol, initial, (hhmm, label) => {
-            hidden.value = hhmm;
-            if (previewEl) previewEl.textContent = label;
-        }, WHEEL_ITEM_HEIGHT_COMPACT);
-        _staffWheelControllers[key] = ctrl;
-    });
-
-    // Double rAF: ensure layout is complete (especially after modal animation) then snap
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => refreshStaffScheduleWheels(staffId));
-    });
-}
-
-/** Re-align every wheel for this staff to the value currently in its hidden input.
-    Safe to call when a previously-hidden panel is shown or after modal animation. */
-function refreshStaffScheduleWheels(staffId) {
-    const modal = document.getElementById(`editStaffModal-${staffId}`);
-    if (!modal) return;
-
-    ['open', 'close'].forEach(role => {
-        const hiddenId = role === 'open' ? `staffOpeningTime-${staffId}` : `staffClosingTime-${staffId}`;
-        const hidden = document.getElementById(hiddenId);
-        const key = _staffWheelKey(staffId, 'main', role);
-        const ctrl = _staffWheelControllers[key];
-        if (hidden && ctrl && typeof ctrl.set === 'function') {
-            ctrl.set(hidden.value || (role === 'open' ? '09:00' : '18:00'));
-        }
-    });
-
-    modal.querySelectorAll('.staff-day-wheel').forEach(wheelEl => {
-        const day = wheelEl.dataset.day;
-        const role = wheelEl.dataset.role;
-        const hiddenId = role === 'open' ? `dayOpenHidden-${staffId}-${day}` : `dayCloseHidden-${staffId}-${day}`;
-        const hidden = document.getElementById(hiddenId);
-        const key = _staffWheelKey(staffId, 'day', role, day);
-        const ctrl = _staffWheelControllers[key];
-        if (hidden && ctrl && typeof ctrl.set === 'function') {
-            ctrl.set(hidden.value || (role === 'open' ? '09:00' : '18:00'));
-        }
-    });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    initSettingsWheels();
-    initWaitlistWheels();
-
-    document.querySelectorAll('.staff-schedule-form').forEach(form => {
-        const staffId = form.dataset.staffId;
-        const modal = document.getElementById(`editStaffModal-${staffId}`);
-        if (modal) {
-            modal.addEventListener('shown.bs.modal', () => {
-                // Always rebuild after Bootstrap finishes the show animation.
-                // Wheels that lived in display:none panels get correct dimensions only
-                // when the modal (and any open section) is actually laid out.
-                modal.dataset.wheelsReady = '0';
-                setTimeout(() => initStaffScheduleWheels(staffId, true), 50);
+    // Per-day open/close (supports 2h / 6h / any length)
+    for (let i = 0; i < 7; i++) {
+        const dOpenH = document.getElementById(`dayOpenHidden-${staffId}-${i}`);
+        const dCloseH = document.getElementById(`dayCloseHidden-${staffId}-${i}`);
+        const dOpenCol = document.getElementById(`dayOpenEth-${staffId}-${i}`);
+        const dCloseCol = document.getElementById(`dayCloseEth-${staffId}-${i}`);
+        const dOpenP = document.getElementById(`dayOpenPreview-${staffId}-${i}`);
+        const dCloseP = document.getElementById(`dayClosePreview-${staffId}-${i}`);
+        if (dOpenCol && dOpenH) {
+            fillWheel(dOpenCol, dOpenH.value || '09:00', (w, label) => {
+                dOpenH.value = w;
+                if (dOpenP) dOpenP.textContent = label;
             });
         }
-        // Before submit, force one last sync of hidden inputs from controllers
-        form.addEventListener('submit', () => {
-            refreshStaffScheduleWheels(staffId);
-        });
+        if (dCloseCol && dCloseH) {
+            fillWheel(dCloseCol, dCloseH.value || '18:00', (w, label) => {
+                dCloseH.value = w;
+                if (dCloseP) dCloseP.textContent = label;
+            });
+        }
+    }
+}
+
+document.querySelectorAll('[id^="editStaffModal-"]').forEach(modal => {
+    modal.addEventListener('shown.bs.modal', () => {
+        const id = modal.id.replace('editStaffModal-', '');
+        initStaffScheduleWheels(id, true);
     });
 });
 
+/* Settings open/close wheels */
+(function initSettingsWheels() {
+    const openH = document.getElementById('settingsOpeningTime');
+    const closeH = document.getElementById('settingsClosingTime');
+    const openCol = document.getElementById('wheelEthOpen');
+    const closeCol = document.getElementById('wheelEthClose');
+    const openP = document.getElementById('openEthPreview');
+    const closeP = document.getElementById('closeEthPreview');
+    if (openCol && openH) {
+        fillWheel(openCol, openH.value || '09:00', (w, label) => {
+            openH.value = w;
+            if (openP) openP.textContent = label + ' ሰዓት';
+        });
+    }
+    if (closeCol && closeH) {
+        fillWheel(closeCol, closeH.value || '18:00', (w, label) => {
+            closeH.value = w;
+            if (closeP) closeP.textContent = label + ' ሰዓት';
+        });
+    }
+})();
+
+/* Book modal wheel + availability check */
+const STAFF_AVAIL = {
+{% for st in staff_members %}
+    "{{ st.id }}": {
+        working_days: {{ (st.working_days.split(',')|map('int')|list if st.working_days else [])|tojson }},
+        opening: "{{ st.opening_time.strftime('%H:%M') if st.opening_time else (salon.opening_time.strftime('%H:%M') if salon.opening_time else '09:00') }}",
+        closing: "{{ st.closing_time.strftime('%H:%M') if st.closing_time else (salon.closing_time.strftime('%H:%M') if salon.closing_time else '18:00') }}",
+        day_hours: {{ (st.day_hours if st.day_hours else {})|tojson }},
+        day_offs: [{% for off in st.day_offs %}"{{ off.off_date }}"{% if not loop.last %},{% endif %}{% endfor %}],
+        name: "{{ st.name|e }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+const SALON_DAYS = {{ (salon.working_days_set|list if salon.working_days_set else [])|tojson }};
+const SALON_OPEN = "{{ salon.opening_time.strftime('%H:%M') if salon.opening_time else '09:00' }}";
+const SALON_CLOSE = "{{ salon.closing_time.strftime('%H:%M') if salon.closing_time else '18:00' }}";
+
+function parseHM(s) {
+    if (!s) return null;
+    const [h, m] = s.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function checkStaffAvailability() {
+    const staffId = document.getElementById('bookStaffSelect')?.value;
+    const dateStr = document.getElementById('bookDate')?.value;
+    const timeStr = document.getElementById('bookAppointmentTime')?.value;
+    const alertBox = document.getElementById('bookStaffAvailAlert');
+    const okBox = document.getElementById('bookStaffAvailOk');
+    const alertMsg = document.getElementById('bookStaffAvailMsg');
+    const okMsg = document.getElementById('bookStaffAvailOkMsg');
+    const submitBtn = document.getElementById('bookSubmitBtn');
+    if (!staffId || !dateStr || !timeStr) {
+        if (alertBox) alertBox.classList.add('d-none');
+        if (okBox) okBox.classList.add('d-none');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+    const info = STAFF_AVAIL[staffId];
+    if (!info) return;
+
+    const d = new Date(dateStr + 'T12:00:00');
+    const dow = (d.getDay() + 6) % 7; // Mon=0 ... Sun=6 to match backend
+
+    // Day off?
+    if (info.day_offs && info.day_offs.includes(dateStr)) {
+        showNotAvail(alertBox, okBox, alertMsg, okMsg, submitBtn,
+            (document.documentElement.lang === 'en'
+                ? `${info.name} is on day off on this date.`
+                : `${info.name} በዚህ ቀን ፈቃድ አለው/አላት።`));
+        return;
+    }
+
+    // Working day?
+    let days = info.working_days && info.working_days.length ? info.working_days : SALON_DAYS;
+    // If day_hours has this day, treat as working even if not in list
+    if (info.day_hours && info.day_hours[String(dow)]) {
+        // ok
+    } else if (days.length && !days.includes(dow)) {
+        showNotAvail(alertBox, okBox, alertMsg, okMsg, submitBtn,
+            (document.documentElement.lang === 'en'
+                ? `${info.name} does not work on this day.`
+                : `${info.name} በዚህ ቀን አይሰራም/አትሰራም።`));
+        return;
+    }
+
+    // Hours for this day (per-day override supports 2h / 6h shifts)
+    let open = info.opening || SALON_OPEN;
+    let close = info.closing || SALON_CLOSE;
+    if (info.day_hours && info.day_hours[String(dow)]) {
+        const dh = info.day_hours[String(dow)];
+        if (dh.open) open = dh.open;
+        if (dh.close) close = dh.close;
+    }
+
+    const t = parseHM(timeStr);
+    const o = parseHM(open);
+    const c = parseHM(close);
+    if (t == null || o == null || c == null) return;
+
+    if (t < o || t >= c) {
+        const openL = ethLabel(parseInt(open.split(':')[0],10), parseInt(open.split(':')[1],10));
+        const closeL = ethLabel(parseInt(close.split(':')[0],10), parseInt(close.split(':')[1],10));
+        showNotAvail(alertBox, okBox, alertMsg, okMsg, submitBtn,
+            (document.documentElement.lang === 'en'
+                ? `${info.name} is not available at this time. Works ${openL} – ${closeL}.`
+                : `${info.name} በዚህ ሰዓት አይገኝም። የስራ ሰዓት: ${openL} – ${closeL}።`));
+        return;
+    }
+
+    // Available
+    if (alertBox) alertBox.classList.add('d-none');
+    if (okBox) {
+        okBox.classList.remove('d-none');
+        if (okMsg) {
+            const openL = ethLabel(parseInt(open.split(':')[0],10), parseInt(open.split(':')[1],10));
+            const closeL = ethLabel(parseInt(close.split(':')[0],10), parseInt(close.split(':')[1],10));
+            okMsg.textContent = document.documentElement.lang === 'en'
+                ? `Available · ${openL} – ${closeL}`
+                : `ይገኛል · ${openL} – ${closeL}`;
+        }
+    }
+    if (submitBtn) submitBtn.disabled = false;
+}
+
+function showNotAvail(alertBox, okBox, alertMsg, okMsg, submitBtn, text) {
+    if (okBox) okBox.classList.add('d-none');
+    if (alertBox) {
+        alertBox.classList.remove('d-none');
+        if (alertMsg) alertMsg.textContent = text;
+    }
+    if (submitBtn) submitBtn.disabled = true;
+}
+
+(function initBookWheel() {
+    const col = document.getElementById('wheelEthBook');
+    const hidden = document.getElementById('bookAppointmentTime');
+    const prev = document.getElementById('bookEthPreview');
+    if (!col || !hidden) return;
+    fillWheel(col, '09:00', (w, label) => {
+        hidden.value = (document.getElementById('bookDate')?.value || '') + 'T' + w + ':00';
+        if (prev) prev.textContent = label + ' ሰዓት';
+        checkStaffAvailability();
+    });
+    document.getElementById('bookStaffSelect')?.addEventListener('change', checkStaffAvailability);
+    document.getElementById('bookDate')?.addEventListener('change', () => {
+        const w = (hidden.value || '').split('T')[1]?.slice(0,5) || '09:00';
+        hidden.value = (document.getElementById('bookDate')?.value || '') + 'T' + w + ':00';
+        checkStaffAvailability();
+    });
+})();
+
+/* Waitlist compact wheels */
+document.querySelectorAll('.wl-wheel-eth').forEach(col => {
+    const form = col.closest('form');
+    const hidden = form?.querySelector('.wl-hidden');
+    const prev = form?.querySelector('.wl-eth-preview');
+    const dateInp = form?.querySelector('.wl-date');
+    fillWheel(col, '09:00', (w, label) => {
+        const d = dateInp?.value || '';
+        if (hidden) hidden.value = d + 'T' + w + ':00';
+        if (prev) prev.textContent = label + ' ሰዓት';
+    });
+    dateInp?.addEventListener('change', () => {
+        const w = (hidden?.value || '').split('T')[1]?.slice(0,5) || '09:00';
+        if (hidden) hidden.value = dateInp.value + 'T' + w + ':00';
+    });
+});
+
+/* Copy booking link */
+function copyBookingLink() {
+    const inp = document.getElementById('bookingLinkInput');
+    if (!inp) return;
+    navigator.clipboard.writeText(inp.value).then(() => {
+        const btn = document.getElementById('copyBookingBtn');
+        if (btn) {
+            const old = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
+            setTimeout(() => btn.innerHTML = old, 1500);
+        }
+    });
+}
+
+/* Status AJAX */
+function submitStatusAjax(form, apptId) {
+    const fd = new FormData(form);
+    fetch(form.action, { method: 'POST', body: fd })
+        .then(r => r.ok ? r.json().catch(() => ({})) : Promise.reject())
+        .then(() => {
+            const sel = document.getElementById('status-select-' + apptId);
+            const badge = document.querySelector('.status-badge-' + apptId);
+            if (badge && sel) {
+                const v = sel.value;
+                badge.dataset.status = v;
+                badge.className = 'badge ms-2 status-badge-' + apptId +
+                    (v === 'Completed' ? ' bg-success' :
+                     v === 'Cancelled' ? ' bg-danger' :
+                     v === 'No-Show' ? ' bg-dark' : ' bg-warning text-dark');
+                // keep bilingual text roughly
+            }
+        })
+        .catch(() => form.submit());
+}
+
+/* Swipe complete / no-show */
+(function initSwipe() {
+    document.querySelectorAll('.swipe-card-wrapper').forEach(wrap => {
+        const content = wrap.querySelector('.swipe-card-content');
+        if (!content) return;
+        let startX = 0, dx = 0;
+        content.addEventListener('touchstart', e => { startX = e.touches[0].clientX; dx = 0; }, { passive: true });
+        content.addEventListener('touchmove', e => {
+            dx = e.touches[0].clientX - startX;
+            content.style.transform = `translateX(${Math.max(-120, Math.min(120, dx))}px)`;
+        }, { passive: true });
+        content.addEventListener('touchend', () => {
+            const id = wrap.id.replace('appt-card-', '');
+            const form = document.getElementById('status-form-' + id);
+            const sel = document.getElementById('status-select-' + id);
+            if (dx > 80 && sel && form) {
+                sel.value = 'Completed';
+                submitStatusAjax(form, id);
+            } else if (dx < -80 && sel && form) {
+                sel.value = 'No-Show';
+                submitStatusAjax(form, id);
+            }
+            content.style.transform = '';
+        });
+    });
+})();
+
+/* Toast helpers */
+function hideBookingToast() {
+    document.getElementById('bookingToast')?.classList.remove('show');
+}
+function showBookingToast(text) {
+    const t = document.getElementById('bookingToast');
+    const body = document.getElementById('bookingToastBody');
+    if (body) body.textContent = text || '—';
+    if (t) { t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 8000); }
+}
+
+/* Simple customer search (client-side demo; replace with real endpoint if needed) */
+function searchCustomers(q) {
+    const box = document.getElementById('customerSearchResults');
+    if (!box) return;
+    if (!q || q.length < 2) {
+        box.innerHTML = '<p class="text-muted small text-center py-3"><span data-lang-am>ስም ወይም ስልክ ይፃፉ…</span><span data-lang-en>Type a name or phone…</span></p>';
+        return;
+    }
+    fetch('/search-customers?q=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(rows => {
+            if (!rows || !rows.length) {
+                box.innerHTML = '<p class="text-muted small text-center py-3"><span data-lang-am>ምንም አልተገኘም</span><span data-lang-en>No results</span></p>';
+                return;
+            }
+            box.innerHTML = '<table class="table align-middle mb-0"><tbody>' + rows.map(r =>
+                `<tr>
+                    <td class="fw-bold">${r.name || ''}</td>
+                    <td>${r.phone || ''}</td>
+                    <td class="search-result-day">${r.last_date || ''}</td>
+                </tr>`
+            ).join('') + '</tbody></table>';
+        })
+        .catch(() => {
+            box.innerHTML = '<p class="text-muted small text-center py-3">—</p>';
+        });
+}
+
+/* Pull-to-refresh light indicator */
+(function() {
+    const area = document.getElementById('mainScrollArea');
+    const ind = document.getElementById('ptrIndicator');
+    if (!area || !ind) return;
+    let startY = 0;
+    area.addEventListener('touchstart', e => { if (area.scrollTop <= 0) startY = e.touches[0].clientY; }, { passive: true });
+    area.addEventListener('touchmove', e => {
+        if (area.scrollTop > 0) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 40) ind.style.top = '8px';
+    }, { passive: true });
+    area.addEventListener('touchend', () => { ind.style.top = '-48px'; });
+})();
 </script>
 </body>
 </html>
