@@ -417,16 +417,35 @@
         html[lang="am"] .status-label-am { display: inline !important; }
         html[lang="am"] .status-label-en { display: none !important; }
 
-        /* Per-day staff hours */
+        /* Per-day staff hours — same 15-min Ethiopian scroll wheels as New Booking */
         .staff-day-hours {
-            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-            padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
-            background: #fff; margin-bottom: 8px;
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
+            background: #fff; margin-bottom: 10px;
+            transition: opacity 0.15s ease, background 0.15s ease;
         }
-        .staff-day-hours .day-name { width: 52px; font-weight: 700; font-size: 0.82rem; }
-        .staff-day-hours .day-off-chk { margin-right: 4px; }
-        .staff-day-hours .half-toggle { font-size: 0.75rem; color: var(--text-muted); }
-        .staff-day-hours .eth-time-picker.compact { min-width: 168px; }
+        .staff-day-hours.is-off {
+            opacity: 0.45;
+            background: #f7f3ee;
+        }
+        .staff-day-hours.is-off .eth-time-picker {
+            pointer-events: none;
+        }
+        .staff-day-hours .day-name { width: 56px; font-weight: 700; font-size: 0.85rem; }
+        .staff-day-hours .day-off-chk { margin-right: 4px; width: 16px; height: 16px; }
+        .staff-day-hours .half-toggle { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+        .staff-day-hours .eth-time-picker.compact {
+            min-width: 150px;
+            flex: 1 1 140px;
+        }
+        .staff-day-hours .eth-time-picker.compact .wheel-col.wheel-eth {
+            min-width: 130px;
+            width: 100%;
+        }
+        .staff-day-hours .eth-preview {
+            margin-top: 4px;
+            font-size: 0.8rem !important;
+        }
 
         /* Block-level bilingual helpers */
         .i18n-block-en { display: none; }
@@ -1138,32 +1157,34 @@
                                         {% set staff_days = st.working_days.split(',') | map('int') | list if st.working_days else [] %}
                                         {% set dh = st.day_hours if st.day_hours else {} %}
                                         {% for i in range(7) %}
-                                        <div class="staff-day-hours">
-                                            <label class="d-flex align-items-center gap-1 mb-0" style="min-width:70px;">
-                                                <input type="checkbox" name="working_days" value="{{ i }}" class="day-off-chk"
-                                                       {% if i in staff_days or (dh and i|string in dh) %}checked{% endif %}>
+                                        {% set day_on = i in staff_days or (dh and i|string in dh) %}
+                                        <div class="staff-day-hours {% if not day_on %}is-off{% endif %}" data-staff-day-row="{{ st.id }}-{{ i }}">
+                                            <label class="d-flex align-items-center gap-1 mb-0" style="min-width:72px;">
+                                                <input type="checkbox" name="working_days" value="{{ i }}" class="day-off-chk staff-day-enable"
+                                                       data-row="{{ st.id }}-{{ i }}"
+                                                       {% if day_on %}checked{% endif %}>
                                                 <span class="day-name"><span data-lang-am>{{ day_names[i] }}</span><span data-lang-en>{{ day_names_en[i] }}</span></span>
                                             </label>
                                             <div class="eth-time-picker compact staff-day-wheel" data-role="open" data-staff-id="{{ st.id }}" data-day="{{ i }}">
                                                 <div class="eth-wheel-shell" style="padding:0 6px;">
                                                     <div class="eth-wheel-highlight" style="height:36px;"></div>
-                                                    <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;width:104px;" id="dayOpenEth-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;" id="dayOpenEth-{{ st.id }}-{{ i }}"></div>
                                                 </div>
-                                                <div class="eth-preview" style="font-size:0.78rem;" id="dayOpenPreview-{{ st.id }}-{{ i }}">ጧት 9:00</div>
+                                                <div class="eth-preview" id="dayOpenPreview-{{ st.id }}-{{ i }}">ጧት 9:00</div>
                                             </div>
-                                            <span class="text-muted small">–</span>
+                                            <span class="text-muted small fw-bold">–</span>
                                             <div class="eth-time-picker compact staff-day-wheel" data-role="close" data-staff-id="{{ st.id }}" data-day="{{ i }}">
                                                 <div class="eth-wheel-shell" style="padding:0 6px;">
                                                     <div class="eth-wheel-highlight" style="height:36px;"></div>
-                                                    <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;width:104px;" id="dayCloseEth-{{ st.id }}-{{ i }}"></div>
+                                                    <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;" id="dayCloseEth-{{ st.id }}-{{ i }}"></div>
                                                 </div>
-                                                <div class="eth-preview" style="font-size:0.78rem;" id="dayClosePreview-{{ st.id }}-{{ i }}">ማታ 6:00</div>
+                                                <div class="eth-preview" id="dayClosePreview-{{ st.id }}-{{ i }}">ማታ 6:00</div>
                                             </div>
                                             <input type="hidden" name="day_open_{{ i }}" id="dayOpenHidden-{{ st.id }}-{{ i }}"
                                                    value="{{ dh[i|string].open if dh and i|string in dh and dh[i|string].open else (st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M')) }}">
                                             <input type="hidden" name="day_close_{{ i }}" id="dayCloseHidden-{{ st.id }}-{{ i }}"
                                                    value="{{ dh[i|string].close if dh and i|string in dh and dh[i|string].close else (st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M')) }}">
-                                            <span class="half-toggle text-nowrap">
+                                            <span class="half-toggle">
                                                 <span data-lang-am>ግማሽ ቀን</span><span data-lang-en>half-day OK</span>
                                             </span>
                                         </div>
@@ -1213,10 +1234,27 @@
                 document.body.appendChild(form);
                 form.submit();
             }
+            /* Toggle custom hours / custom days panels; refresh wheels after layout so
+               scroll position is correct when the section was previously display:none. */
             document.querySelectorAll('.staff-custom-hours-toggle, .staff-custom-days-toggle').forEach(cb => {
                 cb.addEventListener('change', () => {
                     const target = document.getElementById(cb.dataset.target);
                     if (target) target.style.display = cb.checked ? '' : 'none';
+                    const form = cb.closest('.staff-schedule-form');
+                    const staffId = form && form.dataset.staffId;
+                    if (staffId && cb.checked && typeof initStaffScheduleWheels === 'function') {
+                        // Rebuild after the section is visible so scroll math is correct
+                        const modal = document.getElementById(`editStaffModal-${staffId}`);
+                        if (modal) modal.dataset.wheelsReady = '0';
+                        setTimeout(() => initStaffScheduleWheels(staffId, true), 70);
+                    }
+                });
+            });
+            /* Enable/disable a single day row (visual + pointer-events) */
+            document.querySelectorAll('.staff-day-enable').forEach(chk => {
+                chk.addEventListener('change', () => {
+                    const row = document.querySelector(`[data-staff-day-row="${chk.dataset.row}"]`);
+                    if (row) row.classList.toggle('is-off', !chk.checked);
                 });
             });
         </script>
@@ -2203,46 +2241,116 @@ function initWaitlistWheels() {
     });
 }
 
-/* ========== Staff schedule modal: same single-wheel Ethiopian picker as New Booking ==========
+/* ========== Staff schedule modal: same 15-min Ethiopian single-wheel picker as New Booking ==========
    Applies to (1) "custom hours, all days" open/close and (2) each per-day open/close row.
-   Wheels build lazily the first time a staff modal is shown, and write into the same
-   hidden inputs (opening_time / closing_time / day_open_N / day_close_N) the backend
-   already expects — no server-side change required. */
-function initStaffScheduleWheels(staffId) {
+   Critical fix: wheels that live inside display:none panels (custom hours / custom days)
+   must be (re)built or re-scrolled AFTER the panel becomes visible, otherwise scrollTop
+   and the highlight window do not line up with the real selected slot — the classic
+   "looks selected but saves the wrong time" bug.
+
+   Controllers are cached so we can call .set(hhmm) to force alignment after layout. */
+const _staffWheelControllers = {}; // key: `${staffId}:main:open` | `${staffId}:day:3:close` → { set }
+
+function _staffWheelKey(staffId, kind, role, day) {
+    return day == null ? `${staffId}:${kind}:${role}` : `${staffId}:${kind}:${day}:${role}`;
+}
+
+/** Replace a wheel column with a clean clone so previous scroll/drag listeners are dropped. */
+function _freshWheelCol(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const clone = el.cloneNode(false); // keep id/classes/styles, drop children + listeners
+    clone.id = id;
+    el.parentNode.replaceChild(clone, el);
+    return clone;
+}
+
+function initStaffScheduleWheels(staffId, force) {
     const modal = document.getElementById(`editStaffModal-${staffId}`);
-    if (!modal || modal.dataset.wheelsReady) return;
+    if (!modal) return;
+    if (modal.dataset.wheelsReady === '1' && !force) {
+        refreshStaffScheduleWheels(staffId);
+        return;
+    }
     modal.dataset.wheelsReady = '1';
 
-    // --- Main "custom hours, all days" pair ---
+    // --- Main "custom hours, all days" pair (full-size 42px rows) ---
     ['open', 'close'].forEach(role => {
         const hiddenId = role === 'open' ? `staffOpeningTime-${staffId}` : `staffClosingTime-${staffId}`;
         const hidden = document.getElementById(hiddenId);
         if (!hidden) return;
         const wheelId = role === 'open' ? `wheelEthStaffOpen-${staffId}` : `wheelEthStaffClose-${staffId}`;
+        const wheelCol = force ? _freshWheelCol(wheelId) : document.getElementById(wheelId);
+        if (!wheelCol) return;
         const previewEl = document.getElementById(role === 'open' ? `staffOpenPreview-${staffId}` : `staffClosePreview-${staffId}`);
         const fallback = role === 'open' ? '09:00' : '18:00';
+        const initial = hidden.value || fallback;
+        const key = _staffWheelKey(staffId, 'main', role);
 
-        initEthSlotWheel(document.getElementById(wheelId), hidden.value || fallback, (hhmm, label) => {
+        const ctrl = initEthSlotWheel(wheelCol, initial, (hhmm, label) => {
             hidden.value = hhmm;
             if (previewEl) previewEl.textContent = `${label} ሰዓት`;
         });
+        _staffWheelControllers[key] = ctrl;
     });
 
-    // --- Per-day rows (compact 36px, single slot list — same fix as waitlist) ---
+    // --- Per-day rows (compact 36px, same 15-min slot list as New Booking) ---
+    // Collect day/role pairs first so we can safely replace nodes while iterating
+    const daySpecs = [];
     modal.querySelectorAll('.staff-day-wheel').forEach(wheelEl => {
-        const day = wheelEl.dataset.day;
-        const role = wheelEl.dataset.role; // 'open' | 'close'
+        daySpecs.push({ day: wheelEl.dataset.day, role: wheelEl.dataset.role });
+    });
+    daySpecs.forEach(({ day, role }) => {
         const hiddenId = role === 'open' ? `dayOpenHidden-${staffId}-${day}` : `dayCloseHidden-${staffId}-${day}`;
         const hidden = document.getElementById(hiddenId);
         if (!hidden) return;
         const wheelColId = role === 'open' ? `dayOpenEth-${staffId}-${day}` : `dayCloseEth-${staffId}-${day}`;
+        const wheelCol = force ? _freshWheelCol(wheelColId) : document.getElementById(wheelColId);
+        if (!wheelCol) return;
         const previewEl = document.getElementById(role === 'open' ? `dayOpenPreview-${staffId}-${day}` : `dayClosePreview-${staffId}-${day}`);
         const fallback = role === 'open' ? '09:00' : '18:00';
+        const initial = hidden.value || fallback;
+        const key = _staffWheelKey(staffId, 'day', role, day);
 
-        initEthSlotWheel(document.getElementById(wheelColId), hidden.value || fallback, (hhmm, label) => {
+        const ctrl = initEthSlotWheel(wheelCol, initial, (hhmm, label) => {
             hidden.value = hhmm;
             if (previewEl) previewEl.textContent = label;
         }, WHEEL_ITEM_HEIGHT_COMPACT);
+        _staffWheelControllers[key] = ctrl;
+    });
+
+    // Double rAF: ensure layout is complete (especially after modal animation) then snap
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => refreshStaffScheduleWheels(staffId));
+    });
+}
+
+/** Re-align every wheel for this staff to the value currently in its hidden input.
+    Safe to call when a previously-hidden panel is shown or after modal animation. */
+function refreshStaffScheduleWheels(staffId) {
+    const modal = document.getElementById(`editStaffModal-${staffId}`);
+    if (!modal) return;
+
+    ['open', 'close'].forEach(role => {
+        const hiddenId = role === 'open' ? `staffOpeningTime-${staffId}` : `staffClosingTime-${staffId}`;
+        const hidden = document.getElementById(hiddenId);
+        const key = _staffWheelKey(staffId, 'main', role);
+        const ctrl = _staffWheelControllers[key];
+        if (hidden && ctrl && typeof ctrl.set === 'function') {
+            ctrl.set(hidden.value || (role === 'open' ? '09:00' : '18:00'));
+        }
+    });
+
+    modal.querySelectorAll('.staff-day-wheel').forEach(wheelEl => {
+        const day = wheelEl.dataset.day;
+        const role = wheelEl.dataset.role;
+        const hiddenId = role === 'open' ? `dayOpenHidden-${staffId}-${day}` : `dayCloseHidden-${staffId}-${day}`;
+        const hidden = document.getElementById(hiddenId);
+        const key = _staffWheelKey(staffId, 'day', role, day);
+        const ctrl = _staffWheelControllers[key];
+        if (hidden && ctrl && typeof ctrl.set === 'function') {
+            ctrl.set(hidden.value || (role === 'open' ? '09:00' : '18:00'));
+        }
     });
 }
 
@@ -2254,8 +2362,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const staffId = form.dataset.staffId;
         const modal = document.getElementById(`editStaffModal-${staffId}`);
         if (modal) {
-            modal.addEventListener('shown.bs.modal', () => initStaffScheduleWheels(staffId));
+            modal.addEventListener('shown.bs.modal', () => {
+                // Always rebuild after Bootstrap finishes the show animation.
+                // Wheels that lived in display:none panels get correct dimensions only
+                // when the modal (and any open section) is actually laid out.
+                modal.dataset.wheelsReady = '0';
+                setTimeout(() => initStaffScheduleWheels(staffId, true), 50);
+            });
         }
+        // Before submit, force one last sync of hidden inputs from controllers
+        form.addEventListener('submit', () => {
+            refreshStaffScheduleWheels(staffId);
+        });
     });
 });
 
