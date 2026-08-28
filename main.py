@@ -167,7 +167,9 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
         return None
 
 
-def _parse_time_hhmm(value: str):
+def _parse_time_hhmm(value: Optional[str]):
+    if not value:
+        return None
     try:
         return datetime.strptime(value, "%H:%M").time()
     except (ValueError, TypeError):
@@ -234,9 +236,36 @@ def _staff_is_off(db: Session, staff_id: int, d: date) -> bool:
     ).first() is not None
 
 
+def _staff_hours_for_day(staff: Staff, salon: Salon, d: date):
+    """Open/close time for this staff member on this specific date.
+
+    Priority:
+      1. A per-day override saved via "Custom days / half-day per day"
+         (staff.day_hours[str(weekday)]) — this is what lets a staff
+         member work e.g. only 2 hours or 6 hours on a given day.
+      2. The staff member's own overall custom hours (staff.opening_time /
+         staff.closing_time), if set.
+      3. The salon's default hours.
+
+    This used to be missing entirely — the per-day picker in the UI wrote
+    to day_open_N / day_close_N fields that the backend never read, so a
+    staff member's hours always fell back to the salon's hours no matter
+    what was picked and "saved" in the Staff modal.
+    """
+    day_hours = staff.day_hours or {}
+    override = day_hours.get(str(d.weekday()))
+    if override and override.get("open") and override.get("close"):
+        o = _parse_time_hhmm(override["open"])
+        c = _parse_time_hhmm(override["close"])
+        if o and c:
+            return o, c
+    return staff.effective_hours(salon)
+
+
 def _within_staff_hours(db: Session, salon: Salon, staff: Staff, appt_dt: datetime, end_dt: datetime) -> bool:
     """Checks salon hours AND this staff member's own working days/hours
-    AND that they aren't marked off that specific day."""
+    (including any per-day override) AND that they aren't marked off that
+    specific day."""
     if not _within_business_hours(salon, appt_dt, end_dt):
         return False
 
@@ -247,7 +276,7 @@ def _within_staff_hours(db: Session, salon: Salon, staff: Staff, appt_dt: dateti
     if _staff_is_off(db, staff.id, day):
         return False
 
-    open_t, close_t = staff.effective_hours(salon)
+    open_t, close_t = _staff_hours_for_day(staff, salon, day)
     open_dt = datetime.combine(day, open_t)
     close_dt = datetime.combine(day, close_t)
     return open_dt <= appt_dt and end_dt <= close_dt
@@ -312,14 +341,15 @@ def _next_available_slot(
     requested_dt: datetime,
 ) -> Optional[datetime]:
     """Search forward same-day, within THIS staff member's effective
-    hours/days, skipping if they're off that day."""
+    hours/days (including any per-day override), skipping if they're off
+    that day."""
     day = requested_dt.date()
     if day.weekday() not in staff.effective_working_days(salon):
         return None
     if _staff_is_off(db, staff.id, day):
         return None
 
-    open_t, close_t = staff.effective_hours(salon)
+    open_t, close_t = _staff_hours_for_day(staff, salon, day)
     business_end = datetime.combine(day, close_t)
 
     slot_start = requested_dt + timedelta(minutes=SLOT_STEP_MINUTES)
@@ -807,6 +837,26 @@ def update_staff_schedule(
     closing_time: Optional[str] = Form(None),
     use_custom_days: Optional[str] = Form(None),
     working_days: List[str] = Form(default=[]),
+    # Per-day open/close overrides from the "Custom days / half-day per
+    # day" panel (day_open_0..6 / day_close_0..6 hidden inputs in
+    # dashboard.html). These were previously never read by this endpoint,
+    # which is why per-day hours (e.g. a staff member working only 2 or 6
+    # hours on a given day) silently failed to save and the staff member
+    # just kept using the salon's default hours.
+    day_open_0: Optional[str] = Form(None),
+    day_close_0: Optional[str] = Form(None),
+    day_open_1: Optional[str] = Form(None),
+    day_close_1: Optional[str] = Form(None),
+    day_open_2: Optional[str] = Form(None),
+    day_close_2: Optional[str] = Form(None),
+    day_open_3: Optional[str] = Form(None),
+    day_close_3: Optional[str] = Form(None),
+    day_open_4: Optional[str] = Form(None),
+    day_close_4: Optional[str] = Form(None),
+    day_open_5: Optional[str] = Form(None),
+    day_close_5: Optional[str] = Form(None),
+    day_open_6: Optional[str] = Form(None),
+    day_close_6: Optional[str] = Form(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
@@ -830,8 +880,34 @@ def update_staff_schedule(
         if not day_ints:
             return RedirectResponse(url="/dashboard?tab=staff&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
         staff.working_days = ",".join(str(d) for d in day_ints)
+
+        # Build the per-day hours map. Only enabled days can carry an
+        # override; a day with no valid open<close pair simply falls back
+        # to the staff member's overall hours (or the salon's) at read
+        # time via _staff_hours_for_day, so it's safe to just omit it here.
+        day_open_by_index = {
+            0: day_open_0, 1: day_open_1, 2: day_open_2, 3: day_open_3,
+            4: day_open_4, 5: day_open_5, 6: day_open_6,
+        }
+        day_close_by_index = {
+            0: day_close_0, 1: day_close_1, 2: day_close_2, 3: day_close_3,
+            4: day_close_4, 5: day_close_5, 6: day_close_6,
+        }
+
+        day_hours = {}
+        for i in day_ints:
+            o = _parse_time_hhmm(day_open_by_index.get(i))
+            c = _parse_time_hhmm(day_close_by_index.get(i))
+            if o and c and c > o:
+                day_hours[str(i)] = {
+                    "open": day_open_by_index[i],
+                    "close": day_close_by_index[i],
+                }
+
+        staff.day_hours = day_hours or None
     else:
         staff.working_days = None
+        staff.day_hours = None
 
     db.commit()
     return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
