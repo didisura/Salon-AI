@@ -2,7 +2,7 @@ import enum
 import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Numeric, DateTime, Date, Time, ForeignKey, Enum, func
+    Column, Integer, String, Numeric, DateTime, Date, Time, ForeignKey, Enum, func, JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -93,6 +93,19 @@ class Staff(Base):
     opening_time = Column(Time, nullable=True)
     closing_time = Column(Time, nullable=True)
     working_days = Column(String(20), nullable=True)
+
+    # Per-day open/close overrides, e.g. {"0": {"open": "10:00", "close": "12:00"}}
+    # keyed by Python's date.weekday() as a string (0=Monday ... 6=Sunday).
+    # Lets a staff member work a short shift (2h, 6h, etc.) on a specific
+    # day instead of the same hours every working day. NULL/omitted day =
+    # falls back to this staff member's overall hours, then the salon's.
+    #
+    # NOTE: this column was added after the `staff` table already existed
+    # in production. main.py runs a one-time startup migration
+    # (_ensure_staff_day_hours_column) that ALTERs the existing table to
+    # add it, since Base.metadata.create_all() only creates missing
+    # tables and never alters existing ones.
+    day_hours = Column(JSON, nullable=True)
 
     salon = relationship("Salon", back_populates="staff_members")
     day_offs = relationship(

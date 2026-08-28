@@ -31,6 +31,41 @@ from security import (
 
 Base.metadata.create_all(bind=engine)
 
+
+def _ensure_staff_day_hours_column():
+    """One-time, idempotent startup migration.
+
+    Base.metadata.create_all() above only creates TABLES that don't exist
+    yet — it never alters a table that's already there. Your `staff` table
+    already existed before the `day_hours` column was added to the model,
+    so that column would never actually appear in the real database no
+    matter how many times the app restarts, and every save of per-day
+    staff hours would silently do nothing. This checks for the column and
+    adds it if it's missing, so existing deployments get patched
+    automatically on next boot without a manual migration step.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    try:
+        existing_columns = [c["name"] for c in inspector.get_columns("staff")]
+    except Exception:
+        # Table doesn't exist yet (fresh DB) — create_all() above already
+        # created it correctly, with the column, via the model definition.
+        return
+
+    if "day_hours" in existing_columns:
+        return
+
+    dialect = engine.dialect.name
+    col_type = "JSON" if dialect == "postgresql" else "TEXT"
+
+    with engine.begin() as conn:
+        conn.execute(text(f"ALTER TABLE staff ADD COLUMN day_hours {col_type}"))
+
+
+_ensure_staff_day_hours_column()
+
 app = FastAPI(title="Melkegna Salon Platform")
 templates = Jinja2Templates(directory="templates")
 
