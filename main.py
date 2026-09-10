@@ -509,6 +509,28 @@ def _resolve_salon(db: Session, salon_ref: str):
     return None
 
 
+
+def _public_base_url(request: Request) -> str:
+    """Absolute origin for public booking links (works on Render proxies).
+
+    Prefer PUBLIC_BASE_URL env (e.g. https://melkegna.onrender.com).
+    Otherwise use X-Forwarded-* headers, then request.base_url.
+    """
+    env = (os.environ.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+    if env:
+        return env
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+    )
+    host = (host or "").split(",")[0].strip()
+    if not host:
+        return str(request.base_url).rstrip("/")
+    return f"{proto}://{host}".rstrip("/")
+
+
 def _ensure_salon_slugs():
     """Assign missing or placeholder slugs so /book/{name} works for existing salons.
 
@@ -1160,7 +1182,7 @@ def dashboard(
         # Public booking link always uses the slug (name-based name)
         "booking_path": salon.slug or str(salon.id),
         # Full absolute URL shown on the dashboard (copy button)
-        "booking_url": str(request.base_url).rstrip("/") + "/book/" + (salon.slug or str(salon.id)),
+        "booking_url": _public_base_url(request) + "/book/" + (salon.slug or str(salon.id)),
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:
