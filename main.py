@@ -939,18 +939,23 @@ def dashboard(
     )
 
     try:
+        # Online bookings that paid a deposit — show on Home so owner can
+        # review the screenshot quickly and cancel if needed. Slot is already
+        # confirmed/reserved for the customer.
         pending_payment_appts = (
             db.query(Appointment)
             .filter(
                 Appointment.salon_id == salon.id,
-                Appointment.status.in_([
-                    AppointmentStatus.pending_payment,
-                    "Pending Payment",
-                    "pending_payment",
+                Appointment.payment_screenshot_url.isnot(None),
+                Appointment.status.notin_([
+                    AppointmentStatus.cancelled,
+                    AppointmentStatus.no_show,
+                    "Cancelled",
+                    "No-Show",
                 ]),
             )
-            .order_by(Appointment.appointment_datetime.asc())
-            .limit(50)
+            .order_by(Appointment.created_at.desc())
+            .limit(30)
             .all()
         )
         pending_payment_count = len(pending_payment_appts)
@@ -1965,13 +1970,10 @@ async def public_booking_submit(
             params = urlencode({"error": "invalid_image"})
             return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
-    # Use explicit VALUE strings that match the PostgreSQL enum labels
-    # ("Confirmed", "Pending Payment", ...). Never send the Python member
-    # name (pending_payment) — that is what caused the 500.
-    if needs_deposit:
-        appt_status = AppointmentStatus.pending_payment  # value = "Pending Payment"
-    else:
-        appt_status = AppointmentStatus.confirmed
+    # Deposit bookings are confirmed immediately so the slot is reserved.
+    # The salon still sees the screenshot on the dashboard home and can cancel
+    # if the proof looks wrong.
+    appt_status = AppointmentStatus.confirmed
 
     appt = Appointment(
         salon_id=salon.id,
@@ -2036,14 +2038,8 @@ async def public_booking_submit(
         },
     })
 
-    status_val = getattr(appt.status, "value", str(appt.status))
-    is_pending = needs_deposit and status_val in (
-        "Pending Payment",
-        getattr(AppointmentStatus.pending_payment, "value", "Pending Payment"),
-    )
-    success_flag = "pending_payment" if is_pending else "1"
     return RedirectResponse(
-        url=f"/book/{salon_id}?success={success_flag}&appt_id={appt.id}",
+        url=f"/book/{salon_id}?success=1&appt_id={appt.id}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 
