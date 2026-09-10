@@ -552,7 +552,32 @@
 
     <!-- BOOKING -->
     <div class="book-card" id="bookingSection">
-        {% if success %}
+        {% if success == 'pending_payment' %}
+        <div class="confirm-card" style="border-color:#FFE0B2;background:linear-gradient(180deg,#FFF8E1 0%,#fff 50%);">
+            <div class="confirm-icon" style="background:#ED6C02;"><i class="fa-solid fa-receipt"></i></div>
+            <h3 style="color:#E65100;">
+                <span data-lang-am>ክፍያዎ ተልኳል!</span>
+                <span data-lang-en>Payment proof received!</span>
+            </h3>
+            <p class="thanks">
+                <span data-lang-am>ሳሎኑ ክፍያዎን ካረጋገጠ በኋላ ቀጠሮዎ ይረጋገጣል።</span>
+                <span data-lang-en>The salon will confirm your booking after verifying the payment.</span>
+            </p>
+            <p class="sub">{{ salon.name }}</p>
+            {% if salon.phone %}
+            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
+                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
+            </a>
+            {% endif %}
+            <div>
+                <a href="/book/{{ salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
+                    <span data-lang-am>ተመለስ</span>
+                    <span data-lang-en>Back</span>
+                </a>
+            </div>
+        </div>
+
+        {% elif success %}
         <div class="confirm-card">
             <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
             <h3>
@@ -595,6 +620,12 @@
 
         {% else %}
 
+        {% if error == 'deposit_required' %}
+        <div class="alert alert-warning">
+            <span data-lang-am>እባክዎ የቅድሚያ ክፍያ ማረጋገጫ (screenshot) ይስቀሉ።</span>
+            <span data-lang-en>Please upload a payment screenshot to complete booking.</span>
+        </div>
+        {% endif %}
         {% if error == 'outside_hours' %}
         <div class="alert alert-danger">
             <span data-lang-am>የመረጡት ሰዓት ከባለሙያው የስራ ሰዓት ውጪ ነው።</span>
@@ -655,7 +686,7 @@
             <div class="dot" data-s="5"></div>
         </div>
 
-        <form action="/book/{{ salon.id }}" method="post" id="bookingForm">
+        <form action="/book/{{ salon.id }}" method="post" id="bookingForm" enctype="multipart/form-data">
 
             <!-- STEP 1: Service -->
             <div class="step-panel active" data-step="1">
@@ -668,7 +699,7 @@
                     {% for s in services %}
                     <label class="svc-card {% if conflict_service and s.id == conflict_service %}selected{% elif not conflict_service and loop.first %}selected{% endif %}">
                         <input type="radio" name="service_id" value="{{ s.id }}"
-                            data-name="{{ s.name }}" data-price="{{ s.price }}"
+                            data-name="{{ s.name }}" data-price="{{ s.price }}" data-deposit="{{ s.deposit_amount or 0 }}"
                             {% if conflict_service and s.id == conflict_service %}checked{% elif not conflict_service and loop.first %}checked{% endif %}
                             required onchange="onServicePick(this)">
                         <div class="svc-icon"><i class="fa-solid fa-spa"></i></div>
@@ -678,7 +709,15 @@
                                 {% if s.duration_minutes %}{{ s.duration_minutes }} <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>{% else %}—{% endif %}
                             </p>
                         </div>
-                        <div class="svc-price">{{ s.price }} ETB</div>
+                        <div class="svc-price">
+                            {{ s.price }} ETB
+                            {% if salon.deposit_enabled and s.deposit_amount and s.deposit_amount|float > 0 %}
+                            <div style="font-size:0.7rem;font-weight:600;color:var(--muted);margin-top:2px;">
+                                <span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span>
+                                {{ s.deposit_amount }} ETB
+                            </div>
+                            {% endif %}
+                        </div>
                     </label>
                     {% endfor %}
                 </div>
@@ -781,7 +820,7 @@
                 </div>
             </div>
 
-            <!-- STEP 5: Confirm -->
+            <!-- STEP 5: Confirm (+ optional deposit) -->
             <div class="step-panel" data-step="5">
                 <h2 class="section-title">
                     <span class="step-num">5</span>
@@ -809,7 +848,52 @@
                         <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
                         <span class="val" id="sumPrice" style="color:var(--accent);">—</span>
                     </div>
+                    <div class="summary-row" id="sumDepositRow" style="display:none;">
+                        <span class="lbl"><span data-lang-am>ቅድሚያ ክፍያ</span><span data-lang-en>Deposit due</span></span>
+                        <span class="val" id="sumDeposit" style="color:#E65100;">—</span>
+                    </div>
                 </div>
+
+                {% if salon.deposit_enabled %}
+                <div id="depositBlock" style="display:none;margin-bottom:16px;">
+                    <div style="background:#FFF8E1;border:1px solid #FFE0B2;border-radius:14px;padding:14px;margin-bottom:12px;">
+                        <div style="font-weight:700;margin-bottom:8px;color:#E65100;">
+                            <i class="fa-solid fa-money-bill-transfer me-1"></i>
+                            <span data-lang-am>ቅድሚያ ክፍያ ያስፈልጋል</span>
+                            <span data-lang-en>Deposit required</span>
+                        </div>
+                        <p class="small text-muted mb-2" style="margin:0;">
+                            <span data-lang-am>ከታች ካሉት የክፍያ ዘዴዎች አንዱን ይምረጡ፣ ይክፈሉ፣ ከዚያ የክፍያ ማረጋገጫ screenshot ይስቀሉ።</span>
+                            <span data-lang-en>Choose a payment method below, pay the deposit, then upload a screenshot of the payment.</span>
+                        </p>
+                        {% if salon.payment_methods %}
+                        <div class="mb-2">
+                            {% for m in salon.payment_methods %}
+                            <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:#fff;">
+                                <input type="radio" name="payment_method" value="{{ m.name }}" style="margin-top:4px;" {% if loop.first %}checked{% endif %}>
+                                <div>
+                                    <div style="font-weight:700;">{{ m.name }}</div>
+                                    {% if m.account %}<div style="font-size:0.9rem;font-weight:600;color:var(--accent);">{{ m.account }}</div>{% endif %}
+                                    {% if m.instructions %}<div class="small text-muted">{{ m.instructions }}</div>{% endif %}
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="small text-muted">
+                            <span data-lang-am>የክፍያ ዘዴ አልተቀናበረም — ሳሎኑን በስልክ ያግኙ።</span>
+                            <span data-lang-en>No payment methods configured — please call the salon.</span>
+                        </p>
+                        {% endif %}
+                        <label class="form-label">
+                            <span data-lang-am>የክፍያ screenshot</span>
+                            <span data-lang-en>Payment screenshot</span>
+                        </label>
+                        <input type="file" name="payment_screenshot" id="paymentScreenshot" accept="image/*" class="form-control">
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="step-nav">
                     <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
                     <button type="submit" class="btn-next">
@@ -947,6 +1031,19 @@ function refreshSummary() {
     document.getElementById('sumWhen').textContent = date + (when ? ' · ' + when : '');
     document.getElementById('sumName').textContent = name;
     document.getElementById('sumPrice').textContent = svc ? (svc.dataset.price + ' ETB') : '—';
+    const dep = svc ? parseFloat(svc.dataset.deposit || '0') : 0;
+    const depRow = document.getElementById('sumDepositRow');
+    const depVal = document.getElementById('sumDeposit');
+    const depBlock = document.getElementById('depositBlock');
+    const depositOn = {{ 'true' if salon.deposit_enabled else 'false' }};
+    if (depositOn && dep > 0) {
+        if (depRow) depRow.style.display = 'flex';
+        if (depVal) depVal.textContent = dep + ' ETB';
+        if (depBlock) depBlock.style.display = 'block';
+    } else {
+        if (depRow) depRow.style.display = 'none';
+        if (depBlock) depBlock.style.display = 'none';
+    }
 }
 
 /* Gallery filter */
@@ -1094,6 +1191,19 @@ document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
     if (!document.getElementById('appointmentTimeHidden').value) {
         e.preventDefault();
         alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
+        return;
+    }
+    const svc = document.querySelector('input[name="service_id"]:checked');
+    const dep = svc ? parseFloat(svc.dataset.deposit || '0') : 0;
+    const depositOn = {{ 'true' if salon.deposit_enabled else 'false' }};
+    if (depositOn && dep > 0) {
+        const shot = document.getElementById('paymentScreenshot');
+        if (!shot || !shot.files || !shot.files.length) {
+            e.preventDefault();
+            alert(document.documentElement.lang === 'en'
+                ? 'Please upload a payment screenshot.'
+                : 'እባክዎ የክፍያ screenshot ይስቀሉ።');
+        }
     }
 });
 

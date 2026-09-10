@@ -1044,6 +1044,7 @@
                             <th><span data-lang-am>ስም</span><span data-lang-en>Name</span></th>
                             <th><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></th>
                             <th><span data-lang-am>ርዝመት</span><span data-lang-en>Duration</span></th>
+<th><span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span></th>
                             <th></th>
                         </tr>
                     </thead>
@@ -1054,6 +1055,17 @@
                             <td data-label="ዋጋ / Price">{{ s.price }} ETB</td>
                             <td data-label="ርዝመት / Duration">{{ s.duration_minutes }}
                                 <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>
+                            </td>
+                            <td data-label="ቅድሚያ / Deposit">
+                                <form action="/update-service-deposit" method="post" class="d-flex align-items-center gap-1">
+                                    <input type="hidden" name="service_id" value="{{ s.id }}">
+                                    <input type="number" name="deposit_amount" min="0" step="1"
+                                           value="{{ s.deposit_amount or 0 }}"
+                                           class="form-control form-control-sm" style="width:88px;">
+                                    <button type="submit" class="btn btn-sm btn-outline-soft py-0 px-2" title="Save deposit">
+                                        <i class="fa-solid fa-check"></i>
+                                    </button>
+                                </form>
                             </td>
                             <td class="text-end">
                                 <form action="/delete-service" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete service?':'አገልግሎቱን ማጥፋት እርግጠኛ ነዎት?')">
@@ -1650,6 +1662,78 @@
                                 <span data-lang-am>ጨምር</span><span data-lang-en>Add</span>
                             </button>
                         </div>
+                    </div>
+                </form>
+            </div>
+
+            <hr class="my-4">
+
+
+            <!-- Optional deposit / advance payment -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="fa-solid fa-money-bill-transfer" style="color:var(--accent);"></i>
+                    <h5 class="fw-bold mb-0" style="font-size:1rem;">
+                        <span data-lang-am>ቅድሚያ ክፍያ (Deposit)</span>
+                        <span data-lang-en>Deposit (optional)</span>
+                    </h5>
+                </div>
+                <p class="small text-muted mb-3">
+                    <span data-lang-am>ከፈለጉ ደንበኞች ቀጠሮ ሲያዙ ቅድሚያ ክፍያ እንዲከፍሉ ማድረግ ይችላሉ። ለእያንዳንዱ አገልግሎት መጠኑን በ«አገልግሎቶች» ትር ላይ ያስተካክሉ።</span>
+                    <span data-lang-en>Optionally require a deposit when customers book online. Set the amount per service on the Services tab.</span>
+                </p>
+
+                <form action="/settings/deposit" method="post" class="d-flex align-items-center gap-3 flex-wrap mb-3 p-3 rounded-3" style="border:1px solid var(--border);background:#fff;">
+                    <label class="form-check m-0">
+                        <input type="checkbox" name="deposit_enabled" value="1" class="form-check-input"
+                               {% if salon.deposit_enabled %}checked{% endif %}
+                               onchange="this.form.submit()">
+                        <span class="form-check-label fw-semibold">
+                            <span data-lang-am>ቅድሚያ ክፍያ አንቃ</span>
+                            <span data-lang-en>Enable deposit</span>
+                        </span>
+                    </label>
+                    <span class="small text-muted">
+                        {% if salon.deposit_enabled %}
+                        <span class="text-success fw-bold"><span data-lang-am>በርቷል</span><span data-lang-en>ON</span></span>
+                        {% else %}
+                        <span data-lang-am>ጠፍቷል</span><span data-lang-en>OFF</span>
+                        {% endif %}
+                    </span>
+                </form>
+
+                <form action="/settings/payment-methods" method="post" class="p-3 rounded-3" style="border:1px solid var(--border);background:#faf8f5;">
+                    <label class="form-label small text-muted fw-semibold">
+                        <span data-lang-am>የክፍያ ዘዴዎች (Telebirr, CBE, Awash, አቢሲኒያ…)</span>
+                        <span data-lang-en>Payment methods (Telebirr, CBE, Awash, Abyssinia…)</span>
+                    </label>
+                    <div id="paymentMethodsList">
+                        {% set methods = salon.payment_methods if salon.payment_methods else [{'name':'Telebirr','account':'','instructions':''},{'name':'CBE Birr','account':'','instructions':''}] %}
+                        {% for m in methods %}
+                        <div class="row g-2 mb-2 payment-method-row">
+                            <div class="col-12 col-md-3">
+                                <input type="text" name="method_names" class="form-control form-control-sm" placeholder="Name" value="{{ m.name or '' }}">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <input type="text" name="method_accounts" class="form-control form-control-sm" placeholder="Account / phone" value="{{ m.account or '' }}">
+                            </div>
+                            <div class="col-12 col-md-5">
+                                <input type="text" name="method_notes" class="form-control form-control-sm" placeholder="Note (optional)" value="{{ m.instructions or '' }}">
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-soft mb-2" onclick="addPaymentMethodRow()">
+                        <i class="fa-solid fa-plus me-1"></i>
+                        <span data-lang-am>ዘዴ ጨምር</span>
+                        <span data-lang-en>Add method</span>
+                    </button>
+                    <div>
+                        <button type="submit" class="btn btn-accent btn-sm">
+                            <i class="fa-solid fa-save me-1"></i>
+                            <span data-lang-am>አስቀምጥ</span>
+                            <span data-lang-en>Save methods</span>
+                        </button>
                     </div>
                 </form>
             </div>

@@ -124,6 +124,45 @@ def _ensure_photo_columns():
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE gallery_images ADD COLUMN category {str_type}"))
 
+    # Salon deposit settings
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "deposit_enabled" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE salons ADD COLUMN deposit_enabled INTEGER DEFAULT 0"))
+    if salon_cols and "payment_methods" not in salon_cols:
+        with engine.begin() as conn:
+            dialect = engine.dialect.name
+            jtype = "JSON" if dialect == "postgresql" else "TEXT"
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN payment_methods {jtype}"))
+
+    # Service deposit_amount
+    try:
+        svc_cols = [c["name"] for c in inspector.get_columns("services")]
+    except Exception:
+        svc_cols = []
+    if svc_cols and "deposit_amount" not in svc_cols:
+        with engine.begin() as conn:
+            dialect = engine.dialect.name
+            ntype = "NUMERIC(10,2)" if dialect == "postgresql" else "REAL"
+            conn.execute(text(f"ALTER TABLE services ADD COLUMN deposit_amount {ntype} DEFAULT 0"))
+
+    # Appointment payment fields
+    try:
+        appt_cols = [c["name"] for c in inspector.get_columns("appointments")]
+    except Exception:
+        appt_cols = []
+    for col, coltype in [
+        ("deposit_amount", "NUMERIC(10,2)" if engine.dialect.name == "postgresql" else "REAL"),
+        ("payment_method", str_type),
+        ("payment_screenshot_url", str_type),
+    ]:
+        if appt_cols and col not in appt_cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col} {coltype}"))
+
 
 _ensure_photo_columns()
 
@@ -1645,6 +1684,74 @@ def delete_staff(
     return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
 
 
+
+# ---------------------------------------------------------------------------
+# Deposit / payment settings (salon owner)
+# ---------------------------------------------------------------------------
+@app.post("/settings/deposit")
+async def settings_deposit(
+    deposit_enabled: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    salon.deposit_enabled = 1 if deposit_enabled in ("1", "on", "true", "yes") else 0
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/settings/payment-methods")
+async def settings_payment_methods(
+    method_names: List[str] = Form(default=[]),
+    method_accounts: List[str] = Form(default=[]),
+    method_notes: List[str] = Form(default=[]),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    methods = []
+    for i, name in enumerate(method_names):
+        name = (name or "").strip()
+        if not name:
+            continue
+        account = method_accounts[i].strip() if i < len(method_accounts) else ""
+        notes = method_notes[i].strip() if i < len(method_notes) else ""
+        methods.append({"name": name, "account": account, "instructions": notes})
+    salon.payment_methods = methods
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/update-service-deposit")
+def update_service_deposit(
+    service_id: int = Form(...),
+    deposit_amount: float = Form(0),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
+    if svc:
+        svc.deposit_amount = max(0, float(deposit_amount or 0))
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/confirm-deposit-payment")
+def confirm_deposit_payment(
+    appointment_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Owner marks a pending-payment booking as confirmed after verifying screenshot."""
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if appt and appt.status == AppointmentStatus.pending_payment:
+        appt.status = AppointmentStatus.confirmed
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+
 # ---------------------------------------------------------------------------
 # Public customer-facing booking page
 # ---------------------------------------------------------------------------
@@ -1726,6 +1833,8 @@ async def public_booking_submit(
     service_id: int = Form(...),
     staff_id: int = Form(...),
     appointment_time: str = Form(...),
+    payment_method: Optional[str] = Form(None),
+    payment_screenshot: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
@@ -1772,6 +1881,37 @@ async def public_booking_submit(
         })
         return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
+    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
+    deposit_amt = float(svc.deposit_amount or 0) if svc else 0.0
+    needs_deposit = bool(salon.deposit_enabled) and deposit_amt > 0
+
+    screenshot_url = None
+    pay_method = (payment_method or "").strip() or None
+    if needs_deposit:
+        if not payment_screenshot or not payment_screenshot.filename:
+            params = urlencode({
+                "error": "deposit_required",
+                "conflict_name": customer_name,
+                "conflict_phone": customer_phone,
+                "conflict_service": service_id,
+                "conflict_staff": staff_id,
+                "conflict_time": appointment_time,
+            })
+            return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+        try:
+            screenshot_url = _save_upload(
+                payment_screenshot,
+                subfolder=f"payments/{salon.id}",
+                salon_id=salon.id,
+            )
+        except ValueError:
+            params = urlencode({"error": "invalid_image"})
+            return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    appt_status = (
+        AppointmentStatus.pending_payment if needs_deposit else AppointmentStatus.confirmed
+    )
+
     appt = Appointment(
         salon_id=salon.id,
         customer_name=customer_name,
@@ -1779,8 +1919,11 @@ async def public_booking_submit(
         service_id=service_id,
         staff_id=staff_id,
         appointment_datetime=appt_dt,
-        status=AppointmentStatus.confirmed,
+        status=appt_status,
         source="online",
+        deposit_amount=deposit_amt if needs_deposit else 0,
+        payment_method=pay_method,
+        payment_screenshot_url=screenshot_url,
     )
     db.add(appt)
     db.commit()
@@ -1798,10 +1941,15 @@ async def public_booking_submit(
             "staff_name": appt.staff_name,
             "status": appt.status.value,
             "source": appt.source,
+            "deposit_amount": float(appt.deposit_amount or 0),
         },
     })
 
-    return RedirectResponse(url=f"/book/{salon_id}?success=1", status_code=status.HTTP_303_SEE_OTHER)
+    success_flag = "pending_payment" if needs_deposit else "1"
+    return RedirectResponse(
+        url=f"/book/{salon_id}?success={success_flag}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @app.post("/book/{salon_id}/waitlist")

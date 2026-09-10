@@ -14,6 +14,7 @@ class AppointmentStatus(str, enum.Enum):
     completed = "Completed"
     no_show = "No-Show"
     cancelled = "Cancelled"
+    pending_payment = "Pending Payment"
 
 
 class Salon(Base):
@@ -23,7 +24,7 @@ class Salon(Base):
     name = Column(String(120), nullable=False)
     owner_name = Column(String(120), nullable=False)
     phone = Column(String(30), unique=True, nullable=False, index=True)
-    address = Column(String(255), nullable=True)  # physical location shown on public booking
+    address = Column(String(255), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -34,8 +35,13 @@ class Salon(Base):
     closing_time = Column(Time, nullable=False, default=datetime.time(20, 0))
     working_days = Column(String(20), nullable=False, default="0,1,2,3,4,5")
 
-    # Cover photo (building / exterior) shown on the public booking page hero
     cover_photo_url = Column(String(500), nullable=True)
+
+    # Optional deposit / advance payment
+    deposit_enabled = Column(Integer, nullable=False, default=0)  # 0/1
+    # JSON list of payment methods, e.g.
+    # [{"name":"Telebirr","account":"09...","instructions":"..."}, ...]
+    payment_methods = Column(JSON, nullable=True)
 
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
     staff_members = relationship("Staff", back_populates="salon", cascade="all, delete-orphan")
@@ -49,7 +55,7 @@ class Salon(Base):
     )
 
     @property
-    def working_days_set(self) -> set[int]:
+    def working_days_set(self) -> set:
         raw = (self.working_days or "").strip()
         if not raw:
             return {0, 1, 2, 3, 4, 5, 6}
@@ -57,7 +63,6 @@ class Salon(Base):
 
     @property
     def hours_label(self) -> str:
-        """Ethiopian-style working hours, e.g. 'ጧት 2:00 – ማታ 2:00'"""
         def _fmt(t):
             total = (t.hour * 60 + t.minute - 360) % 1440
             eh, em = total // 60, total % 60
@@ -78,16 +83,18 @@ class Salon(Base):
         days = sorted(self.working_days_set)
         return "፣ ".join(names[d] for d in days if 0 <= d <= 6)
 
+    @property
+    def deposit_on(self) -> bool:
+        return bool(self.deposit_enabled)
+
 
 class GalleryImage(Base):
-    """Work-sample / interior photos shown on the public booking page gallery."""
     __tablename__ = "gallery_images"
 
     id = Column(Integer, primary_key=True, index=True)
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     image_url = Column(String(500), nullable=False)
     caption = Column(String(200), nullable=True)
-    # nails | manicure | pedicure | massage | facial | hair | other
     category = Column(String(40), nullable=True, default="other")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -95,7 +102,6 @@ class GalleryImage(Base):
 
 
 class Testimonial(Base):
-    """Client reviews / famous clients shown on the public booking page."""
     __tablename__ = "testimonials"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -105,19 +111,18 @@ class Testimonial(Base):
     rating = Column(Integer, nullable=False, default=5)
     service_label = Column(String(120), nullable=True)
     client_photo_url = Column(String(500), nullable=True)
-    is_pinned = Column(Integer, nullable=False, default=0)  # 0/1 for SQLite-friendly bool
+    is_pinned = Column(Integer, nullable=False, default=0)
     is_celebrity = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class MediaAsset(Base):
-    """Binary image storage so photos survive redeploys (ephemeral disk)."""
     __tablename__ = "media_assets"
 
-    id = Column(String(36), primary_key=True)  # uuid hex
+    id = Column(String(36), primary_key=True)
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=True, index=True)
     content_type = Column(String(80), nullable=False, default="image/jpeg")
-    data = Column(Text, nullable=False)  # base64-encoded bytes
+    data = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -129,6 +134,8 @@ class Service(Base):
     name = Column(String(120), nullable=False)
     price = Column(Numeric(10, 2), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
+    # Optional deposit amount for this service (ETB). NULL/0 = no deposit for this service
+    deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
 
     salon = relationship("Salon", back_populates="services")
 
@@ -139,27 +146,10 @@ class Staff(Base):
     id = Column(Integer, primary_key=True, index=True)
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     name = Column(String(120), nullable=False)
-
-    # Staff portrait shown on the public booking page staff picker.
-    # NULL = use generated avatar fallback in the template.
     photo_url = Column(String(500), nullable=True)
-
-    # NULL = inherit the salon's hours/days. Set = staff-specific override.
     opening_time = Column(Time, nullable=True)
     closing_time = Column(Time, nullable=True)
     working_days = Column(String(20), nullable=True)
-
-    # Per-day open/close overrides, e.g. {"0": {"open": "10:00", "close": "12:00"}}
-    # keyed by Python's date.weekday() as a string (0=Monday ... 6=Sunday).
-    # Lets a staff member work a short shift (2h, 6h, etc.) on a specific
-    # day instead of the same hours every working day. NULL/omitted day =
-    # falls back to this staff member's overall hours, then the salon's.
-    #
-    # NOTE: this column was added after the `staff` table already existed
-    # in production. main.py runs a one-time startup migration
-    # (_ensure_staff_day_hours_column) that ALTERs the existing table to
-    # add it, since Base.metadata.create_all() only creates missing
-    # tables and never alters existing ones.
     day_hours = Column(JSON, nullable=True)
 
     salon = relationship("Salon", back_populates="staff_members")
@@ -173,7 +163,7 @@ class Staff(Base):
         close_t = self.closing_time or salon.closing_time
         return open_t, close_t
 
-    def effective_working_days(self, salon: "Salon") -> set[int]:
+    def effective_working_days(self, salon: "Salon") -> set:
         if not self.working_days:
             return salon.working_days_set
         return {int(d) for d in self.working_days.split(",") if d.strip().isdigit()}
@@ -229,13 +219,17 @@ class Appointment(Base):
     source = Column(String(20), default="walk-in")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Deposit / payment proof
+    deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
+    payment_method = Column(String(80), nullable=True)
+    payment_screenshot_url = Column(String(500), nullable=True)
+
     salon = relationship("Salon", back_populates="appointments")
     service = relationship("Service")
     staff = relationship("Staff")
 
     @property
     def appointment_time(self) -> str:
-        """Ethiopian display, e.g. 'ጧት 3:15 ሰዓት'"""
         dt = self.appointment_datetime
         total = (dt.hour * 60 + dt.minute - 360) % 1440
         eh, em = total // 60, total % 60
