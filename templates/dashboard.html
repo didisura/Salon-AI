@@ -476,6 +476,37 @@
             color: var(--accent); font-weight: 700;
         }
 
+
+        .logo-mark {
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 8px;
+            border-radius: 20px;
+            background: #fff;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(156,107,63,0.12);
+            overflow: hidden;
+            padding: 10px;
+        }
+        .logo-mark img {
+            width: 100%;
+            height: auto;
+            max-height: 64px;
+            object-fit: contain;
+        }
+        .logo h2 {
+            color: var(--accent);
+        }
+        .logo small {
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
         /* ===== Mobile staff edit / modal fixes ===== */
         .modal-open .bottom-nav {
             display: none !important;
@@ -558,9 +589,11 @@
     <aside class="sidebar d-none d-md-flex">
         <div>
             <div class="logo">
-                <img src="/static/logo.png" alt="Melkegna" width="56" height="52" style="display:block;margin:0 auto;object-fit:contain;">
+                <div class="logo-mark">
+                    <img src="/static/logo.png" alt="Melkegna" width="72" height="52" style="display:block;margin:0 auto;object-fit:contain;">
+                </div>
                 <h2><span data-lang-am>መልከኛ</span><span data-lang-en>Melkegna</span></h2>
-                <small>MELKEGNA</small>
+                <small>BEAUTY. BUILT ON TRUST.</small>
             </div>
             <ul class="nav-menu">
                 <li class="{% if active_tab == 'home' %}active{% endif %}">
@@ -759,7 +792,7 @@
                 <span data-lang-en>Client booking link</span>
             </p>
             <div class="d-flex align-items-center gap-2">
-                <input type="text" id="bookingLinkInput" readonly value="{{ booking_url }}"
+                <input type="text" id="bookingLinkInput" readonly value="{{ booking_url or (request.base_url|string).rstrip('/') ~ '/book/' ~ (salon.slug or salon.id) }}"
                        class="form-control form-control-sm" style="background:#fff;font-family:monospace;">
                 <button type="button" onclick="copyBookingLink()" class="btn btn-accent btn-sm text-nowrap" id="copyBookingBtn">
                     <i class="fa-solid fa-copy me-1"></i> <span data-lang-am>ቅዳ</span><span data-lang-en>Copy</span>
@@ -2802,18 +2835,19 @@ function searchCustomers(q) {
         box.innerHTML = '<p class="text-muted small text-center py-3"><span data-lang-am>ስም ወይም ስልክ ይፃፉ…</span><span data-lang-en>Type a name or phone…</span></p>';
         return;
     }
-    fetch('/search-customers?q=' + encodeURIComponent(q))
+    fetch('/search-customer?q=' + encodeURIComponent(q))
         .then(r => r.json())
-        .then(rows => {
-            if (!rows || !rows.length) {
+        .then(data => {
+            const rows = (data && data.results) ? data.results : (Array.isArray(data) ? data : []);
+            if (!rows.length) {
                 box.innerHTML = '<p class="text-muted small text-center py-3"><span data-lang-am>ምንም አልተገኘም</span><span data-lang-en>No results</span></p>';
                 return;
             }
             box.innerHTML = '<table class="table align-middle mb-0"><tbody>' + rows.map(r =>
                 `<tr>
-                    <td class="fw-bold">${r.name || ''}</td>
-                    <td>${r.phone || ''}</td>
-                    <td class="search-result-day">${r.last_date || ''}</td>
+                    <td class="fw-bold">${r.customer_name || r.name || ''}</td>
+                    <td>${r.customer_phone || r.phone || ''}</td>
+                    <td class="search-result-day">${r.appointment_date || r.last_date || ''} ${r.day_am || ''}</td>
                 </tr>`
             ).join('') + '</tbody></table>';
         })
