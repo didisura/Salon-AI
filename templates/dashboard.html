@@ -153,6 +153,14 @@
         }
         .metric-card .label { color: var(--text-muted); font-size: 0.8rem; font-weight: 500; }
         .metric-card .value { font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
+        .metric-card .sub {
+            font-size: 0.72rem; font-weight: 600; margin-top: 4px;
+            display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+        }
+        .metric-card .sub .muted { color: var(--text-muted); font-weight: 500; }
+        .metric-card .sub .up { color: var(--green); }
+        .metric-card .sub .down { color: #C62828; }
+        .metric-card .sub .flat { color: var(--text-muted); }
         .icon-box {
             width: 34px; height: 34px; border-radius: 9px;
             display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
@@ -683,35 +691,51 @@
         <section class="metrics-grid">
             <div class="metric-card">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="label" data-lang-am>የዕለቱ ገቢ</span>
-                    <span class="label" data-lang-en>Today's revenue</span>
+                    <span class="label"><span data-lang-am>የዛሬ ገቢ</span><span data-lang-en>Today's revenue</span></span>
                     <div class="icon-box icon-rose"><i class="fa-solid fa-receipt"></i></div>
                 </div>
-                <div class="value">{{ "{:,.2f}".format(daily_rev) }} ETB</div>
+                <div class="value">{{ "{:,.0f}".format(daily_rev) }} <span style="font-size:0.85rem;font-weight:600;color:var(--text-muted);">ETB</span></div>
+                <div class="sub">
+                    <span class="muted"><span data-lang-am>ዛሬ የተጠናቀቁ</span><span data-lang-en>Completed today</span></span>
+                </div>
             </div>
             <div class="metric-card">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="label" data-lang-am>የዕለቱ ቀጠሮዎች</span>
-                    <span class="label" data-lang-en>Today's bookings</span>
+                    <span class="label"><span data-lang-am>የዛሬ ቀጠሮዎች</span><span data-lang-en>Today's bookings</span></span>
                     <div class="icon-box icon-green"><i class="fa-solid fa-calendar-check"></i></div>
                 </div>
                 <div class="value" id="metricTodayApptCount">{{ today_appt_count }}</div>
+                <div class="sub">
+                    <span class="muted"><span data-lang-am>ለዛሬ የታቀዱ</span><span data-lang-en>Scheduled for today</span></span>
+                </div>
             </div>
             <div class="metric-card">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="label" data-lang-am>ጠቅላላ ደንበኞች</span>
-                    <span class="label" data-lang-en>Total customers</span>
+                    <span class="label"><span data-lang-am>ደንበኞች</span><span data-lang-en>Customers</span></span>
                     <div class="icon-box icon-orange"><i class="fa-solid fa-user-group"></i></div>
                 </div>
                 <div class="value">{{ total_customers }}</div>
+                <div class="sub">
+                    <span class="muted"><span data-lang-am>ጠቅላላ</span><span data-lang-en>total</span></span>
+                    {% set growth = new_customers_month if new_customers_month is defined else 0 %}
+                    {% if growth > 0 %}
+                    <span class="up"><i class="fa-solid fa-arrow-trend-up"></i> +{{ growth }} <span data-lang-am>በዚህ ወር</span><span data-lang-en>this month</span></span>
+                    {% elif growth < 0 %}
+                    <span class="down"><i class="fa-solid fa-arrow-trend-down"></i> {{ growth }} <span data-lang-am>በዚህ ወር</span><span data-lang-en>this month</span></span>
+                    {% else %}
+                    <span class="flat">· <span data-lang-am>በዚህ ወር አዲስ የለም</span><span data-lang-en>no new this month</span></span>
+                    {% endif %}
+                </div>
             </div>
             <div class="metric-card">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="label" data-lang-am>ያልመጡ</span>
-                    <span class="label" data-lang-en>No-shows</span>
+                    <span class="label"><span data-lang-am>ያልመጡ</span><span data-lang-en>No-shows</span></span>
                     <div class="icon-box icon-dark"><i class="fa-solid fa-user-clock"></i></div>
                 </div>
                 <div class="value">{{ no_show_count_today }}</div>
+                <div class="sub">
+                    <span class="muted"><span data-lang-am>ዛሬ</span><span data-lang-en>today</span></span>
+                </div>
             </div>
         </section>
 
