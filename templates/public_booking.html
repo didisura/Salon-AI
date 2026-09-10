@@ -73,7 +73,6 @@
             font-size: 0.85rem;
         }
 
-        /* ---------- Hero cover photo ---------- */
         .hero-cover {
             position: relative;
             height: 280px;
@@ -121,7 +120,6 @@
             margin: 0;
         }
 
-        /* ---------- Work gallery ---------- */
         .gallery-section { margin: 22px 0 20px; }
         .gallery-section h2 {
             font-size: 1.02rem;
@@ -160,7 +158,6 @@
         .gallery-tile.placeholder i { font-size: 1.3rem; }
         .gallery-tile.placeholder span { font-size: 0.72rem; text-align: center; padding: 0 10px; color: #9C8A70; }
 
-        /* ---------- Staff photo picker ---------- */
         .staff-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
@@ -189,6 +186,8 @@
             border: 2px solid #E3D3C0;
             padding: 2px;
             transition: border-color .15s ease, box-shadow .15s ease;
+            background: #F6ECE1;
+            overflow: hidden;
         }
         .staff-photo-ring img {
             width: 100%;
@@ -196,7 +195,7 @@
             border-radius: 50%;
             object-fit: cover;
             display: block;
-            background: #F6ECE1;
+            background: #9C6B3F;
         }
         .staff-card input:checked ~ .staff-photo-ring {
             border-color: #9C6B3F;
@@ -216,6 +215,7 @@
             justify-content: center;
             font-size: 0.65rem;
             border: 2px solid #fff;
+            z-index: 2;
         }
         .staff-card input:checked ~ .staff-check { display: flex; }
         .staff-name {
@@ -226,7 +226,6 @@
         }
         .staff-card input:checked ~ .staff-name { color: #7E5530; }
 
-        /* ---------- Ethiopian time picker (single scrollable wheel, 15-min slots) ---------- */
         .eth-time-picker {
             background: #F6ECE1;
             border: 1px solid #E3D3C0;
@@ -307,7 +306,6 @@
 </head>
 <body>
 
-    <!-- ========== HERO COVER PHOTO ========== -->
     <div class="hero-cover {{ 'no-photo' if not salon.cover_photo_url else '' }}"
          {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}');"{% endif %}>
         <div class="hero-overlay">
@@ -319,7 +317,6 @@
 
     <div class="wrap">
 
-        <!-- ========== WORK GALLERY ========== -->
         <div class="gallery-section">
             <h2>የስራ ናሙናዎች</h2>
             <div class="gallery-scroll">
@@ -462,11 +459,13 @@
                     </select>
                 </div>
 
-                <!-- ========== VISUAL STAFF PHOTO PICKER ========== -->
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ባለሙያ</label>
                     <div class="staff-grid" id="staffGrid">
                         {% for st in staff_members %}
+                        {% set avatar_name = (st.name or 'S')|replace(' ', '+') %}
+                        {% set avatar_url = 'https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ avatar_name %}
+                        {% set photo_src = st.photo_url if (st.photo_url and st.photo_url|trim) else avatar_url %}
                         <label class="staff-card">
                             <input type="radio" name="staff_id" value="{{ st.id }}"
                                 data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
@@ -478,9 +477,12 @@
                             <span class="staff-check"><i class="fa-solid fa-check"></i></span>
                             <span class="staff-photo-ring">
                                 <img
-                                    src="{{ st.photo_url if st.photo_url else ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}"
+                                    class="staff-photo-img"
+                                    src="{{ photo_src }}"
                                     alt="{{ st.name }}"
-                                    onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name={{ st.name | urlencode }}';">
+                                    data-fallback="{{ avatar_url }}"
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer">
                             </span>
                             <span class="staff-name">{{ st.name }}</span>
                         </label>
@@ -488,7 +490,6 @@
                     </div>
                 </div>
 
-                <!-- ========== ETHIOPIAN TIME PICKER (SINGLE SCROLLABLE WHEEL, 15-MIN SLOTS) ========== -->
                 <div class="mb-3">
                     <label class="form-label small text-muted fw-semibold">ቀን</label>
                     <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
@@ -503,7 +504,6 @@
                         <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
                         <div class="eth-hint">ወደላይ/ታች ጠቅ አድርገው ይሸብልሉ ወይም ይንኩ (15 ደቂቃ ልዩነት)</div>
                     </div>
-                    <!-- Hidden field that the backend expects -->
                     <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
                     <p class="small text-muted mt-2 mb-0" id="staffHoursHint">የስራ ሰዓት፡ {{ hours_label }} • የስራ ቀናት፡ {{ days_label }}</p>
                 </div>
@@ -517,7 +517,15 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // ===== Ethiopian time conversion (client-side, mirrors backend) =====
+        document.querySelectorAll('img.staff-photo-img').forEach(function (img) {
+            img.addEventListener('error', function () {
+                var fb = img.getAttribute('data-fallback');
+                if (fb && img.src !== fb) {
+                    img.src = fb;
+                }
+            });
+        });
+
         function ethToWestern(period, displayH, minute) {
             let wh;
             if (period === 'ጧት') {
@@ -526,7 +534,7 @@
                 wh = displayH === 6 ? 12 : 12 + (displayH - 6);
             } else if (period === 'ማታ') {
                 wh = displayH === 12 ? 18 : 18 + displayH;
-            } else { // ለሊት
+            } else {
                 wh = displayH - 6;
             }
             return { hour: wh, minute: minute };
@@ -544,7 +552,6 @@
             return { period, hour: displayH, minute: em };
         }
 
-        // ===== Generic scroll-wheel picker (touch + mouse friendly, snaps to nearest item) =====
         const WHEEL_ITEM_HEIGHT = 42;
 
         function buildWheel(container, values, itemHeight) {
@@ -587,7 +594,6 @@
                 }, 110);
             }, { passive: true });
 
-            // Click an item to jump straight to it (works great with a mouse)
             items.forEach((it, i) => {
                 it.addEventListener('click', () => {
                     scrollToIndex(i, true);
@@ -595,7 +601,6 @@
                 });
             });
 
-            // Mouse drag-to-scroll (laptops/desktops don't fire touch events)
             let isDragging = false;
             let dragStartY = 0;
             let scrollStartTop = 0;
@@ -639,7 +644,6 @@
             };
         }
 
-        // ===== Single flat list of every 15-min Ethiopian time slot in the day =====
         function buildEthSlots() {
             const slots = [];
             for (let i = 0; i < 96; i++) {
@@ -679,7 +683,6 @@
                 hidden.value = '';
                 return;
             }
-            // Always include seconds so backend _parse_appt_datetime accepts it
             hidden.value = `${dateVal}T${selectedHHMM}:00`;
         }
 
@@ -692,7 +695,6 @@
 
         document.getElementById('ethDate').addEventListener('change', updatePreviewAndHidden);
 
-        // Staff hours hint, driven by the checked staff radio card
         const dayNames = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
         function updateStaffHint() {
             const checked = document.querySelector('input[name="staff_id"]:checked');
@@ -714,7 +716,6 @@
             updateStaffHint();
             updatePreviewAndHidden();
 
-            // Pre-fill from conflict if present
             const conflictTime = "{{ conflict_time or '' }}";
             if (conflictTime) {
                 try {
@@ -730,7 +731,6 @@
             }
         });
 
-        // Ensure hidden is filled before submit
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
             updatePreviewAndHidden();
             if (!document.getElementById('appointmentTimeHidden').value) {

@@ -150,6 +150,10 @@ def _save_upload(file: UploadFile, subfolder: str = "") -> str:
 
 app = FastAPI(title="Melkegna Salon Platform")
 templates = Jinja2Templates(directory="templates")
+
+# Ensure static root exists before mounting (Railway / fresh deploys)
+Path("static").mkdir(parents=True, exist_ok=True)
+Path("static/uploads").mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
