@@ -320,6 +320,9 @@
         }
 
         /* ---------- Badges & toast ---------- */
+        .pending-pulse {
+            animation: livePulse 1.4s ease-in-out infinite;
+        }
         .badge-counter {
             background: #D32F2F; color: #fff; border-radius: 50px;
             padding: 2px 7px; font-size: 0.68rem; font-weight: 700;
@@ -491,6 +494,9 @@
                         <i class="fa-solid fa-house"></i>
                         <span data-lang-am>ዋና ገጽ</span><span data-lang-en>Home</span>
                         <span class="badge-counter ms-auto d-none" id="sidebarNewBookingBadge">0</span>
+                        {% if pending_payment_count is defined and pending_payment_count %}
+                        <span class="badge-counter pending-pulse ms-1" title="Pending payment">{{ pending_payment_count }}</span>
+                        {% endif %}
                     </a>
                 </li>
                 <li class="{% if active_tab == 'reserve' %}active{% endif %}">
@@ -806,16 +812,59 @@
                                             <span class="fw-bold" style="color:var(--accent);">{{ "{:,.2f}".format(appt.service_price) }} ETB</span>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-end">
-                                            <div>
-                                                <div class="fw-bold">{{ appt.customer_name }}</div>
+                                            <div style="flex:1;min-width:0;">
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <div class="fw-bold">{{ appt.customer_name }}</div>
+                                                    {% if appt.status.value == 'Pending Payment' %}
+                                                    <span class="badge" style="background:#D32F2F;font-size:0.68rem;">
+                                                        <i class="fa-solid fa-circle me-1" style="font-size:0.45rem;vertical-align:middle;"></i>
+                                                        <span data-lang-am>ክፍያ በመጠባበቅ</span>
+                                                        <span data-lang-en>Pending payment</span>
+                                                    </span>
+                                                    {% elif appt.source == 'online' and appt.payment_screenshot_url %}
+                                                    <span class="badge" style="background:#ED6C02;font-size:0.68rem;">
+                                                        <span data-lang-am>ቅድሚያ አለ</span>
+                                                        <span data-lang-en>Has deposit</span>
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
                                                 <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>{{ appt.customer_phone }}</div>
                                                 <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>{{ appt.service_name }} · {{ appt.staff_name }}</div>
+                                                {% if appt.payment_screenshot_url %}
+                                                <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+                                                    <a href="{{ appt.payment_screenshot_url }}" target="_blank" rel="noopener"
+                                                       class="btn btn-sm py-0 px-2"
+                                                       style="border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-weight:600;font-size:0.75rem;">
+                                                        <i class="fa-solid fa-image me-1"></i>
+                                                        <span data-lang-am>የክፍያ screenshot</span>
+                                                        <span data-lang-en>Payment proof</span>
+                                                    </a>
+                                                    {% if appt.deposit_amount %}
+                                                    <span class="small fw-bold" style="color:#E65100;">{{ appt.deposit_amount }} ETB</span>
+                                                    {% endif %}
+                                                    {% if appt.payment_method %}
+                                                    <span class="small text-muted">{{ appt.payment_method }}</span>
+                                                    {% endif %}
+                                                    {% if appt.status.value == 'Pending Payment' %}
+                                                    <form action="/confirm-deposit-payment" method="post" class="d-inline">
+                                                        <input type="hidden" name="appointment_id" value="{{ appt.id }}">
+                                                        <button type="submit" class="btn btn-sm py-0 px-2"
+                                                                style="background:var(--green);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.75rem;">
+                                                            <i class="fa-solid fa-check me-1"></i>
+                                                            <span data-lang-am>አረጋግጥ</span>
+                                                            <span data-lang-en>Confirm paid</span>
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+                                                </div>
+                                                {% endif %}
                                             </div>
                                             <form action="/update-appointment-status" method="post" id="status-form-{{ appt.id }}">
                                                 <input type="hidden" name="appointment_id" value="{{ appt.id }}">
                                                 <select name="status" id="status-select-{{ appt.id }}"
                                                         onchange="submitStatusAjax(this.form,'{{ appt.id }}')"
                                                         class="form-select form-select-sm fw-semibold" style="width:auto;">
+                                                    <option value="Pending Payment" {% if appt.status.value=='Pending Payment' %}selected{% endif %}>ክፍያ በመጠባበቅ / Pending</option>
                                                     <option value="Confirmed" {% if appt.status.value=='Confirmed' %}selected{% endif %}>ተያዘ / Confirmed</option>
                                                     <option value="Completed" {% if appt.status.value=='Completed' %}selected{% endif %}>ተሰርቷል / Completed</option>
                                                     <option value="No-Show" {% if appt.status.value=='No-Show' %}selected{% endif %}>አልመጣም / No-Show</option>
@@ -1715,7 +1764,14 @@
                                 <input type="text" name="method_names" class="form-control form-control-sm" placeholder="Name" value="{{ m.name or '' }}">
                             </div>
                             <div class="col-12 col-md-4">
-                                <input type="text" name="method_accounts" class="form-control form-control-sm" placeholder="Account / phone" value="{{ m.account or '' }}">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="method_accounts" class="form-control form-control-sm" placeholder="Account / phone" value="{{ m.account or '' }}">
+                                    {% if m.account %}
+                                    <button type="button" class="btn btn-outline-soft" onclick="copyText('{{ m.account|e }}', this)" title="Copy">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </div>
                             <div class="col-12 col-md-5">
                                 <input type="text" name="method_notes" class="form-control form-control-sm" placeholder="Note (optional)" value="{{ m.instructions or '' }}">
