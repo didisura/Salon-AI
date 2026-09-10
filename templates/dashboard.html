@@ -1063,10 +1063,14 @@
                 {% for st in staff_members %}
                 <div class="p-3 rounded-3" style="border:1px solid var(--border);background:var(--bg-cream);">
                     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
-                        <div>
-                            <div class="fw-bold">{{ st.name }}</div>
-                            <div class="text-muted small mt-1"><i class="fa-solid fa-clock me-1"></i>{{ st.hours_label }}</div>
-                            <div class="text-muted small"><i class="fa-solid fa-calendar-days me-1"></i>{{ st.working_days_label }}</div>
+                        <div class="d-flex align-items-center gap-3">
+                            <img src="{{ st.photo_url or ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}"
+                                 alt="{{ st.name }}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
+                            <div>
+                                <div class="fw-bold">{{ st.name }}</div>
+                                <div class="text-muted small mt-1"><i class="fa-solid fa-clock me-1"></i>{{ st.hours_label }}</div>
+                                <div class="text-muted small"><i class="fa-solid fa-calendar-days me-1"></i>{{ st.working_days_label }}</div>
+                            </div>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-soft" data-bs-toggle="modal" data-bs-target="#editStaffModal-{{ st.id }}">
@@ -1106,6 +1110,19 @@
                                     <span data-lang-am>የስራ ሰዓት</span><span data-lang-en>Schedule</span>
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="px-3 pt-3">
+                                <form action="/update-staff-photo" method="post" enctype="multipart/form-data"
+                                      class="d-flex align-items-center gap-3 flex-wrap pb-3 mb-1" style="border-bottom:1px dashed var(--border);">
+                                    <img src="{{ st.photo_url or ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}"
+                                         alt="{{ st.name }}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
+                                    <input type="hidden" name="staff_id" value="{{ st.id }}">
+                                    <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="max-width:190px;" required>
+                                    <button type="submit" class="btn btn-outline-soft btn-sm text-nowrap">
+                                        <i class="fa-solid fa-upload me-1"></i>
+                                        <span data-lang-am>ፎቶ ቀይር</span><span data-lang-en>Change photo</span>
+                                    </button>
+                                </form>
                             </div>
                             <form action="/update-staff-schedule" method="post" class="staff-schedule-form" data-staff-id="{{ st.id }}">
                                 <div class="modal-body">
@@ -1370,6 +1387,79 @@
                     <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
                 </button>
             </form>
+
+            <hr class="my-4">
+
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="fa-solid fa-images" style="color:var(--accent);"></i>
+                <h5 class="fw-bold mb-0">
+                    <span data-lang-am>የሳሎን ፎቶዎች</span>
+                    <span data-lang-en>Salon photos</span>
+                </h5>
+            </div>
+            <p class="small text-muted mb-3">
+                <span data-lang-am>እነዚህ ፎቶዎች ደንበኞችዎ በሚያዩት የቀጠሮ ገጽ ላይ ይታያሉ — የሽፋን ፎቶ (የሕንፃ/ውጪ እይታ) እና የስራ ናሙና ፎቶዎች (የሳሎን ውስጥ)።</span>
+                <span data-lang-en>These photos appear on the public booking page your customers see — a cover photo (building / exterior) and gallery photos (salon interior, work samples).</span>
+            </p>
+
+            <!-- Cover photo (building / exterior) -->
+            <div class="mb-4">
+                <label class="form-label small text-muted fw-semibold d-block">
+                    <span data-lang-am>የሽፋን ፎቶ (ሕንፃ / ውጪ እይታ)</span>
+                    <span data-lang-en>Cover photo (building / exterior view)</span>
+                </label>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div style="width:110px;height:80px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-cream);flex-shrink:0;">
+                        {% if salon.cover_photo_url %}
+                        <img src="{{ salon.cover_photo_url }}" alt="cover" style="width:100%;height:100%;object-fit:cover;">
+                        {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted"><i class="fa-solid fa-image"></i></div>
+                        {% endif %}
+                    </div>
+                    <form action="/upload-cover-photo" method="post" enctype="multipart/form-data" class="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
+                        <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="max-width:220px;" required>
+                        <button type="submit" class="btn btn-outline-soft btn-sm text-nowrap">
+                            <i class="fa-solid fa-upload me-1"></i>
+                            <span data-lang-am>ስቀል</span><span data-lang-en>Upload</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Gallery photos (interior / work samples) -->
+            <div class="mb-2">
+                <label class="form-label small text-muted fw-semibold d-block">
+                    <span data-lang-am>የስራ ናሙና / የሳሎን ውስጥ ፎቶዎች</span>
+                    <span data-lang-en>Work samples / salon interior photos</span>
+                </label>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    {% for img in salon.gallery_images %}
+                    <div style="position:relative;width:90px;height:90px;border-radius:10px;overflow:hidden;border:1px solid var(--border);">
+                        <img src="{{ img.image_url }}" alt="{{ img.caption or '' }}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                        <form action="/delete-gallery-photo" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete photo?':'ፎቶ ማጥፋት እርግጠኛ ነዎት?')"
+                              style="position:absolute;top:2px;right:2px;">
+                            <input type="hidden" name="image_id" value="{{ img.id }}">
+                            <button type="submit" class="btn btn-sm p-0 border-0" style="width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;line-height:1;">
+                                <i class="fa-solid fa-xmark" style="font-size:0.7rem;"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-0">
+                        <span data-lang-am>ገና ምንም ፎቶ አልተጨመረም።</span>
+                        <span data-lang-en>No photos added yet.</span>
+                    </p>
+                    {% endfor %}
+                </div>
+                <form action="/upload-gallery-photo" method="post" enctype="multipart/form-data" class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="max-width:220px;" required>
+                    <input type="text" name="caption" class="form-control form-control-sm" style="max-width:200px;" placeholder="ማብራሪያ (አማራጭ) / Caption (optional)">
+                    <button type="submit" class="btn btn-accent btn-sm text-nowrap">
+                        <i class="fa-solid fa-plus me-1"></i>
+                        <span data-lang-am>ጨምር</span><span data-lang-en>Add photo</span>
+                    </button>
+                </form>
+            </div>
 
             <hr class="my-4">
 
@@ -1662,7 +1752,7 @@
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form action="/add-staff" method="post">
+            <form action="/add-staff" method="post" enctype="multipart/form-data">
                 <div class="modal-header">
                     <h5 class="fw-bold m-0">
                         <span data-lang-am>አዲስ ሰራተኛ</span>
@@ -1676,6 +1766,16 @@
                             <span data-lang-am>ስም</span><span data-lang-en>Name</span>
                         </label>
                         <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold d-block">
+                            <span data-lang-am>የሰራተኛ ፎቶ</span><span data-lang-en>Staff photo</span>
+                        </label>
+                        <input type="file" name="photo" accept="image/*" class="form-control">
+                        <p class="small text-muted mt-1 mb-0">
+                            <span data-lang-am>ካልጫኑ በራስ-ሰር ምስል ይፈጠራል፤ ከኋላ ከ «ሰዓት» ቁልፍ ላይ መቀየር ይችላሉ።</span>
+                            <span data-lang-en>If skipped, a placeholder avatar is generated automatically — you can add a photo later from the Hours button.</span>
+                        </p>
                     </div>
                     <p class="small text-muted mb-0">
                         <span data-lang-am>ከተጨመረ በኋላ ከ «ሰዓት» ቁልፍ ላይ ለእያንዳንዱ ቀን የተለየ ሰዓት (2 ሰዓት፣ 6 ሰዓት ወዘተ) ማስተካከል ይችላሉ።</span>

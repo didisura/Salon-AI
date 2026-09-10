@@ -137,6 +137,45 @@ def _day_names(d: Optional[date]):
     return _DAY_NAMES_AM[idx], _DAY_NAMES_EN[idx]
 
 
+# ---------------------------------------------------------------------------
+# FIX: flexible appointment-datetime parser.
+#
+# The "book appointment" datetime string is produced by JS in
+# dashboard.html / public_booking.html (the Ethiopian scroll-wheel time
+# picker). That JS always appends seconds, e.g.:
+#
+#     hidden.value = bookDate + 'T' + wheelValue + ':00';
+#     // -> "2026-09-10T09:00:00"
+#
+# But every backend route used to parse it with:
+#
+#     datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+#
+# ...a format with NO seconds. strptime doesn't ignore trailing text, so
+# that mismatch throws:
+#
+#     ValueError: unconverted data remains: :00
+#
+# which FastAPI turns into a 500 Internal Server Error. This happened on
+# every booking attempt through the wheel picker (not just the
+# staff-unavailable path) — the "next available slot" quick-book buttons
+# happened to work because THAT value is built server-side without
+# seconds ("%Y-%m-%dT%H:%M"), so the two formats were silently
+# inconsistent depending on which UI path produced the string.
+#
+# This helper accepts BOTH formats so it doesn't matter which one a given
+# form field happens to send, now or in the future.
+# ---------------------------------------------------------------------------
+def _parse_appt_datetime(value: str) -> datetime:
+    value = (value or "").strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"Unrecognized appointment datetime format: {value!r}")
+
+
 @app.exception_handler(NotAuthenticatedException)
 async def not_authenticated_handler(request: Request, exc: NotAuthenticatedException):
     # Admin routes redirect to the admin login; everything else to salon login.
@@ -720,7 +759,7 @@ def dashboard(
         context["selected_day_en"] = sel_day_en
 
         if error == "conflict" and conflict_time and conflict_service and conflict_staff:
-            conflict_dt = datetime.strptime(conflict_time, "%Y-%m-%dT%H:%M")
+            conflict_dt = _parse_appt_datetime(conflict_time)
             c_duration = _service_duration(db, conflict_service)
             c_end = conflict_dt + timedelta(minutes=c_duration)
 
@@ -1044,7 +1083,12 @@ def book_appointment(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        params = urlencode({"tab": "home", "error": "invalid_time"})
+        return RedirectResponse(url=f"/dashboard?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
     duration = _service_duration(db, service_id)
     end_dt = appt_dt + timedelta(minutes=duration)
 
@@ -1174,7 +1218,11 @@ def convert_waitlist(
     if not entry:
         return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
 
-    appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=reserve&error=invalid_time", status_code=status.HTTP_303_SEE_OTHER)
+
     staff_id = entry.staff_id or db.query(Staff.id).filter(Staff.salon_id == salon.id).limit(1).scalar()
     staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
     c_duration = _service_duration(db, entry.service_id)
@@ -1298,7 +1346,7 @@ def public_booking_page(
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:
-        conflict_dt = datetime.strptime(conflict_time, "%Y-%m-%dT%H:%M")
+        conflict_dt = _parse_appt_datetime(conflict_time)
         c_duration = _service_duration(db, conflict_service)
         c_end = conflict_dt + timedelta(minutes=c_duration)
 
@@ -1339,7 +1387,19 @@ async def public_booking_submit(
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
 
-    appt_dt = datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        params = urlencode({
+            "error": "invalid_time",
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
     duration = _service_duration(db, service_id)
     end_dt = appt_dt + timedelta(minutes=duration)
 
