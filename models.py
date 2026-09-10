@@ -54,6 +54,8 @@ class Salon(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
+    # Public booking URL path: /book/{slug}
+    slug = Column(String(140), unique=True, nullable=True, index=True)
     owner_name = Column(String(120), nullable=False)
     phone = Column(String(30), unique=True, nullable=False, index=True)
     address = Column(String(255), nullable=True)

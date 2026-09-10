@@ -124,6 +124,20 @@ def _ensure_photo_columns():
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE gallery_images ADD COLUMN category {str_type}"))
 
+
+    # salon.slug for pretty public URLs /book/my-salon
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "slug" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN slug {str_type}"))
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_salons_slug ON salons (slug)"))
+            except Exception:
+                pass
+
     # Salon deposit settings
     try:
         salon_cols = [c["name"] for c in inspector.get_columns("salons")]
@@ -188,6 +202,22 @@ def _ensure_photo_columns():
 
 
 _ensure_photo_columns()
+
+def _ensure_salon_slugs():
+    """Assign missing slugs so /book/{name} works for existing salons."""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        salons = db.query(Salon).filter((Salon.slug == None) | (Salon.slug == "")).all()  # noqa: E711
+        for s in salons:
+            s.slug = _unique_slug(db, s.name, s.id)
+        if salons:
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
 
 
 def _content_type_for_ext(ext: str) -> str:
@@ -443,6 +473,47 @@ async def ws_salon(websocket: WebSocket, salon_id: int):
 # ---------------------------------------------------------------------------
 # Small helpers
 # ---------------------------------------------------------------------------
+
+def _slugify_name(name: str) -> str:
+    """ASCII URL slug from salon name (Amharic falls back to id-based)."""
+    import re
+    import unicodedata
+    text = (name or "").strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    text = re.sub(r"-+", "-", text).strip("-")
+    return text[:120] if text else ""
+
+
+def _unique_slug(db: Session, name: str, salon_id: Optional[int] = None) -> str:
+    base = _slugify_name(name)
+    if not base:
+        base = f"salon-{salon_id or 'new'}"
+    candidate = base
+    n = 2
+    while True:
+        q = db.query(Salon).filter(Salon.slug == candidate)
+        if salon_id:
+            q = q.filter(Salon.id != salon_id)
+        if not q.first():
+            return candidate
+        candidate = f"{base}-{n}"
+        n += 1
+
+
+def _resolve_salon(db: Session, salon_ref: str):
+    """Resolve /book/{ref} by slug first, then numeric id (legacy links)."""
+    salon_ref = (salon_ref or "").strip()
+    if not salon_ref:
+        return None
+    salon = db.query(Salon).filter(Salon.slug == salon_ref).first()
+    if salon:
+        return salon
+    if salon_ref.isdigit():
+        return db.query(Salon).filter(Salon.id == int(salon_ref)).first()
+    return None
+
 def _parse_date(value: Optional[str]) -> Optional[date]:
     if not value:
         return None
@@ -850,6 +921,8 @@ def register_salon(
         working_days=",".join(str(d) for d in day_ints),
     )
     db.add(salon)
+    db.flush()
+    salon.slug = _unique_slug(db, name, salon.id)
     db.commit()
 
     return RedirectResponse(url="/login?registered=1", status_code=status.HTTP_303_SEE_OTHER)
@@ -1102,7 +1175,7 @@ def dashboard(
         "pending_payment_appts": pending_payment_appts,
         "no_show_count_today": no_show_count_today,
         "error": error,
-        "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",
+        "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.slug or salon.id}",
         "testimonials": testimonials,
     }
 
@@ -1939,10 +2012,10 @@ def confirm_deposit_payment(
 # ---------------------------------------------------------------------------
 # Public customer-facing booking page
 # ---------------------------------------------------------------------------
-@app.get("/book/{salon_id}", response_class=HTMLResponse)
+@app.get("/book/{salon_ref}", response_class=HTMLResponse)
 def public_booking_page(
     request: Request,
-    salon_id: int,
+    salon_ref: str,
     error: Optional[str] = None,
     success: Optional[str] = None,
     waitlisted: Optional[str] = None,
@@ -1954,7 +2027,7 @@ def public_booking_page(
     conflict_time: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
 
@@ -1971,6 +2044,7 @@ def public_booking_page(
 
     context = {
         "salon": salon,
+        "salon_ref": salon.slug or str(salon.id),
         "services": services,
         "staff_members": staff_members,
         "current_date": date.today().isoformat(),
@@ -2011,9 +2085,9 @@ def public_booking_page(
     return templates.TemplateResponse(request, "public_booking.html", context)
 
 
-@app.post("/book/{salon_id}")
+@app.post("/book/{salon_ref}")
 async def public_booking_submit(
-    salon_id: int,
+    salon_ref: str,
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
     service_id: int = Form(...),
@@ -2023,9 +2097,11 @@ async def public_booking_submit(
     payment_screenshot: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
-    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
+    salon_id = salon.id
+    public_path = salon.slug or str(salon.id)
 
     try:
         appt_dt = _parse_appt_datetime(appointment_time)
@@ -2038,7 +2114,7 @@ async def public_booking_submit(
             "conflict_staff": staff_id,
             "conflict_time": appointment_time,
         })
-        return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     duration = _service_duration(db, service_id)
     end_dt = appt_dt + timedelta(minutes=duration)
@@ -2054,7 +2130,7 @@ async def public_booking_submit(
             "conflict_staff": staff_id,
             "conflict_time": appointment_time,
         })
-        return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
         params = urlencode({
@@ -2065,7 +2141,7 @@ async def public_booking_submit(
             "conflict_staff": staff_id,
             "conflict_time": appointment_time,
         })
-        return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
     deposit_amt = float(svc.deposit_amount or 0) if svc else 0.0
@@ -2083,7 +2159,7 @@ async def public_booking_submit(
                 "conflict_staff": staff_id,
                 "conflict_time": appointment_time,
             })
-            return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
         try:
             screenshot_url = _save_upload(
                 payment_screenshot,
@@ -2092,7 +2168,7 @@ async def public_booking_submit(
             )
         except ValueError:
             params = urlencode({"error": "invalid_image"})
-            return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
     # Deposit bookings are confirmed immediately so the slot is reserved.
     # The salon still sees the screenshot on the dashboard home and can cancel
@@ -2142,7 +2218,7 @@ async def public_booking_submit(
             db.rollback()
             params = urlencode({"error": "booking_failed"})
             return RedirectResponse(
-                url=f"/book/{salon_id}?{params}",
+                url=f"/book/{public_path}?{params}",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
@@ -2163,18 +2239,21 @@ async def public_booking_submit(
     })
 
     return RedirectResponse(
-        url=f"/book/{salon_id}?success=1&appt_id={appt.id}",
+        url=f"/book/{public_path}?success=1&appt_id={appt.id}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 
 
 
-@app.get("/book/{salon_id}/status/{appointment_id}")
-def public_booking_status(salon_id: int, appointment_id: int, db: Session = Depends(get_db)):
+@app.get("/book/{salon_ref}/status/{appointment_id}")
+def public_booking_status(salon_ref: str, appointment_id: int, db: Session = Depends(get_db)):
     """Customer polls this after deposit upload until the salon confirms payment."""
+    salon = _resolve_salon(db, salon_ref)
+    if not salon:
+        return JSONResponse({"ok": False, "status": "not_found"}, status_code=404)
     appt = (
         db.query(Appointment)
-        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon_id)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
         .first()
     )
     if not appt:
@@ -2190,9 +2269,9 @@ def public_booking_status(salon_id: int, appointment_id: int, db: Session = Depe
     })
 
 
-@app.post("/book/{salon_id}/waitlist")
+@app.post("/book/{salon_ref}/waitlist")
 def public_join_waitlist(
-    salon_id: int,
+    salon_ref: str,
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
     service_id: int = Form(...),
@@ -2200,9 +2279,10 @@ def public_join_waitlist(
     preferred_date: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
+    public_path = salon.slug or str(salon.id)
 
     db.add(Waitlist(
         salon_id=salon.id,
@@ -2214,7 +2294,7 @@ def public_join_waitlist(
     ))
     db.commit()
 
-    return RedirectResponse(url=f"/book/{salon_id}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=f"/book/{public_path}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)
 
 
 # ---------------------------------------------------------------------------

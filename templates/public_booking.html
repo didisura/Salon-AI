@@ -618,7 +618,7 @@
             </a>
             {% endif %}
             <div>
-                <a href="/book/{{ salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
+                <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
                     <span data-lang-am>ተመለስ</span>
                     <span data-lang-en>Back</span>
                 </a>
@@ -634,7 +634,7 @@
         <script>
         (function pollPaymentConfirm() {
             const apptId = {{ appt_id or 'null' }};
-            const salonId = {{ salon.id }};
+            const salonId = '{{ salon.slug or salon.id }}';
             if (!apptId) return;
             const pending = document.getElementById('pendingPaymentCard');
             const confirmed = document.getElementById('confirmedAfterPayCard');
@@ -682,7 +682,7 @@
             </a>
             {% endif %}
             <div>
-                <a href="/book/{{ salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
+                <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
                     <span data-lang-am>ሌላ ቀጠሮ ያዙ</span>
                     <span data-lang-en>Book another</span>
                 </a>
@@ -700,7 +700,7 @@
                 <span data-lang-am>ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</span>
                 <span data-lang-en>We’ll contact you when a slot opens.</span>
             </p>
-            <a href="/book/{{ salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
+            <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
                 <span data-lang-am>ተመለስ</span><span data-lang-en>Back</span>
             </a>
         </div>
@@ -732,7 +732,7 @@
                 <span data-lang-en>This time is taken. Choose an option:</span>
             </div>
             {% if next_slot %}
-            <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-1 mb-1">
+            <form action="/book/{{ salon.slug or salon.id }}" method="post" class="d-inline-block me-1 mb-1">
                 <input type="hidden" name="customer_name" value="{{ conflict_name }}">
                 <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
                 <input type="hidden" name="service_id" value="{{ conflict_service }}">
@@ -745,7 +745,7 @@
             </form>
             {% endif %}
             {% for alt in alt_staff %}
-            <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-1 mb-1">
+            <form action="/book/{{ salon.slug or salon.id }}" method="post" class="d-inline-block me-1 mb-1">
                 <input type="hidden" name="customer_name" value="{{ conflict_name }}">
                 <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
                 <input type="hidden" name="service_id" value="{{ conflict_service }}">
@@ -756,7 +756,7 @@
                 </button>
             </form>
             {% endfor %}
-            <form action="/book/{{ salon.id }}/waitlist" method="post" class="d-inline-block mb-1">
+            <form action="/book/{{ salon.slug or salon.id }}/waitlist" method="post" class="d-inline-block mb-1">
                 <input type="hidden" name="customer_name" value="{{ conflict_name }}">
                 <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
                 <input type="hidden" name="service_id" value="{{ conflict_service }}">
@@ -779,7 +779,7 @@
             <div class="dot" data-s="5"></div>
         </div>
 
-        <form action="/book/{{ salon.id }}" method="post" id="bookingForm" enctype="multipart/form-data">
+        <form action="/book/{{ salon.slug or salon.id }}" method="post" id="bookingForm" enctype="multipart/form-data">
 
             <!-- STEP 1: Service -->
             <div class="step-panel active" data-step="1">
