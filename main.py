@@ -990,6 +990,7 @@ def dashboard(
         "error": error,
         "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",
         "testimonials": testimonials,
+        "appt_id": appt_id,
     }
 
     if tab == "home":
@@ -1786,9 +1787,20 @@ def confirm_deposit_payment(
         .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
         .first()
     )
-    if appt and appt.status == AppointmentStatus.pending_payment:
-        appt.status = AppointmentStatus.confirmed
-        db.commit()
+    if appt:
+        st = getattr(appt.status, "value", str(appt.status))
+        if st in ("Pending Payment", "pending_payment", AppointmentStatus.pending_payment.value):
+            appt.status = AppointmentStatus.confirmed
+            db.commit()
+            # live notify salon dashboards
+            try:
+                import asyncio
+                asyncio.get_event_loop().create_task(manager.broadcast(salon.id, {
+                    "event": "payment_confirmed",
+                    "appointment_id": appt.id,
+                }))
+            except Exception:
+                pass
     return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1802,6 +1814,7 @@ def public_booking_page(
     error: Optional[str] = None,
     success: Optional[str] = None,
     waitlisted: Optional[str] = None,
+    appt_id: Optional[int] = None,
     conflict_name: Optional[str] = None,
     conflict_phone: Optional[str] = None,
     conflict_service: Optional[int] = None,
@@ -2019,18 +2032,38 @@ async def public_booking_submit(
         },
     })
 
-    is_pending = (
-        needs_deposit
-        and getattr(appt.status, "value", str(appt.status)) in (
-            "Pending Payment", AppointmentStatus.pending_payment.value
-            if hasattr(AppointmentStatus, "pending_payment") else "Pending Payment",
-        )
+    status_val = getattr(appt.status, "value", str(appt.status))
+    is_pending = needs_deposit and status_val in (
+        "Pending Payment",
+        getattr(AppointmentStatus.pending_payment, "value", "Pending Payment"),
     )
     success_flag = "pending_payment" if is_pending else "1"
     return RedirectResponse(
-        url=f"/book/{salon_id}?success={success_flag}",
+        url=f"/book/{salon_id}?success={success_flag}&appt_id={appt.id}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
+
+
+
+@app.get("/book/{salon_id}/status/{appointment_id}")
+def public_booking_status(salon_id: int, appointment_id: int, db: Session = Depends(get_db)):
+    """Customer polls this after deposit upload until the salon confirms payment."""
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon_id)
+        .first()
+    )
+    if not appt:
+        return JSONResponse({"ok": False, "status": "not_found"}, status_code=404)
+    st = getattr(appt.status, "value", str(appt.status))
+    return JSONResponse({
+        "ok": True,
+        "status": st,
+        "confirmed": st == "Confirmed" or st == AppointmentStatus.confirmed.value,
+        "customer_name": appt.customer_name,
+        "appointment_time": appt.appointment_time,
+        "service_name": appt.service_name,
+    })
 
 
 @app.post("/book/{salon_id}/waitlist")

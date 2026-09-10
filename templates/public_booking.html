@@ -31,7 +31,30 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Language */
+        function copyAccount(text, btn) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(function () {
+        if (!btn) return;
+        var old = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
+        setTimeout(function () { btn.innerHTML = old; }, 1200);
+    }).catch(function () {
+        // fallback
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        if (btn) {
+            var old = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
+            setTimeout(function () { btn.innerHTML = old; }, 1200);
+        }
+    });
+}
+
+/* Language */
         .lang-toggle {
             position: fixed; top: 12px; right: 12px; z-index: 2000;
             display: flex; align-items: center; gap: 6px;
@@ -553,19 +576,44 @@
     <!-- BOOKING -->
     <div class="book-card" id="bookingSection">
         {% if success == 'pending_payment' %}
-        <div class="confirm-card" style="border-color:#FFE0B2;background:linear-gradient(180deg,#FFF8E1 0%,#fff 50%);">
-            <div class="confirm-icon" style="background:#ED6C02;"><i class="fa-solid fa-receipt"></i></div>
+        <div id="pendingPaymentCard" class="confirm-card" style="border-color:#FFE0B2;background:linear-gradient(180deg,#FFF8E1 0%,#fff 50%);">
+            <div class="confirm-icon" style="background:#ED6C02;"><i class="fa-solid fa-hourglass-half"></i></div>
             <h3 style="color:#E65100;">
                 <span data-lang-am>ክፍያዎ ተልኳል!</span>
                 <span data-lang-en>Payment proof received!</span>
             </h3>
             <p class="thanks">
-                <span data-lang-am>ሳሎኑ ክፍያዎን ካረጋገጠ በኋላ ቀጠሮዎ ይረጋገጣል።</span>
-                <span data-lang-en>The salon will confirm your booking after verifying the payment.</span>
+                <span data-lang-am>ሳሎኑ ክፍያዎን እያረጋገጠ ነው… ትንሽ ይ ይጠብቁ።</span>
+                <span data-lang-en>The salon is verifying your payment… please wait a moment.</span>
+            </p>
+            <p class="sub" id="pendingWaitHint">
+                <i class="fa-solid fa-spinner fa-spin me-1"></i>
+                <span data-lang-am>በመጠባበቅ ላይ</span>
+                <span data-lang-en>Waiting for confirmation</span>
             </p>
             <p class="sub">{{ salon.name }}</p>
             {% if salon.phone %}
             <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
+                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
+            </a>
+            {% endif %}
+        </div>
+
+        <div id="confirmedAfterPayCard" class="confirm-card" style="display:none;border-color:#A5D6A7;box-shadow:0 0 0 0 rgba(46,125,50,0.45);animation:glowPulse 1.6s ease-in-out infinite;">
+            <div class="confirm-icon" style="background:var(--green);box-shadow:0 0 24px rgba(46,125,50,0.55);">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h3 style="color:#1B5E20;">
+                <span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span>
+                <span data-lang-en>Your booking is confirmed!</span>
+            </h3>
+            <p class="thanks" style="font-size:1.05rem;">
+                <span data-lang-am>ስለመረጡን እናመሰግናለን</span>
+                <span data-lang-en>Thanks for choosing us</span>
+            </p>
+            <p class="sub" id="confirmedApptMeta">{{ salon.name }}</p>
+            {% if salon.phone %}
+            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--green);color:var(--green);border-radius:10px;font-weight:600;">
                 <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
             </a>
             {% endif %}
@@ -576,8 +624,47 @@
                 </a>
             </div>
         </div>
+        <style>
+            @keyframes glowPulse {
+                0%   { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); }
+                50%  { box-shadow: 0 0 28px 6px rgba(46,125,50,0.35); }
+                100% { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); }
+            }
+        </style>
+        <script>
+        (function pollPaymentConfirm() {
+            const apptId = {{ appt_id or 'null' }};
+            const salonId = {{ salon.id }};
+            if (!apptId) return;
+            const pending = document.getElementById('pendingPaymentCard');
+            const confirmed = document.getElementById('confirmedAfterPayCard');
+            const meta = document.getElementById('confirmedApptMeta');
+            let tries = 0;
+            function tick() {
+                tries += 1;
+                fetch('/book/' + salonId + '/status/' + apptId)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.confirmed) {
+                            if (pending) pending.style.display = 'none';
+                            if (confirmed) confirmed.style.display = 'block';
+                            if (meta) {
+                                const bits = [];
+                                if (data.service_name) bits.push(data.service_name);
+                                if (data.appointment_time) bits.push(data.appointment_time);
+                                meta.textContent = (bits.join(' · ') || '') + (bits.length ? ' · ' : '') + '{{ salon.name | e }}';
+                            }
+                            return;
+                        }
+                        if (tries < 120) setTimeout(tick, 4000); // up to ~8 min
+                    })
+                    .catch(() => { if (tries < 120) setTimeout(tick, 5000); });
+            }
+            setTimeout(tick, 2500);
+        })();
+        </script>
 
-        {% elif success %}
+{% elif success %}
         <div class="confirm-card">
             <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
             <h3>
@@ -620,6 +707,12 @@
 
         {% else %}
 
+        {% if error == 'booking_failed' %}
+        <div class="alert alert-danger">
+            <span data-lang-am>ቀጠሮ ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።</span>
+            <span data-lang-en>Could not save booking. Please try again.</span>
+        </div>
+        {% endif %}
         {% if error == 'deposit_required' %}
         <div class="alert alert-warning">
             <span data-lang-am>እባክዎ የቅድሚያ ክፍያ ማረጋገጫ (screenshot) ይስቀሉ።</span>
@@ -871,10 +964,20 @@
                             {% for m in salon.payment_methods %}
                             <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:#fff;">
                                 <input type="radio" name="payment_method" value="{{ m.name }}" style="margin-top:4px;" {% if loop.first %}checked{% endif %}>
-                                <div>
+                                <div style="flex:1;min-width:0;">
                                     <div style="font-weight:700;">{{ m.name }}</div>
-                                    {% if m.account %}<div style="font-size:0.9rem;font-weight:600;color:var(--accent);">{{ m.account }}</div>{% endif %}
-                                    {% if m.instructions %}<div class="small text-muted">{{ m.instructions }}</div>{% endif %}
+                                    {% if m.account %}
+                                    <div class="d-flex align-items-center gap-2" style="margin-top:4px;">
+                                        <span style="font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.3px;">{{ m.account }}</span>
+                                        <button type="button" onclick="event.preventDefault();event.stopPropagation();copyAccount('{{ m.account|e }}', this)"
+                                                style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--accent);cursor:pointer;">
+                                            <i class="fa-regular fa-copy me-1"></i>
+                                            <span data-lang-am>ቅዳ</span>
+                                            <span data-lang-en>Copy</span>
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                    {% if m.instructions %}<div class="small text-muted mt-1">{{ m.instructions }}</div>{% endif %}
                                 </div>
                             </label>
                             {% endfor %}
@@ -944,6 +1047,29 @@
 </div>
 
 <script>
+function copyAccount(text, btn) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(function () {
+        if (!btn) return;
+        var old = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
+        setTimeout(function () { btn.innerHTML = old; }, 1200);
+    }).catch(function () {
+        // fallback
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        if (btn) {
+            var old = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
+            setTimeout(function () { btn.innerHTML = old; }, 1200);
+        }
+    });
+}
+
 /* Language */
 function toggleLang() {
     const html = document.documentElement;
