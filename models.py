@@ -255,6 +255,7 @@ class Appointment(Base):
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
     payment_method = Column(String(80), nullable=True)
     payment_screenshot_url = Column(String(500), nullable=True)
+    payment_reviewed = Column(Integer, nullable=False, default=0)  # 0=show on Home, 1=dismissed
 
     salon = relationship("Salon", back_populates="appointments")
     service = relationship("Service")

@@ -158,6 +158,7 @@ def _ensure_photo_columns():
         ("deposit_amount", "NUMERIC(10,2)" if engine.dialect.name == "postgresql" else "REAL"),
         ("payment_method", str_type),
         ("payment_screenshot_url", str_type),
+        ("payment_reviewed", "INTEGER DEFAULT 0"),
     ]:
         if appt_cols and col not in appt_cols:
             with engine.begin() as conn:
@@ -1043,6 +1044,7 @@ def dashboard(
             .filter(
                 Appointment.salon_id == salon.id,
                 Appointment.payment_screenshot_url.isnot(None),
+                Appointment.payment_reviewed != 1,
                 Appointment.status.notin_([
                     AppointmentStatus.cancelled,
                     AppointmentStatus.no_show,
@@ -1884,6 +1886,25 @@ def update_service_deposit(
         svc.deposit_amount = max(0, float(deposit_amount or 0))
         db.commit()
     return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
+
+
+
+@app.post("/dismiss-payment-proof")
+def dismiss_payment_proof(
+    appointment_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Remove a deposit screenshot from the Home review list (booking stays confirmed)."""
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if appt:
+        appt.payment_reviewed = 1
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.post("/confirm-deposit-payment")
