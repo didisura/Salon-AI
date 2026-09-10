@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import (
     Salon, Service, Staff, StaffDayOff, Appointment, Waitlist,
-    AppointmentStatus, GalleryImage, Testimonial,
+    AppointmentStatus, GalleryImage, Testimonial, MediaAsset,
 )
 from security import (
     hash_password,
@@ -128,12 +128,27 @@ def _ensure_photo_columns():
 _ensure_photo_columns()
 
 
-def _save_upload(file: UploadFile, subfolder: str = "") -> str:
-    """Save an uploaded image under static/uploads/ and return its public URL path.
+def _content_type_for_ext(ext: str) -> str:
+    return {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }.get(ext, "application/octet-stream")
 
-    Raises ValueError on invalid type / size so the route can return a
-    clean redirect instead of a 500.
+
+def _save_upload(file: UploadFile, subfolder: str = "", salon_id: Optional[int] = None) -> str:
+    """Persist an uploaded image in the database (survives redeploys).
+
+    Also writes a disk cache under static/uploads/ when possible.
+    Returns a stable public URL: /media/{id}
+
+    Raises ValueError on invalid type / size.
     """
+    import base64
+    from database import SessionLocal
+
     if not file or not file.filename:
         raise ValueError("No file provided")
 
@@ -145,16 +160,33 @@ def _save_upload(file: UploadFile, subfolder: str = "") -> str:
     if len(data) > MAX_IMAGE_BYTES:
         raise ValueError("Image too large (max 5 MB)")
 
-    dest_dir = UPLOAD_DIR / subfolder if subfolder else UPLOAD_DIR
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    asset_id = uuid.uuid4().hex
+    content_type = _content_type_for_ext(ext)
+    b64 = base64.b64encode(data).decode("ascii")
 
-    filename = f"{uuid.uuid4().hex}{ext}"
-    dest = dest_dir / filename
-    with open(dest, "wb") as f:
-        f.write(data)
+    # Primary store: database
+    db = SessionLocal()
+    try:
+        db.add(MediaAsset(
+            id=asset_id,
+            salon_id=salon_id,
+            content_type=content_type,
+            data=b64,
+        ))
+        db.commit()
+    finally:
+        db.close()
 
-    rel = f"uploads/{subfolder}/{filename}" if subfolder else f"uploads/{filename}"
-    return f"/static/{rel.replace('//', '/')}"
+    # Best-effort disk cache (optional; may vanish on redeploy)
+    try:
+        dest_dir = UPLOAD_DIR / subfolder if subfolder else UPLOAD_DIR
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        with open(dest_dir / f"{asset_id}{ext}", "wb") as f:
+            f.write(data)
+    except Exception:
+        pass
+
+    return f"/media/{asset_id}"
 
 
 app = FastAPI(title="Melkegna Salon Platform")
@@ -164,6 +196,27 @@ templates = Jinja2Templates(directory="templates")
 Path("static").mkdir(parents=True, exist_ok=True)
 Path("static/uploads").mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/media/{asset_id}")
+def serve_media(asset_id: str, db: Session = Depends(get_db)):
+    """Serve an image stored in the database (survives redeploys)."""
+    import base64
+    from fastapi.responses import Response
+
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if not asset:
+        return Response(status_code=404, content=b"Not found")
+    try:
+        raw = base64.b64decode(asset.data)
+    except Exception:
+        return Response(status_code=500, content=b"Corrupt image")
+    return Response(
+        content=raw,
+        media_type=asset.content_type or "image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
 
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
 SLOT_STEP_MINUTES = 15
@@ -804,6 +857,26 @@ def dashboard(
         or 0
     )
 
+    # New unique customers this calendar month (first-seen phone in this month)
+    month_start = day_start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Phones whose earliest appointment falls within this month
+    first_seen_subq = (
+        db.query(
+            Appointment.customer_phone.label("phone"),
+            func.min(Appointment.appointment_datetime).label("first_at"),
+        )
+        .filter(Appointment.salon_id == salon.id)
+        .group_by(Appointment.customer_phone)
+        .subquery()
+    )
+    new_customers_month = (
+        db.query(func.count())
+        .select_from(first_seen_subq)
+        .filter(first_seen_subq.c.first_at >= month_start)
+        .scalar()
+        or 0
+    )
+
     no_show_count_today = (
         db.query(func.count(Appointment.id))
         .filter(
@@ -833,6 +906,7 @@ def dashboard(
         "daily_rev": daily_rev,
         "today_appt_count": today_appt_count,
         "total_customers": total_customers,
+        "new_customers_month": new_customers_month,
         "no_show_count_today": no_show_count_today,
         "error": error,
         "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",
@@ -1395,7 +1469,7 @@ async def add_staff(
     photo_url = None
     if photo and photo.filename:
         try:
-            photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}")
+            photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}", salon_id=salon.id)
         except ValueError:
             photo_url = None
 
@@ -1423,7 +1497,7 @@ async def update_staff_photo(
         return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
 
     try:
-        staff.photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}")
+        staff.photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}", salon_id=salon.id)
         db.commit()
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=staff&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
@@ -1438,7 +1512,7 @@ async def upload_cover_photo(
     db: Session = Depends(get_db),
 ):
     try:
-        url = _save_upload(photo, subfolder=f"cover/{salon.id}")
+        url = _save_upload(photo, subfolder=f"cover/{salon.id}", salon_id=salon.id)
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -1456,7 +1530,7 @@ async def upload_gallery_photo(
     db: Session = Depends(get_db),
 ):
     try:
-        url = _save_upload(photo, subfolder=f"gallery/{salon.id}")
+        url = _save_upload(photo, subfolder=f"gallery/{salon.id}", salon_id=salon.id)
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -1490,7 +1564,7 @@ async def add_testimonial(
     photo_url = None
     if client_photo and client_photo.filename:
         try:
-            photo_url = _save_upload(client_photo, subfolder=f"testimonials/{salon.id}")
+            photo_url = _save_upload(client_photo, subfolder=f"testimonials/{salon.id}", salon_id=salon.id)
         except ValueError:
             photo_url = None
 

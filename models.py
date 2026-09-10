@@ -2,7 +2,7 @@ import enum
 import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Numeric, DateTime, Date, Time, ForeignKey, Enum, func, JSON
+    Column, Integer, String, Text, Numeric, DateTime, Date, Time, ForeignKey, Enum, func, JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -107,6 +107,17 @@ class Testimonial(Base):
     client_photo_url = Column(String(500), nullable=True)
     is_pinned = Column(Integer, nullable=False, default=0)  # 0/1 for SQLite-friendly bool
     is_celebrity = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MediaAsset(Base):
+    """Binary image storage so photos survive redeploys (ephemeral disk)."""
+    __tablename__ = "media_assets"
+
+    id = Column(String(36), primary_key=True)  # uuid hex
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=True, index=True)
+    content_type = Column(String(80), nullable=False, default="image/jpeg")
+    data = Column(Text, nullable=False)  # base64-encoded bytes
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
