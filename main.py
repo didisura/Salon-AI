@@ -994,7 +994,6 @@ def dashboard(
         "error": error,
         "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",
         "testimonials": testimonials,
-        "appt_id": appt_id,
     }
 
     if tab == "home":
@@ -1852,6 +1851,7 @@ def public_booking_page(
         "hours_label": salon.hours_label,
         "days_label": salon.working_days_label,
         "testimonials": testimonials,
+        "appt_id": appt_id,
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:
