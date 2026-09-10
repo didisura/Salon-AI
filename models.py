@@ -34,10 +34,19 @@ class Salon(Base):
     closing_time = Column(Time, nullable=False, default=datetime.time(20, 0))
     working_days = Column(String(20), nullable=False, default="0,1,2,3,4,5")
 
+    # Cover photo (building / exterior) shown on the public booking page hero
+    cover_photo_url = Column(String(500), nullable=True)
+
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
     staff_members = relationship("Staff", back_populates="salon", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="salon", cascade="all, delete-orphan")
     waitlist_entries = relationship("Waitlist", back_populates="salon", cascade="all, delete-orphan")
+    gallery_images = relationship(
+        "GalleryImage",
+        back_populates="salon",
+        cascade="all, delete-orphan",
+        order_by="GalleryImage.id",
+    )
 
     @property
     def working_days_set(self) -> set[int]:
@@ -70,6 +79,19 @@ class Salon(Base):
         return "፣ ".join(names[d] for d in days if 0 <= d <= 6)
 
 
+class GalleryImage(Base):
+    """Work-sample / interior photos shown on the public booking page gallery."""
+    __tablename__ = "gallery_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    image_url = Column(String(500), nullable=False)
+    caption = Column(String(200), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    salon = relationship("Salon", back_populates="gallery_images")
+
+
 class Service(Base):
     __tablename__ = "services"
 
@@ -88,6 +110,10 @@ class Staff(Base):
     id = Column(Integer, primary_key=True, index=True)
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     name = Column(String(120), nullable=False)
+
+    # Staff portrait shown on the public booking page staff picker.
+    # NULL = use generated avatar fallback in the template.
+    photo_url = Column(String(500), nullable=True)
 
     # NULL = inherit the salon's hours/days. Set = staff-specific override.
     opening_time = Column(Time, nullable=True)

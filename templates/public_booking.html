@@ -196,6 +196,7 @@
             border-radius: 50%;
             object-fit: cover;
             display: block;
+            background: #F6ECE1;
         }
         .staff-card input:checked ~ .staff-photo-ring {
             border-color: #9C6B3F;
@@ -476,7 +477,10 @@
                                 required>
                             <span class="staff-check"><i class="fa-solid fa-check"></i></span>
                             <span class="staff-photo-ring">
-                                <img src="{{ st.photo_url or ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}" alt="{{ st.name }}">
+                                <img
+                                    src="{{ st.photo_url if st.photo_url else ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}"
+                                    alt="{{ st.name }}"
+                                    onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name={{ st.name | urlencode }}';">
                             </span>
                             <span class="staff-name">{{ st.name }}</span>
                         </label>
@@ -675,7 +679,8 @@
                 hidden.value = '';
                 return;
             }
-            hidden.value = `${dateVal}T${selectedHHMM}`;
+            // Always include seconds so backend _parse_appt_datetime accepts it
+            hidden.value = `${dateVal}T${selectedHHMM}:00`;
         }
 
         const ethWheel = initEthSlotWheel(document.getElementById('wheelEth'), selectedHHMM, (hhmm, label) => {

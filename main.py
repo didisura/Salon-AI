@@ -8,17 +8,25 @@ from datetime import datetime, date, timedelta
 from typing import List, Optional
 from urllib.parse import urlencode
 
+import uuid
+from pathlib import Path
+
 from fastapi import (
-    FastAPI, Request, Depends, Form, WebSocket, WebSocketDisconnect, status
+    FastAPI, Request, Depends, Form, WebSocket, WebSocketDisconnect, status,
+    UploadFile, File,
 )
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
-from models import Salon, Service, Staff, StaffDayOff, Appointment, Waitlist, AppointmentStatus
+from models import (
+    Salon, Service, Staff, StaffDayOff, Appointment, Waitlist,
+    AppointmentStatus, GalleryImage,
+)
 from security import (
     hash_password,
     verify_password,
@@ -64,10 +72,85 @@ def _ensure_staff_day_hours_column():
         conn.execute(text(f"ALTER TABLE staff ADD COLUMN day_hours {col_type}"))
 
 
+
 _ensure_staff_day_hours_column()
+
+# ---------------------------------------------------------------------------
+# Photo uploads — local disk under static/uploads/
+# ---------------------------------------------------------------------------
+UPLOAD_DIR = Path("static/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+def _ensure_photo_columns():
+    """Idempotent startup migration for photo-related columns.
+
+    create_all() only creates missing TABLES — it never ALTERs existing
+    ones. Older deployments already have `salons` and `staff` without
+    cover_photo_url / photo_url, so we add those columns if missing.
+    GalleryImage is a new table and will be created by create_all().
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+    str_type = "VARCHAR(500)" if dialect == "postgresql" else "TEXT"
+
+    try:
+        staff_cols = [c["name"] for c in inspector.get_columns("staff")]
+    except Exception:
+        staff_cols = []
+    if staff_cols and "photo_url" not in staff_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE staff ADD COLUMN photo_url {str_type}"))
+
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "cover_photo_url" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN cover_photo_url {str_type}"))
+
+
+_ensure_photo_columns()
+
+
+def _save_upload(file: UploadFile, subfolder: str = "") -> str:
+    """Save an uploaded image under static/uploads/ and return its public URL path.
+
+    Raises ValueError on invalid type / size so the route can return a
+    clean redirect instead of a 500.
+    """
+    if not file or not file.filename:
+        raise ValueError("No file provided")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValueError("Invalid image type. Allowed: jpg, jpeg, png, webp, gif")
+
+    data = file.file.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("Image too large (max 5 MB)")
+
+    dest_dir = UPLOAD_DIR / subfolder if subfolder else UPLOAD_DIR
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest = dest_dir / filename
+    with open(dest, "wb") as f:
+        f.write(data)
+
+    rel = f"uploads/{subfolder}/{filename}" if subfolder else f"uploads/{filename}"
+    return f"/static/{rel.replace('//', '/')}"
+
 
 app = FastAPI(title="Melkegna Salon Platform")
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
 SLOT_STEP_MINUTES = 15
@@ -1281,13 +1364,21 @@ def delete_service(
 # Staff
 # ---------------------------------------------------------------------------
 @app.post("/add-staff")
-def add_staff(
+async def add_staff(
     name: str = Form(...),
+    photo: Optional[UploadFile] = File(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    photo_url = None
+    if photo and photo.filename:
+        try:
+            photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}")
+        except ValueError:
+            photo_url = None
+
     try:
-        db.add(Staff(salon_id=salon.id, name=name))
+        db.add(Staff(salon_id=salon.id, name=name, photo_url=photo_url))
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -1296,6 +1387,88 @@ def add_staff(
         return redirect
 
     return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/update-staff-photo")
+async def update_staff_photo(
+    staff_id: int = Form(...),
+    photo: UploadFile = File(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    if not staff:
+        return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        staff.photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}")
+        db.commit()
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=staff&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
+
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/upload-cover-photo")
+async def upload_cover_photo(
+    photo: UploadFile = File(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    try:
+        url = _save_upload(photo, subfolder=f"cover/{salon.id}")
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
+
+    salon.cover_photo_url = url
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/upload-gallery-photo")
+async def upload_gallery_photo(
+    photo: UploadFile = File(...),
+    caption: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    try:
+        url = _save_upload(photo, subfolder=f"gallery/{salon.id}")
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
+
+    db.add(GalleryImage(
+        salon_id=salon.id,
+        image_url=url,
+        caption=(caption or "").strip() or None,
+    ))
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-gallery-photo")
+def delete_gallery_photo(
+    image_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    img = (
+        db.query(GalleryImage)
+        .filter(GalleryImage.id == image_id, GalleryImage.salon_id == salon.id)
+        .first()
+    )
+    if img:
+        try:
+            if img.image_url and img.image_url.startswith("/static/"):
+                disk_path = Path(img.image_url[len("/static/"):])
+                full = Path("static") / disk_path
+                if full.is_file():
+                    full.unlink()
+        except Exception:
+            pass
+        db.delete(img)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.post("/delete-staff")
