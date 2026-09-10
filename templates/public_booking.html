@@ -2,13 +2,12 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ salon.name }} - ቀጠሮ ይያዙ</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
     <style>
         :root {
             --accent: #9C6B3F;
@@ -17,837 +16,1129 @@
             --border: #E3D3C0;
             --text: #2D2424;
             --muted: #7A6E6E;
+            --green: #2E7D32;
+            --star: #E6A817;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
-        body { background:#FFFFFF; font-family:'Noto Sans Ethiopic',sans-serif; min-height:100vh; color:var(--text); }
-        .wrap { max-width:480px; margin:0 auto; padding:0 20px 40px; }
-        .card-box { background:#fff; border:1px solid var(--border); border-radius:20px; padding:28px; }
-        .btn-rose { background:var(--accent); color:#fff; border:none; font-weight:600; min-height:44px; border-radius:12px; width:100%; }
-        .btn-rose:hover { background:var(--accent-hover); color:#fff; }
-        .btn-outline-rose { background:#fff; color:var(--accent); border:1px solid var(--accent); font-weight:600; border-radius:10px; }
-        .btn-outline-rose:hover { background:var(--cream); color:var(--accent); }
-        .form-control, .form-select { border-radius:10px; border:1px solid var(--border); background:#FFFFFF; min-height:44px; }
-        .form-control:focus, .form-select:focus { border-color:var(--accent); box-shadow:0 0 0 0.2rem rgba(156,107,63,0.12); }
+        * { box-sizing: border-box; }
+        body {
+            background: #FAFAF8;
+            font-family: 'Noto Sans Ethiopic', sans-serif;
+            min-height: 100vh;
+            color: var(--text);
+            margin: 0;
+            padding-bottom: calc(84px + var(--safe-bottom));
+            -webkit-tap-highlight-color: transparent;
+        }
 
-        .hours-strip, .location-strip {
-            display:flex; align-items:flex-start; gap:10px;
-            border:1px solid var(--border); border-radius:12px;
-            padding:12px 14px; margin-bottom:16px; font-size:.88rem; color:#5A4936;
+        /* Language */
+        .lang-toggle {
+            position: fixed; top: 12px; right: 12px; z-index: 2000;
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.94); border: 1px solid var(--border);
+            border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 0.78rem;
+            color: var(--accent); cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
         }
-        .hours-strip { background:var(--cream); align-items:center; }
-        .hours-strip i, .location-strip i { color:var(--accent); margin-top:2px; }
-        .location-strip a { color:var(--accent); font-weight:600; text-decoration:none; border-bottom:1px solid var(--border); }
-        .location-strip a:hover { border-color:var(--accent); }
+        [data-lang-en] { display: none; }
+        html[lang="en"] [data-lang-am] { display: none !important; }
+        html[lang="en"] [data-lang-en] { display: inline !important; }
+        html[lang="am"] [data-lang-am] { display: inline !important; }
+        html[lang="am"] [data-lang-en] { display: none !important; }
 
-        #salonMap { height:220px; width:100%; border-radius:12px; margin-top:10px; border:1px solid var(--border); z-index:1; }
-        .map-loading {
-            height:220px; display:flex; align-items:center; justify-content:center;
-            background:var(--cream); border-radius:12px; margin-top:10px; color:var(--muted); font-size:0.85rem;
-        }
+        .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 24px; }
 
         /* Hero */
-        .hero-cover {
-            position:relative; height:280px; width:100%;
-            background-size:cover; background-position:center; background-color:#5A4936;
+        .hero {
+            position: relative; height: 220px; width: 100%;
+            background-size: cover; background-position: center; background-color: #5A4936;
         }
-        .hero-cover.no-photo { background-image:linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%); }
+        .hero.no-photo { background-image: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%); }
         .hero-overlay {
-            position:absolute; inset:0;
-            background:linear-gradient(180deg, rgba(20,15,10,0.15) 0%, rgba(20,15,10,0.35) 55%, rgba(20,15,10,0.88) 100%);
-            display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
-            padding:22px 24px 24px; text-align:center;
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 100%);
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 18px 18px 16px;
         }
-        .hero-badge {
-            width:54px; height:54px; border-radius:50%;
-            background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.35);
-            display:flex; align-items:center; justify-content:center; margin-bottom:10px;
-        }
-        .hero-badge i { color:#F6ECE1; font-size:1.4rem; }
-        .hero-overlay h1 { color:#fff; font-weight:800; font-size:1.6rem; margin:0 0 4px; }
-        .hero-overlay p { color:#EADFD0; font-size:0.9rem; margin:0; }
+        .hero h1 { color: #fff; font-weight: 800; font-size: 1.45rem; margin: 0 0 2px; }
+        .hero .tagline { color: #EADFD0; font-size: 0.85rem; margin: 0; }
 
-        /* Section titles */
-        .section-head {
-            display:flex; align-items:center; justify-content:space-between;
-            margin:22px 0 12px; gap:8px;
+        /* Trust bar */
+        .trust-bar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+            background: #fff; border: 1px solid var(--border); border-radius: 14px;
+            padding: 12px 14px; margin: -28px 0 16px; position: relative; z-index: 2;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06); font-size: 0.82rem; font-weight: 600; color: #5A4936;
         }
-        .section-head h2 {
-            font-size:1.05rem; font-weight:700; color:var(--text); margin:0;
+        .trust-bar .sep { color: var(--border); font-weight: 400; }
+        .trust-bar .star { color: var(--star); }
+        .trust-bar i { color: var(--accent); }
+
+        /* Sections */
+        .section { margin-bottom: 20px; }
+        .section-title {
+            font-size: 1rem; font-weight: 700; margin: 0 0 12px; color: var(--text);
+            display: flex; align-items: center; gap: 8px;
         }
-        .section-head .count {
-            font-size:0.75rem; font-weight:600; color:var(--muted);
-            background:var(--cream); border:1px solid var(--border);
-            padding:3px 10px; border-radius:999px;
+        .section-title .step-num {
+            width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff;
+            font-size: 0.75rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
         }
 
-        /* Category filter chips */
-        .cat-filters {
-            display:flex; gap:8px; overflow-x:auto; padding-bottom:10px;
-            -webkit-overflow-scrolling:touch; scrollbar-width:none;
+        /* Category chips */
+        .cat-row {
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none;
         }
-        .cat-filters::-webkit-scrollbar { display:none; }
+        .cat-row::-webkit-scrollbar { display: none; }
         .cat-chip {
-            flex:0 0 auto; border:1px solid var(--border); background:#fff;
-            color:#5A4936; font-weight:600; font-size:0.78rem;
-            padding:7px 14px; border-radius:999px; cursor:pointer;
-            transition:all .15s ease; white-space:nowrap;
+            flex: 0 0 auto; border: 1px solid var(--border); background: #fff;
+            color: #5A4936; font-weight: 600; font-size: 0.78rem;
+            padding: 8px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
         }
-        .cat-chip i { margin-right:5px; font-size:0.75rem; }
-        .cat-chip:hover { border-color:var(--accent); color:var(--accent); }
-        .cat-chip.active {
-            background:var(--accent); border-color:var(--accent); color:#fff;
-            box-shadow:0 3px 10px rgba(156,107,63,0.25);
+        .cat-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        /* Gallery */
+        .gallery-row {
+            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch; padding-bottom: 4px;
+        }
+        .gallery-row::-webkit-scrollbar { height: 4px; }
+        .g-tile {
+            flex: 0 0 140px; height: 150px; border-radius: 14px; overflow: hidden;
+            scroll-snap-align: start; border: 1px solid var(--border); background: var(--cream);
+            position: relative; cursor: pointer;
+        }
+        .g-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .g-tile .badge {
+            position: absolute; left: 8px; bottom: 8px;
+            background: rgba(0,0,0,0.7); color: #fff; font-size: 0.65rem; font-weight: 700;
+            padding: 3px 8px; border-radius: 999px;
+        }
+        .g-tile.hidden { display: none; }
+        .g-empty {
+            flex: 1; text-align: center; padding: 24px; color: var(--muted); font-size: 0.85rem;
+            border: 1px dashed var(--border); border-radius: 14px; background: #fff;
         }
 
-        /* Work gallery */
-        .gallery-scroll {
-            display:flex; gap:10px; overflow-x:auto; padding-bottom:6px;
-            scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+        /* Reviews summary */
+        .reviews-card {
+            background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 16px;
         }
-        .gallery-scroll::-webkit-scrollbar { height:5px; }
-        .gallery-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
-        .gallery-tile {
-            flex:0 0 148px; height:168px; border-radius:14px; overflow:hidden;
-            scroll-snap-align:start; border:1px solid var(--border); background:var(--cream);
-            position:relative; cursor:pointer;
+        .rev-top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+        .rev-score { text-align: center; min-width: 72px; }
+        .rev-score .big { font-size: 2rem; font-weight: 800; color: var(--text); line-height: 1; }
+        .rev-score .stars { color: var(--star); font-size: 0.75rem; letter-spacing: 1px; margin: 4px 0; }
+        .rev-score .count { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+        .rev-bars { flex: 1; }
+        .rev-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.72rem; color: var(--muted); }
+        .rev-bar-row .lbl { width: 12px; text-align: right; font-weight: 700; }
+        .rev-bar-track { flex: 1; height: 6px; background: #F0E8DC; border-radius: 4px; overflow: hidden; }
+        .rev-bar-fill { height: 100%; background: var(--star); border-radius: 4px; }
+        .rev-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .rev-filter {
+            border: 1px solid var(--border); background: #fff; border-radius: 999px;
+            padding: 5px 12px; font-size: 0.72rem; font-weight: 600; color: #5A4936; cursor: pointer;
         }
-        .gallery-tile img { width:100%; height:100%; object-fit:cover; display:block; }
-        .gallery-tile .cat-badge {
-            position:absolute; left:8px; bottom:8px;
-            background:rgba(45,36,36,0.78); color:#fff;
-            font-size:0.65rem; font-weight:700; padding:3px 8px; border-radius:999px;
-            backdrop-filter:blur(4px);
-        }
-        .gallery-tile.placeholder {
-            display:flex; flex-direction:column; align-items:center; justify-content:center;
-            gap:6px; color:#B49A7C; cursor:default;
-        }
-        .gallery-tile.placeholder i { font-size:1.3rem; }
-        .gallery-tile.placeholder span { font-size:0.72rem; text-align:center; padding:0 10px; color:#9C8A70; }
-        .gallery-tile.is-hidden { display:none; }
-
-        /* Lightbox */
-        .lightbox {
-            display:none; position:fixed; inset:0; z-index:9999;
-            background:rgba(20,15,10,0.88); align-items:center; justify-content:center;
-            padding:20px;
-        }
-        .lightbox.show { display:flex; }
-        .lightbox img {
-            max-width:100%; max-height:80vh; border-radius:14px;
-            border:1px solid rgba(255,255,255,0.15);
-        }
-        .lightbox-close {
-            position:absolute; top:18px; right:18px; width:40px; height:40px;
-            border-radius:50%; border:none; background:rgba(255,255,255,0.15);
-            color:#fff; font-size:1.1rem; cursor:pointer;
-        }
-        .lightbox-meta {
-            position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
-            color:#fff; font-size:0.85rem; font-weight:600; text-align:center;
-            background:rgba(0,0,0,0.45); padding:8px 16px; border-radius:999px;
-        }
-
-        /* Testimonials / famous clients */
+        .rev-filter.active { background: var(--cream); border-color: var(--accent); color: var(--accent); }
         .testimonial-scroll {
-            display:flex; gap:12px; overflow-x:auto; padding-bottom:6px;
-            scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
         }
-        .testimonial-scroll::-webkit-scrollbar { height:5px; }
-        .testimonial-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
-        .testimonial-card {
-            flex:0 0 260px; scroll-snap-align:start;
-            background:#fff; border:1px solid var(--border); border-radius:16px;
-            padding:16px; position:relative;
+        .t-card {
+            flex: 0 0 240px; scroll-snap-align: start;
+            background: #FAFAF8; border: 1px solid var(--border); border-radius: 14px; padding: 12px;
         }
-        .testimonial-card.is-pinned {
-            border-color:var(--accent);
-            box-shadow:0 4px 16px rgba(156,107,63,0.15);
+        .t-card .stars { color: var(--star); font-size: 0.7rem; margin-bottom: 6px; }
+        .t-card .quote { font-size: 0.82rem; color: #5A4936; font-style: italic; margin-bottom: 8px; line-height: 1.4; }
+        .t-card .who { font-size: 0.75rem; font-weight: 700; color: var(--text); }
+        .t-card .meta { font-size: 0.7rem; color: var(--muted); }
+
+        /* Booking card */
+        .book-card {
+            background: #fff; border: 1px solid var(--border); border-radius: 20px;
+            padding: 20px 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.03);
         }
-        .testimonial-card .pin-badge {
-            position:absolute; top:12px; right:12px;
-            background:var(--cream); color:var(--accent);
-            font-size:0.65rem; font-weight:700; padding:3px 8px; border-radius:999px;
-            border:1px solid var(--border);
+
+        /* Step progress */
+        .steps-bar {
+            display: flex; gap: 4px; margin-bottom: 18px;
         }
-        .testimonial-card .stars { color:#E6A817; font-size:0.8rem; letter-spacing:1px; margin-bottom:8px; }
-        .testimonial-card .quote {
-            font-size:0.88rem; color:#5A4936; line-height:1.45; margin-bottom:12px;
-            font-style:italic;
+        .steps-bar .dot {
+            flex: 1; height: 4px; border-radius: 4px; background: #EDE4D6;
+            transition: background .2s;
         }
-        .testimonial-card .client-row {
-            display:flex; align-items:center; gap:10px;
+        .steps-bar .dot.done, .steps-bar .dot.active { background: var(--accent); }
+
+        .step-panel { display: none; }
+        .step-panel.active { display: block; animation: fadeIn .2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+        /* Service cards */
+        .svc-list { display: flex; flex-direction: column; gap: 10px; }
+        .svc-card {
+            display: flex; align-items: center; gap: 12px;
+            border: 1.5px solid var(--border); border-radius: 14px; padding: 14px;
+            cursor: pointer; background: #fff; transition: all .15s;
         }
-        .testimonial-card .client-avatar {
-            width:36px; height:36px; border-radius:50%; object-fit:cover;
-            border:2px solid var(--border); background:var(--cream);
+        .svc-card:hover { border-color: var(--accent); }
+        .svc-card.selected {
+            border-color: var(--accent); background: var(--cream);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
         }
-        .testimonial-card .client-name { font-weight:700; font-size:0.82rem; color:var(--text); }
-        .testimonial-card .client-meta { font-size:0.72rem; color:var(--muted); }
-        .testimonial-empty {
-            text-align:center; padding:18px; color:var(--muted); font-size:0.85rem;
-            border:1px dashed var(--border); border-radius:14px; background:#faf8f5;
+        .svc-card input { display: none; }
+        .svc-icon {
+            width: 44px; height: 44px; border-radius: 12px; background: var(--cream);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent); font-size: 1.1rem; flex-shrink: 0;
         }
+        .svc-card.selected .svc-icon { background: var(--accent); color: #fff; }
+        .svc-body { flex: 1; min-width: 0; }
+        .svc-name { font-weight: 700; font-size: 0.95rem; margin: 0 0 2px; }
+        .svc-meta { font-size: 0.78rem; color: var(--muted); margin: 0; }
+        .svc-price { font-weight: 800; color: var(--accent); font-size: 0.95rem; white-space: nowrap; }
 
         /* Staff */
-        .staff-grid {
-            display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr)); gap:12px;
+        .staff-list {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 12px;
         }
-        .staff-card {
-            position:relative; display:flex; flex-direction:column; align-items:center;
-            gap:6px; cursor:pointer; text-align:center;
+        .staff-pick {
+            position: relative; text-align: center; cursor: pointer;
         }
-        .staff-card input[type="radio"] {
-            position:absolute; opacity:0; width:1px; height:1px; pointer-events:none;
+        .staff-pick input { position: absolute; opacity: 0; pointer-events: none; }
+        .staff-ring {
+            width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 6px;
+            border: 2.5px solid var(--border); padding: 3px; background: var(--cream);
+            transition: all .15s; overflow: hidden;
         }
-        .staff-photo-ring {
-            width:62px; height:62px; border-radius:50%; border:2px solid var(--border);
-            padding:2px; transition:border-color .15s ease, box-shadow .15s ease;
-            background:var(--cream); overflow:hidden;
-        }
-        .staff-photo-ring img {
-            width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:var(--accent);
-        }
-        .staff-card input:checked ~ .staff-photo-ring {
-            border-color:var(--accent); box-shadow:0 0 0 3px rgba(156,107,63,.18);
+        .staff-ring img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+        .staff-pick input:checked ~ .staff-ring {
+            border-color: var(--accent); box-shadow: 0 0 0 3px rgba(156,107,63,0.2);
         }
         .staff-check {
-            position:absolute; top:-2px; right:2px; width:20px; height:20px; border-radius:50%;
-            background:var(--accent); color:#fff; display:none; align-items:center; justify-content:center;
-            font-size:0.65rem; border:2px solid #fff; z-index:2;
+            position: absolute; top: 0; right: calc(50% - 40px); width: 20px; height: 20px;
+            border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.6rem;
+            display: none; align-items: center; justify-content: center; border: 2px solid #fff;
         }
-        .staff-card input:checked ~ .staff-check { display:flex; }
-        .staff-name { font-size:0.76rem; font-weight:600; color:#5A4936; line-height:1.1; }
-        .staff-card input:checked ~ .staff-name { color:var(--accent-hover); }
+        .staff-pick input:checked ~ .staff-check { display: flex; }
+        .staff-pick .nm { font-size: 0.78rem; font-weight: 700; color: #5A4936; }
+        .staff-any {
+            border: 1.5px dashed var(--border); border-radius: 14px; padding: 12px;
+            text-align: center; cursor: pointer; margin-top: 8px; font-weight: 600; font-size: 0.85rem; color: var(--muted);
+        }
+        .staff-any.selected { border-color: var(--accent); border-style: solid; background: var(--cream); color: var(--accent); }
 
-        /* Ethiopian time picker */
+        /* Time wheel */
         .eth-time-picker {
-            background:var(--cream); border:1px solid var(--border); border-radius:14px; padding:14px;
+            background: var(--cream); border: 1px solid var(--border); border-radius: 14px; padding: 12px;
         }
         .eth-wheel-shell {
-            position:relative; display:flex; align-items:center; justify-content:center;
-            gap:6px; background:#fff; border:1px solid var(--border); border-radius:12px; padding:0 10px;
+            position: relative; display: flex; align-items: center; justify-content: center;
+            background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 0 10px;
         }
         .eth-wheel-highlight {
-            position:absolute; left:8px; right:8px; top:50%; transform:translateY(-50%);
-            height:42px; border-radius:9px;
-            background:rgba(156,107,63,0.10);
-            border-top:1px solid rgba(156,107,63,0.35);
-            border-bottom:1px solid rgba(156,107,63,0.35);
-            pointer-events:none; z-index:1;
+            position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%);
+            height: 42px; border-radius: 9px;
+            background: rgba(156,107,63,0.1);
+            border-top: 1px solid rgba(156,107,63,0.35);
+            border-bottom: 1px solid rgba(156,107,63,0.35);
+            pointer-events: none; z-index: 1;
         }
         .wheel-col {
-            position:relative; height:168px; overflow-y:scroll; scroll-snap-type:y mandatory;
-            padding-top:63px; padding-bottom:63px; -webkit-overflow-scrolling:touch;
-            scrollbar-width:none; z-index:2; cursor:grab; user-select:none;
+            position: relative; height: 168px; overflow-y: scroll; scroll-snap-type: y mandatory;
+            padding-top: 63px; padding-bottom: 63px; -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; z-index: 2; cursor: grab; user-select: none; width: 100%;
         }
-        .wheel-col::-webkit-scrollbar { display:none; }
-        .wheel-col.wheel-eth { width:100%; }
+        .wheel-col::-webkit-scrollbar { display: none; }
         .wheel-item {
-            height:42px; display:flex; align-items:center; justify-content:center;
-            font-size:1rem; font-weight:600; color:#B9A990;
-            scroll-snap-align:center; transition:color .12s ease, font-size .12s ease;
-            user-select:none; cursor:pointer;
+            height: 42px; display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; font-weight: 600; color: #B9A990;
+            scroll-snap-align: center; transition: color .12s, font-size .12s; cursor: pointer;
         }
-        .wheel-item.active { color:#5A4936; font-size:1.2rem; }
-        .eth-preview { margin-top:10px; font-weight:700; color:var(--accent); font-size:1.05rem; text-align:center; }
-        .eth-hint { text-align:center; font-size:0.74rem; color:#9C8A70; margin-top:6px; }
+        .wheel-item.active { color: #5A4936; font-size: 1.2rem; }
+        .eth-preview { margin-top: 8px; font-weight: 700; color: var(--accent); font-size: 1.05rem; text-align: center; }
 
-        /* Service quick cards (visual service picker above select) */
-        .service-chips {
-            display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;
+        .form-control, .form-select {
+            border-radius: 12px; border: 1px solid var(--border); background: #fff;
+            min-height: 48px; padding: 12px 14px; font-size: 1rem;
         }
-        .service-chip {
-            border:1px solid var(--border); background:#fff; color:#5A4936;
-            font-weight:600; font-size:0.78rem; padding:8px 12px; border-radius:12px;
-            cursor:pointer; transition:all .15s;
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent); box-shadow: 0 0 0 0.2rem rgba(156,107,63,0.12);
         }
-        .service-chip.active, .service-chip:hover {
-            border-color:var(--accent); background:var(--cream); color:var(--accent-hover);
+        .form-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+
+        /* Nav between steps */
+        .step-nav {
+            display: flex; gap: 10px; margin-top: 18px;
         }
-        .service-chip .price { display:block; font-size:0.7rem; color:var(--muted); font-weight:500; margin-top:2px; }
+        .btn-next {
+            flex: 1; background: var(--accent); color: #fff; border: none; font-weight: 700;
+            min-height: 48px; border-radius: 14px; font-size: 0.95rem;
+        }
+        .btn-next:hover { background: var(--accent-hover); color: #fff; }
+        .btn-back {
+            background: #fff; color: var(--text); border: 1px solid var(--border); font-weight: 600;
+            min-height: 48px; border-radius: 14px; padding: 0 18px;
+        }
+
+        /* Confirm summary */
+        .summary-box {
+            background: var(--cream); border: 1px solid var(--border); border-radius: 14px;
+            padding: 14px 16px; margin-bottom: 16px;
+        }
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; font-size: 0.88rem;
+        }
+        .summary-row .lbl { color: var(--muted); font-weight: 600; }
+        .summary-row .val { font-weight: 700; color: var(--text); text-align: right; }
+
+        /* Sticky CTA */
+        .sticky-cta {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
+            background: #fff; border-top: 1px solid var(--border);
+            padding: 12px 16px calc(12px + var(--safe-bottom));
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+        }
+        .sticky-cta-inner {
+            max-width: 480px; margin: 0 auto;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .sticky-cta .price-hint {
+            flex: 1; font-size: 0.8rem; color: var(--muted); font-weight: 600; line-height: 1.25;
+        }
+        .sticky-cta .price-hint strong { display: block; color: var(--text); font-size: 0.95rem; }
+        .sticky-cta .btn-cta {
+            background: var(--accent); color: #fff; border: none; font-weight: 700;
+            border-radius: 14px; padding: 14px 22px; font-size: 0.95rem; white-space: nowrap;
+            box-shadow: 0 4px 14px rgba(156,107,63,0.3);
+        }
+        .sticky-cta .btn-cta:hover { background: var(--accent-hover); color: #fff; }
+        body.booking-open .sticky-cta { display: none; }
+        body.success-view .sticky-cta { display: none; }
+
+        /* Success */
+        .confirm-card {
+            text-align: center; padding: 32px 20px;
+            border-radius: 20px; border: 1px solid #C8E6C9;
+            background: linear-gradient(180deg, #E8F5E9 0%, #fff 50%);
+        }
+        .confirm-icon {
+            width: 72px; height: 72px; border-radius: 50%; background: var(--green); color: #fff;
+            display: flex; align-items: center; justify-content: center; font-size: 2rem;
+            margin: 0 auto 16px; box-shadow: 0 8px 20px rgba(46,125,50,0.28);
+            animation: pop .4s ease;
+        }
+        @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .confirm-card h3 { font-weight: 800; font-size: 1.3rem; color: #1B5E20; margin: 0 0 8px; }
+        .confirm-card .thanks { font-size: 0.95rem; color: #3E5C40; font-weight: 600; margin: 0 0 8px; }
+        .confirm-card .sub { font-size: 0.85rem; color: var(--muted); margin: 0 0 18px; }
+
+        .waitlist-card {
+            text-align: center; padding: 32px 20px;
+            border-radius: 20px; border: 1px solid #FFE0B2;
+            background: linear-gradient(180deg, #FFF8E1 0%, #fff 50%);
+        }
+        .waitlist-icon {
+            width: 72px; height: 72px; border-radius: 50%; background: #ED6C02; color: #fff;
+            display: flex; align-items: center; justify-content: center; font-size: 2rem;
+            margin: 0 auto 16px;
+        }
+
+        .hours-strip, .location-strip {
+            display: flex; align-items: flex-start; gap: 10px;
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 12px 14px; margin-bottom: 12px; font-size: .85rem; color: #5A4936;
+            background: #fff;
+        }
+        .hours-strip { background: var(--cream); align-items: center; }
+        .hours-strip i, .location-strip i { color: var(--accent); }
+        .location-strip a { color: var(--accent); font-weight: 600; text-decoration: none; }
+        #salonMap { height: 180px; width: 100%; border-radius: 12px; margin-top: 8px; border: 1px solid var(--border); }
+        .map-loading {
+            height: 180px; display: flex; align-items: center; justify-content: center;
+            background: var(--cream); border-radius: 12px; margin-top: 8px; color: var(--muted); font-size: 0.85rem;
+        }
+
+        .lightbox {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.88); align-items: center; justify-content: center; padding: 20px;
+        }
+        .lightbox.show { display: flex; }
+        .lightbox img { max-width: 100%; max-height: 80vh; border-radius: 14px; }
+        .lightbox-close {
+            position: absolute; top: 16px; right: 16px; width: 40px; height: 40px;
+            border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 1.1rem;
+        }
+
+        .alert { border-radius: 12px; font-size: 0.88rem; }
     </style>
 </head>
-<body>
+<body class="{% if success or waitlisted %}success-view{% endif %}">
 
-    <!-- ========== HERO ========== -->
-    <div class="hero-cover {{ 'no-photo' if not salon.cover_photo_url else '' }}"
-         {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}');"{% endif %}>
-        <div class="hero-overlay">
-            <div class="hero-badge"><i class="fa-solid fa-spa"></i></div>
-            <h1>{{ salon.name }}</h1>
-            <p>ቀጠሮዎን በቀላሉ ይያዙ</p>
-        </div>
+<button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
+    <i class="fa-solid fa-language"></i>
+    <span id="langLabel">EN</span>
+</button>
+
+<!-- HERO -->
+<div class="hero {{ 'no-photo' if not salon.cover_photo_url else '' }}"
+     {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}');"{% endif %}>
+    <div class="hero-overlay">
+        <h1>{{ salon.name }}</h1>
+        <p class="tagline">
+            <span data-lang-am>ቀጠሮዎን በቀላሉ ይያዙ</span>
+            <span data-lang-en>Book your appointment easily</span>
+        </p>
+    </div>
+</div>
+
+<div class="wrap">
+
+    <!-- TRUST BAR -->
+    {% set review_count = (testimonials|length) if testimonials is defined and testimonials else 0 %}
+    {% set rating_sum = namespace(value=0) %}
+    {% if testimonials is defined and testimonials %}
+        {% for t in testimonials %}{% set rating_sum.value = rating_sum.value + (t.rating or 5) %}{% endfor %}
+    {% endif %}
+    {% set avg_rating = (rating_sum.value / review_count) if review_count > 0 else 0 %}
+    <div class="trust-bar">
+        {% if review_count > 0 %}
+        <span><span class="star">★</span> {{ '%.1f'|format(avg_rating) }}</span>
+        <span class="sep">·</span>
+        <span>{{ review_count }} <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span></span>
+        <span class="sep">·</span>
+        {% endif %}
+        {% if salon.address %}
+        <span><i class="fa-solid fa-location-dot"></i>
+            {% set addr_short = salon.address.split(',')[0] if ',' in salon.address else salon.address %}
+            {{ addr_short[:28] }}{% if addr_short|length > 28 %}…{% endif %}
+        </span>
+        <span class="sep">·</span>
+        {% endif %}
+        <span><i class="fa-solid fa-clock"></i>
+            <span data-lang-am>ዛሬ ክፍት</span>
+            <span data-lang-en>Open today</span>
+        </span>
     </div>
 
-    <div class="wrap">
-
-        <!-- ========== WORK GALLERY (filterable by service type) ========== -->
-        <div class="section-head">
-            <h2><i class="fa-solid fa-images me-1" style="color:var(--accent);"></i> የስራ ናሙናዎች</h2>
-            {% if salon.gallery_images %}
-            <span class="count" id="galleryCount">{{ salon.gallery_images|length }}</span>
-            {% endif %}
+    <!-- GALLERY -->
+    <div class="section">
+        <h2 class="section-title">
+            <span data-lang-am>የስራ ናሙናዎች</span>
+            <span data-lang-en>Our work</span>
+        </h2>
+        <div class="cat-row" id="catFilters">
+            <button type="button" class="cat-chip active" data-cat="all"><span data-lang-am>ሁሉም</span><span data-lang-en>All</span></button>
+            <button type="button" class="cat-chip" data-cat="hair"><span data-lang-am>ፀጉር</span><span data-lang-en>Hair</span></button>
+            <button type="button" class="cat-chip" data-cat="nails"><span data-lang-am>ጥፍር</span><span data-lang-en>Nails</span></button>
+            <button type="button" class="cat-chip" data-cat="manicure"><span data-lang-am>ሜካፕ</span><span data-lang-en>Makeup</span></button>
+            <button type="button" class="cat-chip" data-cat="facial"><span data-lang-am>ፊት</span><span data-lang-en>Facial</span></button>
+            <button type="button" class="cat-chip" data-cat="massage"><span data-lang-am>ስፓ</span><span data-lang-en>Spa</span></button>
+            <button type="button" class="cat-chip" data-cat="other"><span data-lang-am>ባርበር</span><span data-lang-en>Barber</span></button>
         </div>
-
-        <div class="cat-filters" id="catFilters" role="tablist">
-            <button type="button" class="cat-chip active" data-cat="all"><i class="fa-solid fa-border-all"></i>ሁሉም</button>
-            <button type="button" class="cat-chip" data-cat="nails"><i class="fa-solid fa-hand"></i>ጥፍር / Nails</button>
-            <button type="button" class="cat-chip" data-cat="manicure"><i class="fa-solid fa-spa"></i>ማኒኪር</button>
-            <button type="button" class="cat-chip" data-cat="pedicure"><i class="fa-solid fa-shoe-prints"></i>ፔዲኪር</button>
-            <button type="button" class="cat-chip" data-cat="massage"><i class="fa-solid fa-hands"></i>ማሳጅ</button>
-            <button type="button" class="cat-chip" data-cat="facial"><i class="fa-solid fa-face-smile"></i>ፊት / Facial</button>
-            <button type="button" class="cat-chip" data-cat="hair"><i class="fa-solid fa-scissors"></i>ፀጉር</button>
-            <button type="button" class="cat-chip" data-cat="other"><i class="fa-solid fa-star"></i>ሌላ</button>
-        </div>
-
-        <div class="gallery-scroll" id="galleryScroll">
+        <div class="gallery-row" id="galleryScroll">
             {% if salon.gallery_images %}
                 {% for img in salon.gallery_images %}
                 {% set cat = (img.category or 'other')|lower %}
-                {% set cat_label = {
-                    'nails': 'ጥፍር',
-                    'manicure': 'ማኒኪር',
-                    'pedicure': 'ፔዲኪር',
-                    'massage': 'ማሳጅ',
-                    'facial': 'ፊት',
-                    'hair': 'ፀጉር',
-                    'other': 'ሌላ'
-                }.get(cat, img.category or 'ሌላ') %}
-                <div class="gallery-tile" data-cat="{{ cat }}"
-                     onclick="openLightbox('{{ img.image_url }}', '{{ (img.caption or cat_label)|e }}')">
-                    <img src="{{ img.image_url }}" alt="{{ img.caption or salon.name }}" loading="lazy">
-                    <span class="cat-badge">{{ cat_label }}</span>
+                <div class="g-tile" data-cat="{{ cat }}" onclick="openLightbox('{{ img.image_url }}')">
+                    <img src="{{ img.image_url }}" alt="" loading="lazy">
+                    <span class="badge">
+                        {% if cat == 'nails' or cat == 'manicure' or cat == 'pedicure' %}<span data-lang-am>ጥፍር</span><span data-lang-en>Nails</span>
+                        {% elif cat == 'hair' %}<span data-lang-am>ፀጉር</span><span data-lang-en>Hair</span>
+                        {% elif cat == 'facial' %}<span data-lang-am>ፊት</span><span data-lang-en>Facial</span>
+                        {% elif cat == 'massage' %}<span data-lang-am>ስፓ</span><span data-lang-en>Spa</span>
+                        {% else %}<span data-lang-am>ሌላ</span><span data-lang-en>Other</span>{% endif %}
+                    </span>
                 </div>
                 {% endfor %}
             {% else %}
-                {% for i in range(4) %}
-                <div class="gallery-tile placeholder">
-                    <i class="fa-solid fa-camera"></i>
-                    <span>የስራ ናሙና ፎቶ በቅርቡ</span>
+                <div class="g-empty">
+                    <span data-lang-am>የስራ ናሙናዎች በቅርቡ</span>
+                    <span data-lang-en>Work samples coming soon</span>
                 </div>
-                {% endfor %}
             {% endif %}
         </div>
-        <p class="small text-muted mt-1 mb-0" id="galleryEmptyFilter" style="display:none;">
-            በዚህ ምድብ ፎቶ የለም — ሌላ ምድብ ይምረጡ።
-        </p>
+    </div>
 
-        <!-- ========== PINNED TESTIMONIALS / FAMOUS CLIENTS ========== -->
-        <div class="section-head">
-            <h2><i class="fa-solid fa-quote-left me-1" style="color:var(--accent);"></i> ደንበኞች ምን ይላሉ</h2>
-        </div>
-        <div class="testimonial-scroll" id="testimonialScroll">
-            {% if testimonials is defined and testimonials %}
+    <!-- REVIEWS -->
+    <div class="section">
+        <h2 class="section-title">
+            <span data-lang-am>ግምገማዎች</span>
+            <span data-lang-en>Reviews</span>
+        </h2>
+        <div class="reviews-card">
+            {% if review_count > 0 %}
+            {% set bars = namespace(c5=0, c4=0, c3=0, c2=0, c1=0) %}
+            {% for t in testimonials %}
+                {% set r = t.rating or 5 %}
+                {% if r >= 5 %}{% set bars.c5 = bars.c5 + 1 %}
+                {% elif r == 4 %}{% set bars.c4 = bars.c4 + 1 %}
+                {% elif r == 3 %}{% set bars.c3 = bars.c3 + 1 %}
+                {% elif r == 2 %}{% set bars.c2 = bars.c2 + 1 %}
+                {% else %}{% set bars.c1 = bars.c1 + 1 %}{% endif %}
+            {% endfor %}
+            <div class="rev-top">
+                <div class="rev-score">
+                    <div class="big">{{ '%.1f'|format(avg_rating) }}</div>
+                    <div class="stars">★★★★★</div>
+                    <div class="count">{{ review_count }} <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span></div>
+                </div>
+                <div class="rev-bars">
+                    {% for star, cnt in [(5, bars.c5), (4, bars.c4), (3, bars.c3), (2, bars.c2), (1, bars.c1)] %}
+                    <div class="rev-bar-row">
+                        <span class="lbl">{{ star }}</span>
+                        <div class="rev-bar-track">
+                            <div class="rev-bar-fill" style="width:{{ ((cnt / review_count) * 100)|int }}%;"></div>
+                        </div>
+                        <span>{{ cnt }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="rev-filters">
+                <button type="button" class="rev-filter active" data-sort="recent"><span data-lang-am>አዲስ</span><span data-lang-en>Recent</span></button>
+                <button type="button" class="rev-filter" data-sort="high"><span data-lang-am>ከፍተኛ</span><span data-lang-en>Highest</span></button>
+                <button type="button" class="rev-filter" data-sort="photo"><span data-lang-am>ፎቶ ያላቸው</span><span data-lang-en>With photos</span></button>
+            </div>
+            <div class="testimonial-scroll" id="tScroll">
                 {% for t in testimonials %}
-                <div class="testimonial-card {% if t.is_pinned %}is-pinned{% endif %}">
-                    {% if t.is_pinned %}
-                    <span class="pin-badge"><i class="fa-solid fa-thumbtack me-1"></i>ተለይቶ</span>
-                    {% endif %}
-                    <div class="stars">
-                        {% set stars = t.rating or 5 %}
-                        {% for i in range(5) %}
-                            <i class="fa-{{ 'solid' if i < stars else 'regular' }} fa-star"></i>
-                        {% endfor %}
-                    </div>
+                <div class="t-card" data-rating="{{ t.rating or 5 }}" data-photo="{{ 1 if t.client_photo_url else 0 }}" data-id="{{ t.id }}">
+                    <div class="stars">{% for i in range(t.rating or 5) %}★{% endfor %}</div>
                     <div class="quote">“{{ t.comment }}”</div>
-                    <div class="client-row">
-                        {% if t.client_photo_url %}
-                        <img class="client-avatar" src="{{ t.client_photo_url }}" alt="{{ t.client_name }}">
-                        {% else %}
-                        <img class="client-avatar" src="https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=72&name={{ (t.client_name or 'C')|replace(' ','+') }}" alt="">
-                        {% endif %}
-                        <div>
-                            <div class="client-name">{{ t.client_name }}</div>
-                            <div class="client-meta">
-                                {% if t.service_label %}{{ t.service_label }}{% endif %}
-                                {% if t.is_celebrity %}<span style="color:var(--accent);"> · ★ ታዋቂ</span>{% endif %}
-                            </div>
-                        </div>
-                    </div>
+                    <div class="who">{{ t.client_name }}{% if t.is_celebrity %} · ★{% endif %}</div>
+                    {% if t.service_label %}<div class="meta">{{ t.service_label }}</div>{% endif %}
                 </div>
                 {% endfor %}
+            </div>
             {% else %}
-                <div class="testimonial-empty" style="flex:1;">
-                    <i class="fa-regular fa-comments mb-1" style="font-size:1.2rem;"></i><br>
-                    የደንበኛ አስተያየቶች በቅርቡ ይታያሉ
-                </div>
+            <p class="text-muted small mb-0 text-center py-2">
+                <span data-lang-am>ግምገማዎች በቅርቡ ይታያሉ</span>
+                <span data-lang-en>Reviews coming soon</span>
+            </p>
             {% endif %}
         </div>
+    </div>
 
-        {% if salon.phone %}
-        <div class="location-strip" style="margin-top:18px;margin-bottom:12px;">
-            <i class="fa-solid fa-phone"></i>
+    {% if salon.phone %}
+    <div class="location-strip">
+        <i class="fa-solid fa-phone"></i>
+        <div>
+            <div class="fw-semibold"><span data-lang-am>ስልክ</span><span data-lang-en>Call us</span></div>
+            <a href="tel:{{ salon.phone }}" style="font-weight:700;font-size:1.05rem;">{{ salon.phone }}</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="hours-strip">
+        <i class="fa-solid fa-clock"></i>
+        <span>{{ hours_label }} · {{ days_label }}</span>
+    </div>
+
+    {% if salon.address %}
+    <div class="location-strip">
+        <i class="fa-solid fa-location-dot"></i>
+        <div style="flex:1;">
+            <div class="fw-semibold"><span data-lang-am>አድራሻ</span><span data-lang-en>Location</span></div>
+            <div id="salonAddressText">{{ salon.address }}</div>
+            <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | replace(' ', '+') }}" target="_blank" rel="noopener">
+                <span data-lang-am>በGoogle Maps ክፈት</span>
+                <span data-lang-en>Open in Maps</span>
+            </a>
+            <div id="mapLoading" class="map-loading"><i class="fa-solid fa-spinner fa-spin me-2"></i>...</div>
+            <div id="salonMap" style="display:none;"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- BOOKING -->
+    <div class="book-card" id="bookingSection">
+        {% if success %}
+        <div class="confirm-card">
+            <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
+            <h3>
+                <span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span>
+                <span data-lang-en>Your booking is confirmed!</span>
+            </h3>
+            <p class="thanks">
+                <span data-lang-am>ስለመረጡን እናመሰግናለን</span>
+                <span data-lang-en>Thank you for choosing us</span>
+            </p>
+            <p class="sub">{{ salon.name }}</p>
+            {% if salon.phone %}
+            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
+                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
+            </a>
+            {% endif %}
             <div>
-                <div class="fw-semibold" style="color:#2D2424;">ስልክ (Call us)</div>
-                <a href="tel:{{ salon.phone }}" style="color:var(--accent); font-weight:700; font-size:1.05rem; text-decoration:none;">
-                    {{ salon.phone }}
+                <a href="/book/{{ salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
+                    <span data-lang-am>ሌላ ቀጠሮ ያዙ</span>
+                    <span data-lang-en>Book another</span>
                 </a>
             </div>
         </div>
-        {% endif %}
 
-        <div class="hours-strip">
-            <i class="fa-solid fa-clock"></i>
-            <span>የስራ ሰዓት፡ {{ hours_label }} &nbsp;•&nbsp; የስራ ቀናት፡ {{ days_label }}</span>
+        {% elif waitlisted %}
+        <div class="waitlist-card">
+            <div class="waitlist-icon"><i class="fa-solid fa-list-check"></i></div>
+            <h3 style="font-weight:800;color:#E65100;font-size:1.2rem;">
+                <span data-lang-am>ወደ ተጠባባቂ ዝርዝር ገብተዋል</span>
+                <span data-lang-en>You’re on the waitlist</span>
+            </h3>
+            <p class="sub" style="color:var(--muted);margin:8px 0 16px;">
+                <span data-lang-am>ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</span>
+                <span data-lang-en>We’ll contact you when a slot opens.</span>
+            </p>
+            <a href="/book/{{ salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
+                <span data-lang-am>ተመለስ</span><span data-lang-en>Back</span>
+            </a>
         </div>
 
-        {% if salon.address %}
-        <div class="location-strip">
-            <i class="fa-solid fa-location-dot"></i>
-            <div style="flex:1;">
-                <div class="fw-semibold" style="color:#2D2424;">አድራሻ (Location)</div>
-                <div id="salonAddressText">{{ salon.address }}</div>
-                <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | replace(' ', '+') }}" target="_blank" rel="noopener">
-                    <i class="fa-solid fa-map me-1"></i> በGoogle Maps ክፈት
-                </a>
-                <div id="mapLoading" class="map-loading"><i class="fa-solid fa-spinner fa-spin me-2"></i> ካርታ በመጫን ላይ...</div>
-                <div id="salonMap" style="display:none;"></div>
-            </div>
+        {% else %}
+
+        {% if error == 'outside_hours' %}
+        <div class="alert alert-danger">
+            <span data-lang-am>የመረጡት ሰዓት ከባለሙያው የስራ ሰዓት ውጪ ነው።</span>
+            <span data-lang-en>That time is outside the staff member’s working hours.</span>
         </div>
         {% endif %}
-
-        <!-- ========== BOOKING FORM ========== -->
-        <div class="card-box">
-            {% if success %}
-            <div class="alert alert-success d-flex align-items-center gap-2">
-                <i class="fa-solid fa-circle-check"></i>
-                <div>ቀጠሮዎ ተይዟል! ሳሎኑ ያረጋግጣል።</div>
+        {% if error == 'conflict' %}
+        <div class="alert alert-danger">
+            <div class="mb-2">
+                <span data-lang-am>ይህ ሰዓት ተይዟል። አማራጭ ይምረጡ፦</span>
+                <span data-lang-en>This time is taken. Choose an option:</span>
             </div>
+            {% if next_slot %}
+            <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-1 mb-1">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                <input type="hidden" name="appointment_time" value="{{ next_slot }}">
+                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
+                    <span data-lang-am>በ{{ next_slot_display }} ያዙ</span>
+                    <span data-lang-en>Book at {{ next_slot_display }}</span>
+                </button>
+            </form>
             {% endif %}
-
-            {% if waitlisted %}
-            <div class="alert alert-success d-flex align-items-center gap-2">
-                <i class="fa-solid fa-circle-check"></i>
-                <div>ወደ ተጠባባቂ ዝርዝር ገብተዋል! ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</div>
-            </div>
-            {% endif %}
-
-            {% if error == 'outside_hours' %}
-            <div class="alert alert-danger d-flex align-items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <div>የመረጡት ሰዓት ከተመረጠው ባለሙያ የስራ ሰዓት/ቀን ውጪ ነው። እባክዎ ከላይ ያለውን የባለሙያ ሰዓት ይመልከቱ እና እንደገና ይሞክሩ።</div>
-            </div>
-            {% endif %}
-
-            {% if error == 'conflict' %}
-            <div class="alert alert-danger mb-3">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <div>ይህ ሰዓት ለ{{ conflict_staff_name }} ተይዟል። ከታች ካሉ አማራጮች ይምረጡ፦</div>
-                </div>
-
-                {% if next_slot %}
-                <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-2 mb-2">
-                    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                    <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                    <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                    <input type="hidden" name="appointment_time" value="{{ next_slot }}">
-                    <button type="submit" class="btn btn-sm btn-outline-rose">
-                        <i class="fa-solid fa-clock me-1"></i> በ{{ next_slot_display }} ያዙ
-                    </button>
-                </form>
-                {% endif %}
-
-                {% for alt in alt_staff %}
-                <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-2 mb-2">
-                    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                    <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                    <input type="hidden" name="staff_id" value="{{ alt.id }}">
-                    <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
-                    <button type="submit" class="btn btn-sm btn-outline-rose">
-                        <i class="fa-solid fa-user me-1"></i> {{ alt.name }} ጋር ተመሳሳይ ሰዓት
-                    </button>
-                </form>
-                {% endfor %}
-
-                <form action="/book/{{ salon.id }}/waitlist" method="post" class="d-inline-block mb-2">
-                    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                    <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                    <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                    <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
-                    <button type="submit" class="btn btn-sm btn-outline-rose">
-                        <i class="fa-solid fa-list-check me-1"></i> ለዛሬ ተጠባባቂ ዝርዝር ላይ ጨምረኝ
-                    </button>
-                </form>
-
-                {% if not next_slot and not alt_staff %}
-                <p class="small text-muted mb-0 mt-2">ዛሬ ምንም ክፍት ሰዓት አልተገኘም። ተጠባባቂ ዝርዝር ላይ ብቻ መጨመር ይችላሉ።</p>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            <form action="/book/{{ salon.id }}" method="post" id="bookingForm">
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">ሙሉ ስም</label>
-                    <input type="text" name="customer_name" class="form-control" value="{{ conflict_name or '' }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">ስልክ ቁጥር</label>
-                    <input type="tel" name="customer_phone" class="form-control" value="{{ conflict_phone or '' }}" required placeholder="0911223344">
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">አገልግሎት</label>
-                    {% if services %}
-                    <div class="service-chips" id="serviceChips">
-                        {% for s in services %}
-                        <button type="button" class="service-chip {% if conflict_service and s.id == conflict_service %}active{% elif not conflict_service and loop.first %}active{% endif %}"
-                                data-service-id="{{ s.id }}"
-                                onclick="selectService({{ s.id }}, this)">
-                            {{ s.name }}
-                            <span class="price">{{ s.price }} ETB</span>
-                        </button>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    <select name="service_id" id="serviceSelect" class="form-select" required>
-                        {% for s in services %}
-                        <option value="{{ s.id }}" {% if conflict_service and s.id == conflict_service %}selected{% endif %}>{{ s.name }} ({{ s.price }} ETB)</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">ባለሙያ</label>
-                    <div class="staff-grid" id="staffGrid">
-                        {% for st in staff_members %}
-                        {% set avatar_name = (st.name or 'S')|replace(' ', '+') %}
-                        {% set avatar_url = 'https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ avatar_name %}
-                        {% set photo_src = st.photo_url if (st.photo_url and st.photo_url|trim) else avatar_url %}
-                        <label class="staff-card">
-                            <input type="radio" name="staff_id" value="{{ st.id }}"
-                                data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
-                                data-close="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}"
-                                data-days="{{ st.working_days if st.working_days else salon.working_days }}"
-                                {% if conflict_staff and st.id == conflict_staff %}checked
-                                {% elif not conflict_staff and loop.first %}checked{% endif %}
-                                required>
-                            <span class="staff-check"><i class="fa-solid fa-check"></i></span>
-                            <span class="staff-photo-ring">
-                                <img class="staff-photo-img" src="{{ photo_src }}" alt="{{ st.name }}"
-                                     data-fallback="{{ avatar_url }}" loading="lazy" referrerpolicy="no-referrer">
-                            </span>
-                            <span class="staff-name">{{ st.name }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">ቀን</label>
-                    <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small text-muted fw-semibold">ሰዓት (በኢትዮጵያ ሰዓት)</label>
-                    <div class="eth-time-picker">
-                        <div class="eth-wheel-shell">
-                            <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col wheel-eth" id="wheelEth"></div>
-                        </div>
-                        <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
-                        <div class="eth-hint">ወደላይ/ታች ጠቅ አድርገው ይሸብልሉ ወይም ይንኩ (15 ደቂቃ ልዩነት)</div>
-                    </div>
-                    <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
-                    <p class="small text-muted mt-2 mb-0" id="staffHoursHint">የስራ ሰዓት፡ {{ hours_label }} • የስራ ቀናት፡ {{ days_label }}</p>
-                </div>
-
-                <button type="submit" class="btn btn-rose mt-2">
-                    <i class="fa-solid fa-calendar-check me-1"></i> ቀጠሮ ያዝ
+            {% for alt in alt_staff %}
+            <form action="/book/{{ salon.id }}" method="post" class="d-inline-block me-1 mb-1">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ alt.id }}">
+                <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
+                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
+                    {{ alt.name }}
+                </button>
+            </form>
+            {% endfor %}
+            <form action="/book/{{ salon.id }}/waitlist" method="post" class="d-inline-block mb-1">
+                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+                <input type="hidden" name="service_id" value="{{ conflict_service }}">
+                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
+                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
+                    <span data-lang-am>ተጠባባቂ ዝርዝር</span>
+                    <span data-lang-en>Waitlist</span>
                 </button>
             </form>
         </div>
-    </div>
+        {% endif %}
 
-    <!-- Lightbox -->
-    <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
-        <button type="button" class="lightbox-close" onclick="closeLightbox(event)" aria-label="Close">
-            <i class="fa-solid fa-xmark"></i>
+        <!-- Progress -->
+        <div class="steps-bar" id="stepsBar">
+            <div class="dot active" data-s="1"></div>
+            <div class="dot" data-s="2"></div>
+            <div class="dot" data-s="3"></div>
+            <div class="dot" data-s="4"></div>
+            <div class="dot" data-s="5"></div>
+        </div>
+
+        <form action="/book/{{ salon.id }}" method="post" id="bookingForm">
+
+            <!-- STEP 1: Service -->
+            <div class="step-panel active" data-step="1">
+                <h2 class="section-title">
+                    <span class="step-num">1</span>
+                    <span data-lang-am>አገልግሎት ይምረጡ</span>
+                    <span data-lang-en>Choose service</span>
+                </h2>
+                <div class="svc-list">
+                    {% for s in services %}
+                    <label class="svc-card {% if conflict_service and s.id == conflict_service %}selected{% elif not conflict_service and loop.first %}selected{% endif %}">
+                        <input type="radio" name="service_id" value="{{ s.id }}"
+                            data-name="{{ s.name }}" data-price="{{ s.price }}"
+                            {% if conflict_service and s.id == conflict_service %}checked{% elif not conflict_service and loop.first %}checked{% endif %}
+                            required onchange="onServicePick(this)">
+                        <div class="svc-icon"><i class="fa-solid fa-spa"></i></div>
+                        <div class="svc-body">
+                            <p class="svc-name">{{ s.name }}</p>
+                            <p class="svc-meta">
+                                {% if s.duration_minutes %}{{ s.duration_minutes }} <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>{% else %}—{% endif %}
+                            </p>
+                        </div>
+                        <div class="svc-price">{{ s.price }} ETB</div>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="step-nav">
+                    <button type="button" class="btn-next" onclick="goStep(2)">
+                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
+                        <i class="fa-solid fa-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 2: Staff -->
+            <div class="step-panel" data-step="2">
+                <h2 class="section-title">
+                    <span class="step-num">2</span>
+                    <span data-lang-am>ባለሙያ ይምረጡ</span>
+                    <span data-lang-en>Choose professional</span>
+                </h2>
+                <div class="staff-list">
+                    {% for st in staff_members %}
+                    {% set avatar_name = (st.name or 'S')|replace(' ', '+') %}
+                    {% set avatar_url = 'https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ avatar_name %}
+                    {% set photo_src = st.photo_url if (st.photo_url and st.photo_url|trim) else avatar_url %}
+                    <label class="staff-pick">
+                        <input type="radio" name="staff_id" value="{{ st.id }}"
+                            data-name="{{ st.name }}"
+                            data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
+                            data-close="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}"
+                            data-days="{{ st.working_days if st.working_days else salon.working_days }}"
+                            {% if conflict_staff and st.id == conflict_staff %}checked
+                            {% elif not conflict_staff and loop.first %}checked{% endif %}
+                            required onchange="onStaffPick()">
+                        <span class="staff-check"><i class="fa-solid fa-check"></i></span>
+                        <div class="staff-ring">
+                            <img class="staff-photo-img" src="{{ photo_src }}" alt="{{ st.name }}" data-fallback="{{ avatar_url }}" loading="lazy">
+                        </div>
+                        <div class="nm">{{ st.name }}</div>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="step-nav">
+                    <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button type="button" class="btn-next" onclick="goStep(3)">
+                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: Date & time -->
+            <div class="step-panel" data-step="3">
+                <h2 class="section-title">
+                    <span class="step-num">3</span>
+                    <span data-lang-am>ቀንና ሰዓት</span>
+                    <span data-lang-en>Date & time</span>
+                </h2>
+                <div class="mb-3">
+                    <label class="form-label"><span data-lang-am>ቀን</span><span data-lang-en>Date</span></label>
+                    <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label"><span data-lang-am>ሰዓት (ኢትዮጵያ)</span><span data-lang-en>Time (Ethiopian)</span></label>
+                    <div class="eth-time-picker">
+                        <div class="eth-wheel-shell">
+                            <div class="eth-wheel-highlight"></div>
+                            <div class="wheel-col" id="wheelEth"></div>
+                        </div>
+                        <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
+                    </div>
+                    <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
+                    <p class="small text-muted mt-2 mb-0" id="staffHoursHint"></p>
+                </div>
+                <div class="step-nav">
+                    <button type="button" class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button type="button" class="btn-next" onclick="goStep(4)">
+                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 4: Info -->
+            <div class="step-panel" data-step="4">
+                <h2 class="section-title">
+                    <span class="step-num">4</span>
+                    <span data-lang-am>የእርስዎ መረጃ</span>
+                    <span data-lang-en>Your information</span>
+                </h2>
+                <div class="mb-3">
+                    <label class="form-label"><span data-lang-am>ሙሉ ስም</span><span data-lang-en>Full name</span></label>
+                    <input type="text" name="customer_name" id="customerName" class="form-control" value="{{ conflict_name or '' }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><span data-lang-am>ስልክ ቁጥር</span><span data-lang-en>Phone number</span></label>
+                    <input type="tel" name="customer_phone" id="customerPhone" class="form-control" value="{{ conflict_phone or '' }}" required placeholder="0911223344">
+                </div>
+                <div class="step-nav">
+                    <button type="button" class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button type="button" class="btn-next" onclick="goStep(5)">
+                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 5: Confirm -->
+            <div class="step-panel" data-step="5">
+                <h2 class="section-title">
+                    <span class="step-num">5</span>
+                    <span data-lang-am>ያረጋግጡ</span>
+                    <span data-lang-en>Confirm booking</span>
+                </h2>
+                <div class="summary-box">
+                    <div class="summary-row">
+                        <span class="lbl"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
+                        <span class="val" id="sumService">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="lbl"><span data-lang-am>ባለሙያ</span><span data-lang-en>Professional</span></span>
+                        <span class="val" id="sumStaff">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="lbl"><span data-lang-am>ቀን / ሰዓት</span><span data-lang-en>Date / time</span></span>
+                        <span class="val" id="sumWhen">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="lbl"><span data-lang-am>ስም</span><span data-lang-en>Name</span></span>
+                        <span class="val" id="sumName">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
+                        <span class="val" id="sumPrice" style="color:var(--accent);">—</span>
+                    </div>
+                </div>
+                <div class="step-nav">
+                    <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button type="submit" class="btn-next">
+                        <i class="fa-solid fa-calendar-check me-1"></i>
+                        <span data-lang-am>ቀጠሮ አረጋግጥ</span>
+                        <span data-lang-en>Confirm booking</span>
+                    </button>
+                </div>
+            </div>
+
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sticky CTA -->
+{% if not success and not waitlisted %}
+{% set min_price = namespace(v=None) %}
+{% for s in services %}
+    {% if min_price.v is none or s.price < min_price.v %}{% set min_price.v = s.price %}{% endif %}
+{% endfor %}
+<div class="sticky-cta" id="stickyCta">
+    <div class="sticky-cta-inner">
+        <div class="price-hint">
+            <strong id="stickyPriceLabel">
+                {% if min_price.v is not none %}
+                <span data-lang-am>ከ {{ min_price.v }} ብር ጀምሮ</span>
+                <span data-lang-en>From {{ min_price.v }} ETB</span>
+                {% else %}
+                <span data-lang-am>ቀጠሮ ያዙ</span>
+                <span data-lang-en>Book now</span>
+                {% endif %}
+            </strong>
+            <span data-lang-am>ዛሬ ይያዙ · ቀላል ቀጠሮ</span>
+            <span data-lang-en>Book today · Easy booking</span>
+        </div>
+        <button type="button" class="btn-cta" onclick="startBooking()">
+            <span data-lang-am>አሁን ያዙ</span>
+            <span data-lang-en>Book now</span>
         </button>
-        <img id="lightboxImg" src="" alt="">
-        <div class="lightbox-meta" id="lightboxMeta"></div>
     </div>
+</div>
+{% endif %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        /* Staff photo fallback */
-        document.querySelectorAll('img.staff-photo-img').forEach(function (img) {
-            img.addEventListener('error', function () {
-                var fb = img.getAttribute('data-fallback');
-                if (fb && img.src !== fb) img.src = fb;
-            });
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <button type="button" class="lightbox-close" onclick="closeLightbox(event)"><i class="fa-solid fa-xmark"></i></button>
+    <img id="lightboxImg" src="" alt="">
+</div>
+
+<script>
+/* Language */
+function toggleLang() {
+    const html = document.documentElement;
+    const next = html.lang === 'am' ? 'en' : 'am';
+    html.lang = next;
+    localStorage.setItem('melkegna_public_lang', next);
+    document.getElementById('langLabel').textContent = next === 'am' ? 'EN' : 'አማ';
+    document.title = next === 'en' ? '{{ salon.name | e }} - Book' : '{{ salon.name | e }} - ቀጠሮ ይያዙ';
+    updateStaffHint();
+    refreshSummary();
+}
+(function() {
+    const saved = localStorage.getItem('melkegna_public_lang') || 'am';
+    document.documentElement.lang = saved;
+    document.getElementById('langLabel').textContent = saved === 'am' ? 'EN' : 'አማ';
+})();
+
+/* Sticky → open booking */
+function startBooking() {
+    document.body.classList.add('booking-open');
+    const el = document.getElementById('bookingSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    goStep(1);
+}
+
+/* Steps */
+let currentStep = 1;
+function goStep(n) {
+    if (n === 2 && !document.querySelector('input[name="service_id"]:checked')) return;
+    if (n === 3 && !document.querySelector('input[name="staff_id"]:checked')) return;
+    if (n === 4) {
+        updatePreviewAndHidden();
+        if (!document.getElementById('appointmentTimeHidden').value) {
+            alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
+            return;
+        }
+    }
+    if (n === 5) {
+        const name = document.getElementById('customerName')?.value?.trim();
+        const phone = document.getElementById('customerPhone')?.value?.trim();
+        if (!name || !phone) {
+            alert(document.documentElement.lang === 'en' ? 'Please enter name and phone.' : 'እባክዎ ስምና ስልክ ይሙሉ።');
+            return;
+        }
+        refreshSummary();
+    }
+    currentStep = n;
+    document.querySelectorAll('.step-panel').forEach(p => {
+        p.classList.toggle('active', parseInt(p.dataset.step, 10) === n);
+    });
+    document.querySelectorAll('#stepsBar .dot').forEach(d => {
+        const s = parseInt(d.dataset.s, 10);
+        d.classList.toggle('active', s === n);
+        d.classList.toggle('done', s < n);
+    });
+    document.body.classList.add('booking-open');
+    if (n === 3) setTimeout(() => {
+        const col = document.getElementById('wheelEth');
+        if (col) col.dispatchEvent(new Event('scroll'));
+    }, 50);
+}
+
+function onServicePick(el) {
+    document.querySelectorAll('.svc-card').forEach(c => c.classList.remove('selected'));
+    el.closest('.svc-card').classList.add('selected');
+    const price = el.dataset.price;
+    const label = document.getElementById('stickyPriceLabel');
+    if (label && price) {
+        const en = document.documentElement.lang === 'en';
+        label.innerHTML = en
+            ? `<span data-lang-en style="display:inline">From ${price} ETB</span>`
+            : `<span data-lang-am style="display:inline">ከ ${price} ብር ጀምሮ</span>`;
+    }
+}
+function onStaffPick() { updateStaffHint(); }
+
+function refreshSummary() {
+    const svc = document.querySelector('input[name="service_id"]:checked');
+    const st = document.querySelector('input[name="staff_id"]:checked');
+    const name = document.getElementById('customerName')?.value || '—';
+    const when = document.getElementById('ethPreview')?.textContent || '';
+    const date = document.getElementById('ethDate')?.value || '';
+    document.getElementById('sumService').textContent = svc ? svc.dataset.name : '—';
+    document.getElementById('sumStaff').textContent = st ? st.dataset.name : '—';
+    document.getElementById('sumWhen').textContent = date + (when ? ' · ' + when : '');
+    document.getElementById('sumName').textContent = name;
+    document.getElementById('sumPrice').textContent = svc ? (svc.dataset.price + ' ETB') : '—';
+}
+
+/* Gallery filter */
+document.querySelectorAll('#catFilters .cat-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        document.querySelectorAll('#catFilters .cat-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const cat = chip.dataset.cat;
+        document.querySelectorAll('#galleryScroll .g-tile').forEach(t => {
+            t.classList.toggle('hidden', cat !== 'all' && t.dataset.cat !== cat && !(cat === 'nails' && ['manicure','pedicure','nails'].includes(t.dataset.cat)));
         });
+    });
+});
 
-        /* Gallery category filter */
-        (function () {
-            const chips = document.querySelectorAll('#catFilters .cat-chip');
-            const tiles = document.querySelectorAll('#galleryScroll .gallery-tile[data-cat]');
-            const emptyMsg = document.getElementById('galleryEmptyFilter');
-            const countEl = document.getElementById('galleryCount');
+/* Review sort */
+document.querySelectorAll('.rev-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.rev-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const sort = btn.dataset.sort;
+        const scroll = document.getElementById('tScroll');
+        if (!scroll) return;
+        const cards = Array.from(scroll.querySelectorAll('.t-card'));
+        cards.sort((a, b) => {
+            if (sort === 'high') return parseInt(b.dataset.rating) - parseInt(a.dataset.rating);
+            if (sort === 'photo') return parseInt(b.dataset.photo) - parseInt(a.dataset.photo);
+            return parseInt(b.dataset.id) - parseInt(a.dataset.id);
+        });
+        cards.forEach(c => scroll.appendChild(c));
+    });
+});
 
-            function applyFilter(cat) {
-                let visible = 0;
-                tiles.forEach(t => {
-                    const show = (cat === 'all') || (t.dataset.cat === cat);
-                    t.classList.toggle('is-hidden', !show);
-                    if (show) visible++;
-                });
-                if (emptyMsg) emptyMsg.style.display = (tiles.length && visible === 0) ? 'block' : 'none';
-                if (countEl) countEl.textContent = visible || tiles.length;
-            }
+/* Lightbox */
+function openLightbox(src) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox(e) {
+    if (e && e.target && e.target.id === 'lightboxImg') return;
+    document.getElementById('lightbox').classList.remove('show');
+}
 
-            chips.forEach(chip => {
-                chip.addEventListener('click', () => {
-                    chips.forEach(c => c.classList.remove('active'));
-                    chip.classList.add('active');
-                    applyFilter(chip.dataset.cat);
-                });
-            });
-        })();
+/* Staff photo fallback */
+document.querySelectorAll('img.staff-photo-img').forEach(img => {
+    img.addEventListener('error', function () {
+        const fb = img.getAttribute('data-fallback');
+        if (fb && img.src !== fb) img.src = fb;
+    });
+});
 
-        /* Lightbox */
-        function openLightbox(src, caption) {
-            const box = document.getElementById('lightbox');
-            const img = document.getElementById('lightboxImg');
-            const meta = document.getElementById('lightboxMeta');
-            img.src = src;
-            meta.textContent = caption || '';
-            box.classList.add('show');
-            document.body.style.overflow = 'hidden';
-        }
-        function closeLightbox(e) {
-            if (e && e.target && e.target.id === 'lightboxImg') return;
-            document.getElementById('lightbox').classList.remove('show');
-            document.body.style.overflow = '';
-        }
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+/* Ethiopian time wheel */
+function westernToEth(h, m) {
+    const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
+    const eh = Math.floor(total / 60);
+    const em = total % 60;
+    let period, displayH;
+    if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
+    else if (eh < 12) { period = 'ቀን'; displayH = eh; }
+    else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
+    else { period = 'ለሊት'; displayH = eh - 12; }
+    return { period, hour: displayH, minute: em };
+}
+const ITEM_H = 42;
+function buildEthSlots() {
+    const slots = [];
+    for (let i = 0; i < 96; i++) {
+        const wh = (6 + Math.floor(i / 4)) % 24;
+        const mm = (i % 4) * 15;
+        const eth = westernToEth(wh, mm);
+        slots.push({
+            label: `${eth.period} ${eth.hour}:${String(eth.minute).padStart(2,'0')}`,
+            hhmm: `${String(wh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`
+        });
+    }
+    return slots;
+}
+function initWheel(container, values, initial, onChange) {
+    container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${ITEM_H}px;">${v}</div>`).join('');
+    const items = Array.from(container.querySelectorAll('.wheel-item'));
+    let current = null;
+    function scrollTo(idx, smooth) {
+        idx = Math.max(0, Math.min(values.length - 1, idx));
+        container.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'auto' });
+    }
+    function idx() { return Math.max(0, Math.min(values.length - 1, Math.round(container.scrollTop / ITEM_H))); }
+    function mark(i) {
+        items.forEach((it, j) => it.classList.toggle('active', j === i));
+        if (values[i] !== current) { current = values[i]; onChange(values[i]); }
+    }
+    let t;
+    container.addEventListener('scroll', () => {
+        mark(idx());
+        clearTimeout(t);
+        t = setTimeout(() => { const i = idx(); scrollTo(i, true); mark(i); }, 100);
+    }, { passive: true });
+    items.forEach((it, i) => it.addEventListener('click', () => { scrollTo(i, true); mark(i); }));
+    const start = Math.max(0, values.indexOf(initial));
+    requestAnimationFrame(() => { scrollTo(start, false); mark(start); });
+    return { set: (v) => scrollTo(values.indexOf(v), true) };
+}
+let selectedHHMM = '09:00';
+const slots = buildEthSlots();
+const labels = slots.map(s => s.label);
+const byLabel = {};
+slots.forEach(s => { byLabel[s.label] = s.hhmm; });
+const wheelEl = document.getElementById('wheelEth');
+let ethWheel = { set(){} };
+if (wheelEl) {
+    const init = slots.find(s => s.hhmm === selectedHHMM) || slots[0];
+    ethWheel = initWheel(wheelEl, labels, init.label, (label) => {
+        selectedHHMM = byLabel[label];
+        const prev = document.getElementById('ethPreview');
+        if (prev) prev.textContent = label + ' ሰዓት';
+        updatePreviewAndHidden();
+    });
+}
+function updatePreviewAndHidden() {
+    const dateVal = document.getElementById('ethDate')?.value;
+    const hidden = document.getElementById('appointmentTimeHidden');
+    if (!hidden) return;
+    if (!dateVal) { hidden.value = ''; return; }
+    hidden.value = `${dateVal}T${selectedHHMM}:00`;
+}
+document.getElementById('ethDate')?.addEventListener('change', updatePreviewAndHidden);
 
-        /* Service chips sync with select */
-        function selectService(id, btn) {
-            const sel = document.getElementById('serviceSelect');
-            if (sel) sel.value = String(id);
-            document.querySelectorAll('#serviceChips .service-chip').forEach(c => c.classList.remove('active'));
-            if (btn) btn.classList.add('active');
-        }
+const dayAm = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
+const dayEn = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function updateStaffHint() {
+    const checked = document.querySelector('input[name="staff_id"]:checked');
+    const hint = document.getElementById('staffHoursHint');
+    if (!checked || !hint) return;
+    const open = checked.dataset.open, close = checked.dataset.close, days = checked.dataset.days || '';
+    const en = document.documentElement.lang === 'en';
+    const names = en ? dayEn : dayAm;
+    const dayLabels = days.split(',').filter(Boolean).map(d => names[parseInt(d)]).join(en ? ', ' : '፣ ');
+    const [oh, om] = open.split(':').map(Number);
+    const [ch, cm] = close.split(':').map(Number);
+    const o = westernToEth(oh, om), c = westernToEth(ch, cm);
+    const hp = `${o.period} ${o.hour}:${String(o.minute).padStart(2,'0')} – ${c.period} ${c.hour}:${String(c.minute).padStart(2,'0')}`;
+    hint.textContent = en ? `Hours: ${hp} · ${dayLabels}` : `የስራ ሰዓት፡ ${hp} · ${dayLabels}`;
+}
 
-        /* Ethiopian time */
-        function westernToEth(h, m) {
-            const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
-            const eh = Math.floor(total / 60);
-            const em = total % 60;
-            let period, displayH;
-            if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
-            else if (eh < 12) { period = 'ቀን'; displayH = eh; }
-            else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
-            else { period = 'ለሊት'; displayH = eh - 12; }
-            return { period, hour: displayH, minute: em };
-        }
+document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
+    updatePreviewAndHidden();
+    if (!document.getElementById('appointmentTimeHidden').value) {
+        e.preventDefault();
+        alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
+    }
+});
 
-        const WHEEL_ITEM_HEIGHT = 42;
-
-        function buildWheel(container, values, itemHeight) {
-            container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${itemHeight}px;" data-value="${v}">${v}</div>`).join('');
-            return Array.from(container.querySelectorAll('.wheel-item'));
-        }
-
-        function initWheel(container, values, initialValue, onChange, itemHeight) {
-            itemHeight = itemHeight || WHEEL_ITEM_HEIGHT;
-            const items = buildWheel(container, values, itemHeight);
-            let current = null;
-
-            function scrollToIndex(idx, smooth) {
-                idx = Math.max(0, Math.min(values.length - 1, idx));
-                container.scrollTo({ top: idx * itemHeight, behavior: smooth ? 'smooth' : 'auto' });
-            }
-            function currentIndex() {
-                const idx = Math.round(container.scrollTop / itemHeight);
-                return Math.max(0, Math.min(values.length - 1, idx));
-            }
-            function markActive(idx) {
-                items.forEach((it, i) => it.classList.toggle('active', i === idx));
-                const val = values[idx];
-                if (val !== current) { current = val; onChange(val); }
-            }
-
-            let settleTimer;
-            container.addEventListener('scroll', () => {
-                markActive(currentIndex());
-                clearTimeout(settleTimer);
-                settleTimer = setTimeout(() => {
-                    const idx = currentIndex();
-                    scrollToIndex(idx, true);
-                    markActive(idx);
-                }, 110);
-            }, { passive: true });
-
-            items.forEach((it, i) => {
-                it.addEventListener('click', () => { scrollToIndex(i, true); markActive(i); });
-            });
-
-            let isDragging = false, dragStartY = 0, scrollStartTop = 0, dragMoved = false;
-            container.addEventListener('mousedown', (e) => {
-                isDragging = true; dragMoved = false;
-                dragStartY = e.clientY; scrollStartTop = container.scrollTop;
-                container.style.cursor = 'grabbing'; e.preventDefault();
-            });
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const dy = e.clientY - dragStartY;
-                if (Math.abs(dy) > 3) dragMoved = true;
-                container.scrollTop = scrollStartTop - dy;
-            });
-            window.addEventListener('mouseup', () => {
-                if (!isDragging) return;
-                isDragging = false; container.style.cursor = 'grab';
-                if (dragMoved) { const idx = currentIndex(); scrollToIndex(idx, true); markActive(idx); }
-            });
-
-            const startIdx = Math.max(0, values.indexOf(initialValue));
-            requestAnimationFrame(() => { scrollToIndex(startIdx, false); markActive(startIdx); });
-            return { set: (val) => scrollToIndex(values.indexOf(val), true) };
-        }
-
-        function buildEthSlots() {
-            const slots = [];
-            for (let i = 0; i < 96; i++) {
-                const wh = (6 + Math.floor(i / 4)) % 24;
-                const mm = (i % 4) * 15;
-                const eth = westernToEth(wh, mm);
-                const label = `${eth.period} ${eth.hour}:${String(eth.minute).padStart(2, '0')}`;
-                slots.push({ label, hhmm: `${String(wh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` });
-            }
-            return slots;
-        }
-
-        function initEthSlotWheel(container, initialHHMM, onChange, itemHeight) {
-            const slots = buildEthSlots();
-            const labels = slots.map(s => s.label);
-            const byLabel = {};
-            slots.forEach(s => { byLabel[s.label] = s.hhmm; });
-            const initialSlot = slots.find(s => s.hhmm === initialHHMM) || slots[0];
-            const wheel = initWheel(container, labels, initialSlot.label, (label) => {
-                onChange(byLabel[label], label);
-            }, itemHeight);
-            onChange(byLabel[initialSlot.label], initialSlot.label);
-            return {
-                set: (hhmm) => {
-                    const s = slots.find(x => x.hhmm === hhmm) || slots[0];
-                    wheel.set(s.label);
-                }
-            };
-        }
-
-        let selectedHHMM = '09:00';
-        function updatePreviewAndHidden() {
-            const dateVal = document.getElementById('ethDate').value;
-            const hidden = document.getElementById('appointmentTimeHidden');
-            if (!dateVal) { hidden.value = ''; return; }
-            hidden.value = `${dateVal}T${selectedHHMM}:00`;
-        }
-
-        const ethWheel = initEthSlotWheel(document.getElementById('wheelEth'), selectedHHMM, (hhmm, label) => {
+document.addEventListener('DOMContentLoaded', () => {
+    updateStaffHint();
+    updatePreviewAndHidden();
+    const conflictTime = "{{ conflict_time or '' }}";
+    if (conflictTime) {
+        try {
+            const [datePart, timePart] = conflictTime.split('T');
+            const [hh, mm] = timePart.split(':').map(Number);
+            const snap = Math.round((mm || 0) / 15) * 15 % 60;
+            const hhmm = `${String(hh).padStart(2,'0')}:${String(snap).padStart(2,'0')}`;
+            document.getElementById('ethDate').value = datePart;
             selectedHHMM = hhmm;
-            const preview = document.getElementById('ethPreview');
-            if (preview) preview.textContent = `${label} ሰዓት`;
+            const s = slots.find(x => x.hhmm === hhmm);
+            if (s) ethWheel.set(s.label);
             updatePreviewAndHidden();
-        });
-
-        document.getElementById('ethDate').addEventListener('change', updatePreviewAndHidden);
-
-        const dayNames = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
-        function updateStaffHint() {
-            const checked = document.querySelector('input[name="staff_id"]:checked');
-            const hint = document.getElementById('staffHoursHint');
-            if (!checked || !hint) return;
-            const open = checked.dataset.open, close = checked.dataset.close, days = checked.dataset.days || '';
-            const dayLabels = days.split(',').filter(d => d !== '').map(d => dayNames[parseInt(d)]).join('፣ ');
-            const [oh, om] = open.split(':').map(Number);
-            const [ch, cm] = close.split(':').map(Number);
-            const oEth = westernToEth(oh, om);
-            const cEth = westernToEth(ch, cm);
-            hint.textContent = `የስራ ሰዓት፡ ${oEth.period} ${oEth.hour}:${String(oEth.minute).padStart(2,'0')} – ${cEth.period} ${cEth.hour}:${String(cEth.minute).padStart(2,'0')} • የስራ ቀናት፡ ${dayLabels}`;
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('input[name="staff_id"]').forEach(radio => {
-                radio.addEventListener('change', updateStaffHint);
-            });
-            updateStaffHint();
-            updatePreviewAndHidden();
-
-            const conflictTime = "{{ conflict_time or '' }}";
-            if (conflictTime) {
-                try {
-                    const [datePart, timePart] = conflictTime.split('T');
-                    const [hh, mm] = timePart.split(':').map(Number);
-                    const snappedMinute = Math.round((mm || 0) / 15) * 15 % 60;
-                    const hhmm = `${String(hh).padStart(2,'0')}:${String(snappedMinute).padStart(2,'0')}`;
-                    document.getElementById('ethDate').value = datePart;
-                    selectedHHMM = hhmm;
-                    ethWheel.set(hhmm);
-                    updatePreviewAndHidden();
-                } catch(e) {}
-            }
-        });
-
-        document.getElementById('bookingForm').addEventListener('submit', function(e) {
-            updatePreviewAndHidden();
-            if (!document.getElementById('appointmentTimeHidden').value) {
-                e.preventDefault();
-                alert('እባክዎ ቀንና ሰዓት ይምረጡ።');
-            }
-        });
-    </script>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script>
-        (function initSalonMap() {
-            const addressEl = document.getElementById('salonAddressText');
-            const mapEl = document.getElementById('salonMap');
-            const loadingEl = document.getElementById('mapLoading');
-            if (!addressEl || !mapEl) return;
-
-            const address = (addressEl.textContent || '').trim();
-            if (!address) {
-                if (loadingEl) loadingEl.style.display = 'none';
-                return;
-            }
-
-            const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address);
-
-            fetch(url, { headers: { 'Accept': 'application/json' } })
-            .then(r => r.json())
-            .then(results => {
-                if (loadingEl) loadingEl.style.display = 'none';
-                mapEl.style.display = 'block';
-
-                let lat = 9.03, lon = 38.74, zoom = 12, found = false;
-                if (results && results.length > 0) {
-                    lat = parseFloat(results[0].lat);
-                    lon = parseFloat(results[0].lon);
-                    zoom = 16; found = true;
-                }
-
-                const map = L.map('salonMap', { scrollWheelZoom: false, dragging: true, tap: true }).setView([lat, lon], zoom);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19, attribution: '&copy; OpenStreetMap'
-                }).addTo(map);
-
-                const marker = L.marker([lat, lon]).addTo(map);
-                marker.bindPopup(
-                    '<strong>{{ salon.name | e }}</strong><br>' +
-                    address.replace(/</g, '&lt;') +
-                    (found ? '' : '<br><small style="color:#888">ትክክለኛ ቦታ አልተገኘም — አዲስ አበባ ማዕከል</small>')
-                ).openPopup();
-                setTimeout(() => map.invalidateSize(), 200);
-            })
-            .catch(() => {
-                if (loadingEl) loadingEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-2"></i> ካርታ መጫን አልተቻለም';
-            });
-        })();
-    </script>
-
+            goStep(1);
+        } catch(e) {}
+    }
+});
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function() {
+    const addressEl = document.getElementById('salonAddressText');
+    const mapEl = document.getElementById('salonMap');
+    const loadingEl = document.getElementById('mapLoading');
+    if (!addressEl || !mapEl) return;
+    const address = (addressEl.textContent || '').trim();
+    if (!address) { if (loadingEl) loadingEl.style.display = 'none'; return; }
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address), {
+        headers: { 'Accept': 'application/json' }
+    }).then(r => r.json()).then(results => {
+        if (loadingEl) loadingEl.style.display = 'none';
+        mapEl.style.display = 'block';
+        let lat = 9.03, lon = 38.74, zoom = 12;
+        if (results && results.length) { lat = +results[0].lat; lon = +results[0].lon; zoom = 16; }
+        const map = L.map('salonMap', { scrollWheelZoom: false }).setView([lat, lon], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        L.marker([lat, lon]).addTo(map).bindPopup('<strong>{{ salon.name | e }}</strong>').openPopup();
+        setTimeout(() => map.invalidateSize(), 200);
+    }).catch(() => { if (loadingEl) loadingEl.innerHTML = '—'; });
+})();
+</script>
 </body>
 </html>
