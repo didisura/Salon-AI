@@ -475,6 +475,80 @@
         .search-result-day {
             color: var(--accent); font-weight: 700;
         }
+
+        /* ===== Mobile staff edit / modal fixes ===== */
+        .modal-open .bottom-nav {
+            display: none !important;
+        }
+        .modal {
+            z-index: 1060;
+        }
+        .modal-backdrop {
+            z-index: 1055;
+        }
+        .modal-dialog-scrollable {
+            max-height: calc(100vh - 1rem);
+        }
+        .modal-dialog-scrollable .modal-body {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+        /* Wheels must receive vertical touch scroll on phones */
+        .wheel-col {
+            touch-action: pan-y !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+        .eth-wheel-shell {
+            touch-action: pan-y;
+        }
+        /* Stack schedule fields on narrow screens */
+        @media (max-width: 767.98px) {
+            .modal-dialog.modal-lg {
+                margin: 0.5rem;
+                max-width: calc(100% - 1rem);
+            }
+            .staff-day-hours {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .staff-day-hours .day-name {
+                width: 100%;
+            }
+            .staff-day-hours .eth-time-picker.compact {
+                min-width: 0;
+                width: 100%;
+                flex: 1 1 auto;
+            }
+            .hours-row {
+                flex-direction: column;
+            }
+            .hours-row > div {
+                min-width: 0;
+                width: 100%;
+            }
+            /* Taller wheels on phone for easier scrolling */
+            .modal .wheel-col {
+                height: 168px;
+                padding-top: 63px;
+                padding-bottom: 63px;
+            }
+            .modal .eth-wheel-highlight {
+                height: 42px;
+            }
+            /* Keep Save button reachable */
+            .modal-footer {
+                position: sticky;
+                bottom: 0;
+                background: #fff;
+                z-index: 5;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+            /* File input full width on photo change */
+            .modal input[type="file"] {
+                max-width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1374,7 +1448,7 @@
 
                 <!-- Edit staff schedule modal -->
                 <div class="modal fade" id="editStaffModal-{{ st.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="fw-bold m-0">{{ st.name }} —
@@ -2269,7 +2343,7 @@
 
 <!-- Add Staff -->
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <form action="/add-staff" method="post" enctype="multipart/form-data">
                 <div class="modal-header">
@@ -2381,6 +2455,7 @@ function ethLabel(h, m) {
 function fillWheel(col, initialWestern, onChange) {
     if (!col) return;
     col.innerHTML = '';
+    col.style.touchAction = 'pan-y';
     let activeIdx = 0;
     ETH_SLOTS.forEach((s, i) => {
         const div = document.createElement('div');
@@ -2408,8 +2483,10 @@ function fillWheel(col, initialWestern, onChange) {
             col.scrollTo({ top: idx * 42, behavior: 'smooth' });
             updateActive();
         }, 80);
-    });
-    // set initial
+    }, { passive: true });
+    // Stop modal body from stealing vertical touch while finger is on wheel
+    col.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
+    col.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
     requestAnimationFrame(() => {
         col.scrollTop = activeIdx * 42;
         updateActive();
