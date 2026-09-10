@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import (
     Salon, Service, Staff, StaffDayOff, Appointment, Waitlist,
-    AppointmentStatus, GalleryImage,
+    AppointmentStatus, GalleryImage, Testimonial,
 )
 from security import (
     hash_password,
@@ -114,6 +114,15 @@ def _ensure_photo_columns():
     if salon_cols and "cover_photo_url" not in salon_cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE salons ADD COLUMN cover_photo_url {str_type}"))
+
+    # gallery_images.category
+    try:
+        gi_cols = [c["name"] for c in inspector.get_columns("gallery_images")]
+    except Exception:
+        gi_cols = []
+    if gi_cols and "category" not in gi_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE gallery_images ADD COLUMN category {str_type}"))
 
 
 _ensure_photo_columns()
@@ -807,6 +816,14 @@ def dashboard(
         or 0
     )
 
+    testimonials = (
+        db.query(Testimonial)
+        .filter(Testimonial.salon_id == salon.id)
+        .order_by(Testimonial.is_pinned.desc(), Testimonial.id.desc())
+        .limit(50)
+        .all()
+    )
+
     context = {
         "salon": salon,
         "active_tab": tab,
@@ -819,6 +836,7 @@ def dashboard(
         "no_show_count_today": no_show_count_today,
         "error": error,
         "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",
+        "testimonials": testimonials,
     }
 
     if tab == "home":
@@ -1433,6 +1451,7 @@ async def upload_cover_photo(
 async def upload_gallery_photo(
     photo: UploadFile = File(...),
     caption: Optional[str] = Form(None),
+    category: Optional[str] = Form("other"),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
@@ -1441,12 +1460,78 @@ async def upload_gallery_photo(
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
 
+    allowed = {"nails", "manicure", "pedicure", "massage", "facial", "hair", "other"}
+    cat = (category or "other").strip().lower()
+    if cat not in allowed:
+        cat = "other"
+
     db.add(GalleryImage(
         salon_id=salon.id,
         image_url=url,
         caption=(caption or "").strip() or None,
+        category=cat,
     ))
     db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/add-testimonial")
+async def add_testimonial(
+    client_name: str = Form(...),
+    comment: str = Form(...),
+    rating: int = Form(5),
+    service_label: Optional[str] = Form(None),
+    is_pinned: Optional[str] = Form(None),
+    is_celebrity: Optional[str] = Form(None),
+    client_photo: Optional[UploadFile] = File(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    photo_url = None
+    if client_photo and client_photo.filename:
+        try:
+            photo_url = _save_upload(client_photo, subfolder=f"testimonials/{salon.id}")
+        except ValueError:
+            photo_url = None
+
+    r = max(1, min(5, int(rating or 5)))
+    db.add(Testimonial(
+        salon_id=salon.id,
+        client_name=client_name.strip(),
+        comment=comment.strip(),
+        rating=r,
+        service_label=(service_label or "").strip() or None,
+        client_photo_url=photo_url,
+        is_pinned=1 if is_pinned else 0,
+        is_celebrity=1 if is_celebrity else 0,
+    ))
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/toggle-testimonial-pin")
+def toggle_testimonial_pin(
+    testimonial_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    t = db.query(Testimonial).filter(Testimonial.id == testimonial_id, Testimonial.salon_id == salon.id).first()
+    if t:
+        t.is_pinned = 0 if t.is_pinned else 1
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-testimonial")
+def delete_testimonial(
+    testimonial_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    t = db.query(Testimonial).filter(Testimonial.id == testimonial_id, Testimonial.salon_id == salon.id).first()
+    if t:
+        db.delete(t)
+        db.commit()
     return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1510,6 +1595,14 @@ def public_booking_page(
     services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
+    testimonials = (
+        db.query(Testimonial)
+        .filter(Testimonial.salon_id == salon.id)
+        .order_by(Testimonial.is_pinned.desc(), Testimonial.id.desc())
+        .limit(20)
+        .all()
+    )
+
     context = {
         "salon": salon,
         "services": services,
@@ -1520,6 +1613,7 @@ def public_booking_page(
         "waitlisted": waitlisted,
         "hours_label": salon.hours_label,
         "days_label": salon.working_days_label,
+        "testimonials": testimonials,
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:

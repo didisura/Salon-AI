@@ -1426,20 +1426,39 @@
                 </div>
             </div>
 
-            <!-- Gallery photos (interior / work samples) -->
-            <div class="mb-2">
+            <!-- Gallery photos (interior / work samples) with category -->
+            <div class="mb-4">
                 <label class="form-label small text-muted fw-semibold d-block">
                     <span data-lang-am>የስራ ናሙና / የሳሎን ውስጥ ፎቶዎች</span>
                     <span data-lang-en>Work samples / salon interior photos</span>
                 </label>
+                <p class="small text-muted mb-2">
+                    <span data-lang-am>ምድብ ይምረጡ (ጥፍር፣ ማኒኪር፣ ፔዲኪር፣ ማሳጅ፣ ፊት…) — ደንበኞች በቀጠሮ ገጽ ላይ በምድብ ማጣራት ይችላሉ።</span>
+                    <span data-lang-en>Pick a category (nails, manicure, pedicure, massage, facial…) so clients can filter work samples on the booking page.</span>
+                </p>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     {% for img in salon.gallery_images %}
-                    <div style="position:relative;width:90px;height:90px;border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-                        <img src="{{ img.image_url }}" alt="{{ img.caption or '' }}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                    <div style="position:relative;width:110px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#fff;">
+                        <div style="width:110px;height:90px;overflow:hidden;">
+                            <img src="{{ img.image_url }}" alt="{{ img.caption or '' }}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                        </div>
+                        <div style="padding:6px 8px;font-size:0.68rem;font-weight:700;color:var(--accent);text-align:center;border-top:1px solid var(--border);">
+                            {% set cat = (img.category or 'other')|lower %}
+                            {% if cat == 'nails' %}ጥፍር / Nails
+                            {% elif cat == 'manicure' %}ማኒኪር
+                            {% elif cat == 'pedicure' %}ፔዲኪር
+                            {% elif cat == 'massage' %}ማሳጅ
+                            {% elif cat == 'facial' %}ፊት / Facial
+                            {% elif cat == 'hair' %}ፀጉር / Hair
+                            {% else %}ሌላ / Other{% endif %}
+                        </div>
+                        {% if img.caption %}
+                        <div style="padding:0 6px 6px;font-size:0.65rem;color:var(--text-muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ img.caption }}</div>
+                        {% endif %}
                         <form action="/delete-gallery-photo" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete photo?':'ፎቶ ማጥፋት እርግጠኛ ነዎት?')"
-                              style="position:absolute;top:2px;right:2px;">
+                              style="position:absolute;top:4px;right:4px;">
                             <input type="hidden" name="image_id" value="{{ img.id }}">
-                            <button type="submit" class="btn btn-sm p-0 border-0" style="width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;line-height:1;">
+                            <button type="submit" class="btn btn-sm p-0 border-0" style="width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;line-height:1;" title="Delete">
                                 <i class="fa-solid fa-xmark" style="font-size:0.7rem;"></i>
                             </button>
                         </form>
@@ -1451,13 +1470,163 @@
                     </p>
                     {% endfor %}
                 </div>
-                <form action="/upload-gallery-photo" method="post" enctype="multipart/form-data" class="d-flex align-items-center gap-2 flex-wrap">
-                    <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="max-width:220px;" required>
-                    <input type="text" name="caption" class="form-control form-control-sm" style="max-width:200px;" placeholder="ማብራሪያ (አማራጭ) / Caption (optional)">
-                    <button type="submit" class="btn btn-accent btn-sm text-nowrap">
-                        <i class="fa-solid fa-plus me-1"></i>
-                        <span data-lang-am>ጨምር</span><span data-lang-en>Add photo</span>
-                    </button>
+                <form action="/upload-gallery-photo" method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+                    <div class="col-12 col-sm-auto">
+                        <label class="form-label small text-muted fw-semibold mb-1">
+                            <span data-lang-am>ፎቶ</span><span data-lang-en>Photo</span>
+                        </label>
+                        <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="max-width:240px;" required>
+                    </div>
+                    <div class="col-6 col-sm-auto">
+                        <label class="form-label small text-muted fw-semibold mb-1">
+                            <span data-lang-am>ምድብ</span><span data-lang-en>Category</span>
+                        </label>
+                        <select name="category" class="form-select form-select-sm" style="min-width:140px;">
+                            <option value="nails">ጥፍር / Nails</option>
+                            <option value="manicure">ማኒኪር / Manicure</option>
+                            <option value="pedicure">ፔዲኪር / Pedicure</option>
+                            <option value="massage">ማሳጅ / Massage</option>
+                            <option value="facial">ፊት / Facial</option>
+                            <option value="hair">ፀጉር / Hair</option>
+                            <option value="other" selected>ሌላ / Other</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-auto">
+                        <label class="form-label small text-muted fw-semibold mb-1">
+                            <span data-lang-am>ማብራሪያ</span><span data-lang-en>Caption</span>
+                        </label>
+                        <input type="text" name="caption" class="form-control form-control-sm" style="max-width:180px;" placeholder="አማራጭ / optional">
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                        <button type="submit" class="btn btn-accent btn-sm text-nowrap">
+                            <i class="fa-solid fa-plus me-1"></i>
+                            <span data-lang-am>ጨምር</span><span data-lang-en>Add photo</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Testimonials / famous clients (shown on public booking) -->
+            <div class="mb-2">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="fa-solid fa-quote-left" style="color:var(--accent);"></i>
+                    <h5 class="fw-bold mb-0" style="font-size:1rem;">
+                        <span data-lang-am>የደንበኛ አስተያየት / ታዋቂ ደንበኞች</span>
+                        <span data-lang-en>Testimonials / featured clients</span>
+                    </h5>
+                </div>
+                <p class="small text-muted mb-2">
+                    <span data-lang-am>በቀጠሮ ገጽ ላይ ይታያሉ። «ተለይቶ» ምልክት ያድርጉ ታዋቂ ወይም ልዩ አስተያየቶችን በፊት ለማሳየት።</span>
+                    <span data-lang-en>Shown on the public booking page. Pin special or celebrity reviews to feature them first.</span>
+                </p>
+
+                <div class="d-flex flex-column gap-2 mb-3">
+                    {% if testimonials is defined %}
+                    {% for t in testimonials %}
+                    <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="border:1px solid var(--border);background:{% if t.is_pinned %}#F6ECE1{% else %}#fff{% endif %};">
+                        <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:#F6ECE1;">
+                            {% if t.client_photo_url %}
+                            <img src="{{ t.client_photo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                            {% else %}
+                            <div class="d-flex align-items-center justify-content-center h-100 text-muted"><i class="fa-solid fa-user" style="font-size:0.8rem;"></i></div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <strong style="font-size:0.88rem;">{{ t.client_name }}</strong>
+                                {% if t.is_pinned %}<span class="badge" style="background:var(--accent);font-size:0.65rem;">ተለይቶ / Pinned</span>{% endif %}
+                                {% if t.is_celebrity %}<span class="badge bg-warning text-dark" style="font-size:0.65rem;">★ ታዋቂ</span>{% endif %}
+                                <span class="text-muted" style="font-size:0.72rem;">{% for i in range(t.rating or 5) %}★{% endfor %}</span>
+                            </div>
+                            <div class="text-muted" style="font-size:0.8rem;font-style:italic;">“{{ t.comment }}”</div>
+                            {% if t.service_label %}<div class="text-muted" style="font-size:0.72rem;">{{ t.service_label }}</div>{% endif %}
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            <form action="/toggle-testimonial-pin" method="post">
+                                <input type="hidden" name="testimonial_id" value="{{ t.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-soft py-0 px-2" title="Pin/Unpin" style="font-size:0.7rem;">
+                                    <i class="fa-solid fa-thumbtack"></i>
+                                </button>
+                            </form>
+                            <form action="/delete-testimonial" method="post" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete?':'ማጥፋት?')">
+                                <input type="hidden" name="testimonial_id" value="{{ t.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger border-0 py-0 px-2" style="font-size:0.7rem;">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-0">
+                        <span data-lang-am>ገና አስተያየት የለም።</span>
+                        <span data-lang-en>No testimonials yet.</span>
+                    </p>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted small mb-0">
+                        <span data-lang-am>ገና አስተያየት የለም።</span>
+                        <span data-lang-en>No testimonials yet.</span>
+                    </p>
+                    {% endif %}
+                </div>
+
+                <form action="/add-testimonial" method="post" enctype="multipart/form-data" class="card-soft p-3" style="background:#faf8f5;">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted fw-semibold mb-1">
+                                <span data-lang-am>የደንበኛ ስም</span><span data-lang-en>Client name</span>
+                            </label>
+                            <input type="text" name="client_name" class="form-control form-control-sm" required placeholder="ስም">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small text-muted fw-semibold mb-1">
+                                <span data-lang-am>ኮከብ</span><span data-lang-en>Rating</span>
+                            </label>
+                            <select name="rating" class="form-select form-select-sm">
+                                <option value="5">★★★★★</option>
+                                <option value="4">★★★★</option>
+                                <option value="3">★★★</option>
+                                <option value="2">★★</option>
+                                <option value="1">★</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small text-muted fw-semibold mb-1">
+                                <span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span>
+                            </label>
+                            <input type="text" name="service_label" class="form-control form-control-sm" placeholder="ማኒኪር…">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-muted fw-semibold mb-1">
+                                <span data-lang-am>አስተያየት</span><span data-lang-en>Comment</span>
+                            </label>
+                            <textarea name="comment" class="form-control form-control-sm" rows="2" required placeholder="ደንበኛው ምን አለ…"></textarea>
+                        </div>
+                        <div class="col-12 col-md-5">
+                            <label class="form-label small text-muted fw-semibold mb-1">
+                                <span data-lang-am>ፎቶ (አማራጭ)</span><span data-lang-en>Photo (optional)</span>
+                            </label>
+                            <input type="file" name="client_photo" accept="image/*" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6 col-md-3 d-flex align-items-end">
+                            <label class="form-check small mb-2">
+                                <input type="checkbox" name="is_pinned" value="1" class="form-check-input">
+                                <span data-lang-am>ተለይቶ</span><span data-lang-en>Pin</span>
+                            </label>
+                        </div>
+                        <div class="col-6 col-md-2 d-flex align-items-end">
+                            <label class="form-check small mb-2">
+                                <input type="checkbox" name="is_celebrity" value="1" class="form-check-input">
+                                <span data-lang-am>ታዋቂ</span><span data-lang-en>Celebrity</span>
+                            </label>
+                        </div>
+                        <div class="col-12 col-md-auto d-flex align-items-end">
+                            <button type="submit" class="btn btn-accent btn-sm">
+                                <i class="fa-solid fa-plus me-1"></i>
+                                <span data-lang-am>ጨምር</span><span data-lang-en>Add</span>
+                            </button>
+                        </div>
+                    </div>
                 </form>
             </div>
 

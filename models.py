@@ -87,9 +87,27 @@ class GalleryImage(Base):
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     image_url = Column(String(500), nullable=False)
     caption = Column(String(200), nullable=True)
+    # nails | manicure | pedicure | massage | facial | hair | other
+    category = Column(String(40), nullable=True, default="other")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     salon = relationship("Salon", back_populates="gallery_images")
+
+
+class Testimonial(Base):
+    """Client reviews / famous clients shown on the public booking page."""
+    __tablename__ = "testimonials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    client_name = Column(String(120), nullable=False)
+    comment = Column(String(500), nullable=False)
+    rating = Column(Integer, nullable=False, default=5)
+    service_label = Column(String(120), nullable=True)
+    client_photo_url = Column(String(500), nullable=True)
+    is_pinned = Column(Integer, nullable=False, default=0)  # 0/1 for SQLite-friendly bool
+    is_celebrity = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Service(Base):
