@@ -72,7 +72,6 @@ def _ensure_staff_day_hours_column():
         conn.execute(text(f"ALTER TABLE staff ADD COLUMN day_hours {col_type}"))
 
 
-
 _ensure_staff_day_hours_column()
 
 # ---------------------------------------------------------------------------
@@ -123,7 +122,6 @@ def _ensure_photo_columns():
     if gi_cols and "category" not in gi_cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE gallery_images ADD COLUMN category {str_type}"))
-
 
     # salon.slug for pretty public URLs /book/my-salon
     try:
@@ -202,22 +200,6 @@ def _ensure_photo_columns():
 
 
 _ensure_photo_columns()
-
-def _ensure_salon_slugs():
-    """Assign missing slugs so /book/{name} works for existing salons."""
-    from database import SessionLocal
-    db = SessionLocal()
-    try:
-        salons = db.query(Salon).filter((Salon.slug == None) | (Salon.slug == "")).all()  # noqa: E711
-        for s in salons:
-            s.slug = _unique_slug(db, s.name, s.id)
-        if salons:
-            db.commit()
-    except Exception:
-        db.rollback()
-    finally:
-        db.close()
-
 
 
 def _content_type_for_ext(ext: str) -> str:
@@ -471,22 +453,34 @@ async def ws_salon(websocket: WebSocket, salon_id: int):
 
 
 # ---------------------------------------------------------------------------
-# Small helpers
+# Small helpers — slug / public booking URL
 # ---------------------------------------------------------------------------
 
 def _slugify_name(name: str) -> str:
-    """ASCII URL slug from salon name (Amharic falls back to id-based)."""
+    """URL slug from salon name. Keeps Latin + Ethiopic letters so Amharic names work.
+
+    Examples:
+      "Beauty Salon"     -> "beauty-salon"
+      "ሳሎን መልከኛ"       -> "ሳሎን-መልከኛ"
+      "My Salon!! 2024"  -> "my-salon-2024"
+    """
     import re
-    import unicodedata
     text = (name or "").strip().lower()
-    text = unicodedata.normalize("NFKD", text)
-    text = text.encode("ascii", "ignore").decode("ascii")
-    text = re.sub(r"[^a-z0-9]+", "-", text)
+    # spaces -> hyphen
+    text = re.sub(r"\s+", "-", text)
+    # keep word chars (unicode letters/digits, including Ethiopic) and hyphens
+    text = re.sub(r"[^\w\-]", "", text, flags=re.UNICODE)
     text = re.sub(r"-+", "-", text).strip("-")
     return text[:120] if text else ""
 
 
 def _unique_slug(db: Session, name: str, salon_id: Optional[int] = None) -> str:
+    """Return a unique slug for this salon name.
+
+    First salon named "Beauty" gets "beauty".
+    Second gets "beauty-2", third "beauty-3", etc.
+    If the name produces an empty slug (rare), fall back to "salon-{id}".
+    """
     base = _slugify_name(name)
     if not base:
         base = f"salon-{salon_id or 'new'}"
@@ -513,6 +507,46 @@ def _resolve_salon(db: Session, salon_ref: str):
     if salon_ref.isdigit():
         return db.query(Salon).filter(Salon.id == int(salon_ref)).first()
     return None
+
+
+def _ensure_salon_slugs():
+    """Assign missing or placeholder slugs so /book/{name} works for existing salons.
+
+    Runs once at startup. Any salon with NULL/empty slug, or a placeholder
+    like "salon-12", gets a proper unique slug derived from its name.
+    """
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        salons = db.query(Salon).all()
+        changed = False
+        for s in salons:
+            current = (getattr(s, "slug", None) or "").strip()
+            desired = _slugify_name(s.name)
+            needs = (
+                not current
+                or current.startswith("salon-")
+                or (desired and current != desired and not current.startswith(desired + "-") and current != desired)
+            )
+            # Only rewrite when clearly broken / missing. Do not thrash
+            # existing unique suffixes like "beauty-2".
+            if not current or current.startswith("salon-"):
+                s.slug = _unique_slug(db, s.name, s.id)
+                changed = True
+            elif desired and not current:
+                s.slug = _unique_slug(db, s.name, s.id)
+                changed = True
+        if changed:
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
+# Run once at import / startup so existing DBs get pretty URLs immediately.
+_ensure_salon_slugs()
+
 
 def _parse_date(value: Optional[str]) -> Optional[date]:
     if not value:
@@ -637,11 +671,6 @@ def _staff_hours_for_day(staff: Staff, salon: Salon, d: date):
       2. The staff member's own overall custom hours (staff.opening_time /
          staff.closing_time), if set.
       3. The salon's default hours.
-
-    This used to be missing entirely — the per-day picker in the UI wrote
-    to day_open_N / day_close_N fields that the backend never read, so a
-    staff member's hours always fell back to the salon's hours no matter
-    what was picked and "saved" in the Staff modal.
     """
     day_hours = staff.day_hours or {}
     override = day_hours.get(str(d.weekday()))
@@ -840,6 +869,9 @@ def admin_approve(
         base = salon.subscription_expires_at if (salon.subscription_expires_at and salon.subscription_expires_at > now) else now
         salon.subscription_expires_at = base + timedelta(days=days)
         salon.status = "active"
+        # Ensure a pretty public URL exists as soon as the salon goes live
+        if not (salon.slug or "").strip() or (salon.slug or "").startswith("salon-"):
+            salon.slug = _unique_slug(db, salon.name, salon.id)
         db.commit()
 
     return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
@@ -921,7 +953,7 @@ def register_salon(
         working_days=",".join(str(d) for d in day_ints),
     )
     db.add(salon)
-    db.flush()
+    db.flush()  # get salon.id
     salon.slug = _unique_slug(db, name, salon.id)
     db.commit()
 
@@ -1001,6 +1033,19 @@ def dashboard(
 ):
     today = date.today()
     current_date = today.isoformat()
+
+    # Keep public booking URL pretty and unique for this salon.
+    # - Missing / empty / placeholder "salon-12" → assign from name
+    # - Does NOT rewrite an existing unique suffix like "beauty-2"
+    try:
+        current = (getattr(salon, "slug", None) or "").strip()
+        if not current or current.startswith("salon-"):
+            salon.slug = _unique_slug(db, salon.name, salon.id)
+            db.commit()
+            db.refresh(salon)
+    except Exception:
+        db.rollback()
+
     day_start = datetime.combine(today, datetime.min.time())
     day_end = day_start + timedelta(days=1)
 
@@ -1020,201 +1065,118 @@ def dashboard(
     today_bookings_rev = _booking_count_between(db, salon.id, day_start, day_end)
     avg_booking_today = (daily_rev / today_bookings_rev) if today_bookings_rev else 0.0
 
-    # Last 7 days trend (Mon-style bars)
-    revenue_trend = []
-    for i in range(6, -1, -1):
-        d0 = (day_start - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
-        d1 = d0 + timedelta(days=1)
-        revenue_trend.append({
-            "date": d0.date().isoformat(),
-            "weekday": d0.weekday(),
-            "amount": _revenue_between(db, salon.id, d0, d1),
-        })
-
-    # Top services (this month)
-    top_services_rows = (
-        db.query(Service.name, func.count(Appointment.id), func.coalesce(func.sum(Service.price), 0))
-        .join(Appointment, Appointment.service_id == Service.id)
+    # Appointments for selected day (default today)
+    view_date = _parse_date(selected_date) or today
+    view_start = datetime.combine(view_date, datetime.min.time())
+    view_end = view_start + timedelta(days=1)
+    appointments = (
+        db.query(Appointment)
         .filter(
             Appointment.salon_id == salon.id,
-            Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed"]),
-            Appointment.appointment_datetime >= month_start_dt,
-            Appointment.appointment_datetime < month_end_dt,
+            Appointment.appointment_datetime >= view_start,
+            Appointment.appointment_datetime < view_end,
         )
-        .group_by(Service.name)
-        .order_by(func.count(Appointment.id).desc())
-        .limit(5)
+        .order_by(Appointment.appointment_datetime)
         .all()
     )
-    top_services_total = sum(int(r[1] or 0) for r in top_services_rows) or 1
-    top_services = [
-        {"name": r[0], "count": int(r[1] or 0), "revenue": float(r[2] or 0),
-         "pct": round(100.0 * int(r[1] or 0) / top_services_total)}
-        for r in top_services_rows
-    ]
 
-    # Top professionals (this month)
-    top_staff_rows = (
-        db.query(Staff.name, func.count(Appointment.id))
-        .join(Appointment, Appointment.staff_id == Staff.id)
-        .filter(
-            Appointment.salon_id == salon.id,
-            Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed"]),
-            Appointment.appointment_datetime >= month_start_dt,
-            Appointment.appointment_datetime < month_end_dt,
-        )
-        .group_by(Staff.name)
-        .order_by(func.count(Appointment.id).desc())
-        .limit(5)
+    # Waitlist
+    waitlist = (
+        db.query(Waitlist)
+        .filter(Waitlist.salon_id == salon.id)
+        .order_by(Waitlist.preferred_date, Waitlist.id)
         .all()
     )
-    top_staff = [{"name": r[0], "count": int(r[1] or 0)} for r in top_staff_rows]
 
-    today_appt_count = (
-        db.query(func.count(Appointment.id))
-        .filter(
-            Appointment.salon_id == salon.id,
-            Appointment.appointment_datetime >= day_start,
-            Appointment.appointment_datetime < day_end,
-        )
-        .scalar()
-        or 0
+    # Revenue tab range
+    rev_start = _parse_date(start_date) or (today - timedelta(days=30))
+    rev_end = _parse_date(end_date) or today
+    if rev_end < rev_start:
+        rev_start, rev_end = rev_end, rev_start
+    rev_start_dt = datetime.combine(rev_start, datetime.min.time())
+    rev_end_dt = datetime.combine(rev_end + timedelta(days=1), datetime.min.time())
+    revenue_rows = _revenue_details_between(db, salon.id, rev_start_dt, rev_end_dt)
+    revenue_total = _revenue_between(db, salon.id, rev_start_dt, rev_end_dt)
+
+    # Gallery + testimonials for settings
+    gallery = (
+        db.query(GalleryImage)
+        .filter(GalleryImage.salon_id == salon.id)
+        .order_by(GalleryImage.id.desc())
+        .all()
     )
-
-    total_customers = (
-        db.query(func.count(func.distinct(Appointment.customer_phone)))
-        .filter(Appointment.salon_id == salon.id)
-        .scalar()
-        or 0
-    )
-
-    # New unique customers this calendar month (first-seen phone in this month)
-    month_start = day_start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    # Phones whose earliest appointment falls within this month
-    first_seen_subq = (
-        db.query(
-            Appointment.customer_phone.label("phone"),
-            func.min(Appointment.appointment_datetime).label("first_at"),
-        )
-        .filter(Appointment.salon_id == salon.id)
-        .group_by(Appointment.customer_phone)
-        .subquery()
-    )
-    new_customers_month = (
-        db.query(func.count())
-        .select_from(first_seen_subq)
-        .filter(first_seen_subq.c.first_at >= month_start)
-        .scalar()
-        or 0
-    )
-
-    try:
-        # Online bookings that paid a deposit — show on Home so owner can
-        # review the screenshot quickly and cancel if needed. Slot is already
-        # confirmed/reserved for the customer.
-        pending_payment_appts = (
-            db.query(Appointment)
-            .filter(
-                Appointment.salon_id == salon.id,
-                Appointment.payment_screenshot_url.isnot(None),
-                Appointment.payment_reviewed != 1,
-                Appointment.status.notin_([
-                    AppointmentStatus.cancelled,
-                    AppointmentStatus.no_show,
-                    "Cancelled",
-                    "No-Show",
-                ]),
-            )
-            .order_by(Appointment.created_at.desc())
-            .limit(30)
-            .all()
-        )
-        pending_payment_count = len(pending_payment_appts)
-    except Exception:
-        pending_payment_appts = []
-        pending_payment_count = 0
-
-    no_show_count_today = (
-        db.query(func.count(Appointment.id))
-        .filter(
-            Appointment.salon_id == salon.id,
-            Appointment.status == AppointmentStatus.no_show,
-            Appointment.appointment_datetime >= day_start,
-            Appointment.appointment_datetime < day_end,
-        )
-        .scalar()
-        or 0
-    )
-
     testimonials = (
         db.query(Testimonial)
         .filter(Testimonial.salon_id == salon.id)
         .order_by(Testimonial.is_pinned.desc(), Testimonial.id.desc())
-        .limit(50)
         .all()
     )
 
+    # Pending payment proofs on home
+    pending_payments = (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.payment_screenshot_url.isnot(None),
+            Appointment.payment_reviewed == 0,
+        )
+        .order_by(Appointment.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    pending_payment_count = len(pending_payments)
+
+    day_am, day_en = _day_names(view_date)
+
+    # Conflict recovery context (same as public booking)
     context = {
+        "request": request,
         "salon": salon,
         "active_tab": tab,
-        "current_date": current_date,
         "services": services,
         "staff_members": staff_members,
+        "appointments": appointments,
+        "waitlist": waitlist,
+        "current_date": current_date,
+        "selected_date": view_date.isoformat(),
+        "selected_day_am": day_am,
+        "selected_day_en": day_en,
         "daily_rev": daily_rev,
         "weekly_rev": weekly_rev,
         "monthly_rev": monthly_rev,
-        "today_bookings_rev": today_bookings_rev,
+        "today_bookings": today_bookings_rev,
         "avg_booking_today": avg_booking_today,
-        "revenue_trend": revenue_trend,
-        "top_services": top_services,
-        "top_staff": top_staff,
-        "today_appt_count": today_appt_count,
-        "total_customers": total_customers,
-        "new_customers_month": new_customers_month,
-        "pending_payment_count": pending_payment_count,
-        "pending_payment_appts": pending_payment_appts,
-        "no_show_count_today": no_show_count_today,
-        "error": error,
-        "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.slug or salon.id}",
+        "revenue_rows": revenue_rows,
+        "revenue_total": revenue_total,
+        "rev_start": rev_start.isoformat(),
+        "rev_end": rev_end.isoformat(),
+        "gallery": gallery,
         "testimonials": testimonials,
+        "pending_payments": pending_payments,
+        "pending_payment_count": pending_payment_count,
+        "error": error,
+        "hours_label": salon.hours_label,
+        "days_label": salon.working_days_label,
+        # Public booking link always uses the slug (name-based)
+        "booking_path": salon.slug or str(salon.id),
     }
 
-    if tab == "home":
-        sel_date = _parse_date(selected_date) or today
-        d_start = datetime.combine(sel_date, datetime.min.time())
-        d_end = d_start + timedelta(days=1)
-        appointments = (
-            db.query(Appointment)
-            .filter(
-                Appointment.salon_id == salon.id,
-                Appointment.appointment_datetime >= d_start,
-                Appointment.appointment_datetime < d_end,
-            )
-            .order_by(Appointment.appointment_datetime)
-            .all()
-        )
-        context["appointments"] = appointments
-        context["selected_date"] = sel_date.isoformat()
-
-        # Day-of-week name for whichever date is selected, so the board
-        # header reads e.g. "ሰኞ / Monday · 2026-08-24" instead of just the
-        # raw date — easier to recognize the day at a glance.
-        sel_day_am, sel_day_en = _day_names(sel_date)
-        context["selected_day_am"] = sel_day_am
-        context["selected_day_en"] = sel_day_en
-
-        if error == "conflict" and conflict_time and conflict_service and conflict_staff:
+    if error == "conflict" and conflict_time and conflict_service and conflict_staff:
+        try:
             conflict_dt = _parse_appt_datetime(conflict_time)
+        except ValueError:
+            conflict_dt = None
+        if conflict_dt:
             c_duration = _service_duration(db, conflict_service)
             c_end = conflict_dt + timedelta(minutes=c_duration)
-
             conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
-            alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+            alt_staff = _available_staff_for_slot(
+                db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff
+            )
             next_slot = (
                 _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
                 if conflict_staff_obj else None
             )
-
             context.update({
                 "conflict_name": conflict_name,
                 "conflict_phone": conflict_phone,
@@ -1228,97 +1190,54 @@ def dashboard(
                 "next_slot_display": _eth_display(next_slot),
             })
 
-    elif tab == "reserve":
-        context["waitlist_entries"] = (
-            db.query(Waitlist)
-            .filter(Waitlist.salon_id == salon.id)
-            .order_by(Waitlist.preferred_date)
-            .all()
-        )
-
-    elif tab == "revenue":
-        week_start = day_start - timedelta(days=today.weekday())
-        month_start = day_start.replace(day=1)
-
-        context["weekly_rev"] = _revenue_between(db, salon.id, week_start, day_end)
-        context["monthly_rev"] = _revenue_between(db, salon.id, month_start, day_end)
-        context["start_date"] = start_date or current_date
-        context["end_date"] = end_date or current_date
-
-        # Itemized, customer-by-customer breakdown for whatever range is
-        # selected (defaults to today). Same query backs the on-screen
-        # table and the /export-revenue file, so they always match, and an
-        # owner can pull up any past day or month, not just a total.
-        custom_rev = None
-        custom_details = []
-        s, e = _parse_date(start_date), _parse_date(end_date)
-        if s and e:
-            range_start = datetime.combine(s, datetime.min.time())
-            range_end = datetime.combine(e, datetime.min.time()) + timedelta(days=1)
-            custom_rev = _revenue_between(db, salon.id, range_start, range_end)
-            custom_details = _revenue_details_between(db, salon.id, range_start, range_end)
-        context["custom_rev"] = custom_rev
-        context["custom_details"] = custom_details
-
     return templates.TemplateResponse(request, "dashboard.html", context)
 
 
-# ---------------------------------------------------------------------------
-# Revenue export — itemized CSV for any date range, so an owner can pull
-# up a detailed, per-customer/per-staff record of revenue even months later.
-# ---------------------------------------------------------------------------
-@app.get("/export-revenue")
-def export_revenue(
-    start_date: str,
-    end_date: str,
+@app.get("/dashboard/export-revenue")
+def export_revenue_csv(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    s = _parse_date(start_date)
-    e = _parse_date(end_date)
-    if not s or not e:
-        return RedirectResponse(url="/dashboard?tab=revenue", status_code=status.HTTP_303_SEE_OTHER)
+    today = date.today()
+    rev_start = _parse_date(start_date) or (today - timedelta(days=30))
+    rev_end = _parse_date(end_date) or today
+    if rev_end < rev_start:
+        rev_start, rev_end = rev_end, rev_start
+    rev_start_dt = datetime.combine(rev_start, datetime.min.time())
+    rev_end_dt = datetime.combine(rev_end + timedelta(days=1), datetime.min.time())
+    rows = _revenue_details_between(db, salon.id, rev_start_dt, rev_end_dt)
 
-    start_dt = datetime.combine(s, datetime.min.time())
-    end_dt = datetime.combine(e, datetime.min.time()) + timedelta(days=1)
-
-    appts = _revenue_details_between(db, salon.id, start_dt, end_dt)
-
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(["Date", "Time", "Customer Name", "Phone", "Service", "Staff", "Price (ETB)"])
-
-    total = 0.0
-    for a in appts:
-        price = float(a.service_price or 0)
-        total += price
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Date", "Time (Eth)", "Customer", "Phone", "Service", "Price (ETB)",
+        "Staff", "Status", "Source",
+    ])
+    for a in rows:
         writer.writerow([
             a.appointment_datetime.date().isoformat(),
             a.appointment_time,
             a.customer_name,
             a.customer_phone,
             a.service_name,
+            a.service_price,
             a.staff_name,
-            f"{price:.2f}",
+            getattr(a.status, "value", str(a.status)),
+            a.source or "",
         ])
-
-    writer.writerow([])
-    writer.writerow(["", "", "", "", "", "TOTAL", f"{total:.2f}"])
-
-    buffer.seek(0)
-    filename = f"{salon.name}_revenue_{s.isoformat()}_to_{e.isoformat()}.csv"
+    buf.seek(0)
+    filename = f"revenue_{salon.slug or salon.id}_{rev_start}_{rev_end}.csv"
     return StreamingResponse(
-        iter([buffer.getvalue()]),
+        iter([buf.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
-# ---------------------------------------------------------------------------
-# Salon-level working hours
-# ---------------------------------------------------------------------------
-@app.post("/update-hours")
-def update_hours(
+@app.post("/update-salon-hours")
+def update_salon_hours(
     opening_time: str = Form(...),
     closing_time: str = Form(...),
     working_days: List[str] = Form(default=[]),
@@ -1356,12 +1275,6 @@ def update_staff_schedule(
     closing_time: Optional[str] = Form(None),
     use_custom_days: Optional[str] = Form(None),
     working_days: List[str] = Form(default=[]),
-    # Per-day open/close overrides from the "Custom days / half-day per
-    # day" panel (day_open_0..6 / day_close_0..6 hidden inputs in
-    # dashboard.html). These were previously never read by this endpoint,
-    # which is why per-day hours (e.g. a staff member working only 2 or 6
-    # hours on a given day) silently failed to save and the staff member
-    # just kept using the salon's default hours.
     day_open_0: Optional[str] = Form(None),
     day_close_0: Optional[str] = Form(None),
     day_open_1: Optional[str] = Form(None),
@@ -1400,10 +1313,6 @@ def update_staff_schedule(
             return RedirectResponse(url="/dashboard?tab=staff&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
         staff.working_days = ",".join(str(d) for d in day_ints)
 
-        # Build the per-day hours map. Only enabled days can carry an
-        # override; a day with no valid open<close pair simply falls back
-        # to the staff member's overall hours (or the salon's) at read
-        # time via _staff_hours_for_day, so it's safe to just omit it here.
         day_open_by_index = {
             0: day_open_0, 1: day_open_1, 2: day_open_2, 3: day_open_3,
             4: day_open_4, 5: day_open_5, 6: day_open_6,
@@ -1509,7 +1418,7 @@ def search_customer(
             "appointment_time": a.appointment_time,
             "day_am": day_am,
             "day_en": day_en,
-            "status": a.status.value,
+            "status": a.status.value if hasattr(a.status, "value") else str(a.status),
         })
 
     return JSONResponse({"results": results})
@@ -1911,7 +1820,6 @@ def delete_staff(
     return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
 
 
-
 # ---------------------------------------------------------------------------
 # Deposit / payment settings (salon owner)
 # ---------------------------------------------------------------------------
@@ -1961,7 +1869,6 @@ def update_service_deposit(
     return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
 
 
-
 @app.post("/dismiss-payment-proof")
 def dismiss_payment_proof(
     appointment_id: int = Form(...),
@@ -1997,7 +1904,6 @@ def confirm_deposit_payment(
         if st in ("Pending Payment", "pending_payment", AppointmentStatus.pending_payment.value):
             appt.status = AppointmentStatus.confirmed
             db.commit()
-            # live notify salon dashboards
             try:
                 import asyncio
                 asyncio.get_event_loop().create_task(manager.broadcast(salon.id, {
@@ -2010,7 +1916,7 @@ def confirm_deposit_payment(
 
 
 # ---------------------------------------------------------------------------
-# Public customer-facing booking page
+# Public customer-facing booking page  —  /book/{slug-or-id}
 # ---------------------------------------------------------------------------
 @app.get("/book/{salon_ref}", response_class=HTMLResponse)
 def public_booking_page(
@@ -2031,6 +1937,9 @@ def public_booking_page(
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
 
+    # Prefer the pretty slug in all redirects / links from this point on
+    public_path = (salon.slug or "").strip() or str(salon.id)
+
     services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
@@ -2044,7 +1953,7 @@ def public_booking_page(
 
     context = {
         "salon": salon,
-        "salon_ref": salon.slug or str(salon.id),
+        "salon_ref": public_path,
         "services": services,
         "staff_members": staff_members,
         "current_date": date.today().isoformat(),
@@ -2058,29 +1967,33 @@ def public_booking_page(
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:
-        conflict_dt = _parse_appt_datetime(conflict_time)
-        c_duration = _service_duration(db, conflict_service)
-        c_end = conflict_dt + timedelta(minutes=c_duration)
+        try:
+            conflict_dt = _parse_appt_datetime(conflict_time)
+        except ValueError:
+            conflict_dt = None
+        if conflict_dt:
+            c_duration = _service_duration(db, conflict_service)
+            c_end = conflict_dt + timedelta(minutes=c_duration)
 
-        conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
-        alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
-        next_slot = (
-            _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
-            if conflict_staff_obj else None
-        )
+            conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+            alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+            next_slot = (
+                _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
+                if conflict_staff_obj else None
+            )
 
-        context.update({
-            "conflict_name": conflict_name,
-            "conflict_phone": conflict_phone,
-            "conflict_service": conflict_service,
-            "conflict_staff": conflict_staff,
-            "conflict_staff_name": conflict_staff_obj.name if conflict_staff_obj else "",
-            "conflict_time": conflict_time,
-            "conflict_date": conflict_dt.date().isoformat(),
-            "alt_staff": alt_staff,
-            "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
-            "next_slot_display": _eth_display(next_slot),
-        })
+            context.update({
+                "conflict_name": conflict_name,
+                "conflict_phone": conflict_phone,
+                "conflict_service": conflict_service,
+                "conflict_staff": conflict_staff,
+                "conflict_staff_name": conflict_staff_obj.name if conflict_staff_obj else "",
+                "conflict_time": conflict_time,
+                "conflict_date": conflict_dt.date().isoformat(),
+                "alt_staff": alt_staff,
+                "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
+                "next_slot_display": _eth_display(next_slot),
+            })
 
     return templates.TemplateResponse(request, "public_booking.html", context)
 
@@ -2100,8 +2013,7 @@ async def public_booking_submit(
     salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
-    salon_id = salon.id
-    public_path = salon.slug or str(salon.id)
+    public_path = (salon.slug or "").strip() or str(salon.id)
 
     try:
         appt_dt = _parse_appt_datetime(appointment_time)
@@ -2194,7 +2106,6 @@ async def public_booking_submit(
         db.refresh(appt)
     except Exception as exc:
         db.rollback()
-        # Enum label still missing in PG — insert as Confirmed, keep proof
         import logging
         logging.getLogger("melkegna").warning("booking status insert failed: %s", exc)
         appt = Appointment(
@@ -2244,7 +2155,6 @@ async def public_booking_submit(
     )
 
 
-
 @app.get("/book/{salon_ref}/status/{appointment_id}")
 def public_booking_status(salon_ref: str, appointment_id: int, db: Session = Depends(get_db)):
     """Customer polls this after deposit upload until the salon confirms payment."""
@@ -2282,7 +2192,7 @@ def public_join_waitlist(
     salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
-    public_path = salon.slug or str(salon.id)
+    public_path = (salon.slug or "").strip() or str(salon.id)
 
     db.add(Waitlist(
         salon_id=salon.id,
