@@ -461,18 +461,48 @@ def _parse_time_hhmm(value: Optional[str]):
 
 
 def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime) -> float:
+    """Sum service prices for appointments in range that count as revenue.
+
+    Counts Confirmed + Completed (excludes Cancelled / No-Show). Salon owners
+    expect today's booked amount to show as soon as a booking is confirmed,
+    not only after marking Complete.
+    """
     total = (
         db.query(func.coalesce(func.sum(Service.price), 0))
         .join(Appointment, Appointment.service_id == Service.id)
         .filter(
             Appointment.salon_id == salon_id,
-            Appointment.status == AppointmentStatus.completed,
+            Appointment.status.in_([
+                AppointmentStatus.completed,
+                AppointmentStatus.confirmed,
+                "Completed",
+                "Confirmed",
+            ]),
             Appointment.appointment_datetime >= start_dt,
             Appointment.appointment_datetime < end_dt,
         )
         .scalar()
     )
     return float(total or 0)
+
+
+def _booking_count_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime) -> int:
+    return int(
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.status.in_([
+                AppointmentStatus.completed,
+                AppointmentStatus.confirmed,
+                "Completed",
+                "Confirmed",
+            ]),
+            Appointment.appointment_datetime >= start_dt,
+            Appointment.appointment_datetime < end_dt,
+        )
+        .scalar()
+        or 0
+    )
 
 
 def _revenue_details_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime):
@@ -484,7 +514,12 @@ def _revenue_details_between(db: Session, salon_id: int, start_dt: datetime, end
         db.query(Appointment)
         .filter(
             Appointment.salon_id == salon_id,
-            Appointment.status == AppointmentStatus.completed,
+            Appointment.status.in_([
+                AppointmentStatus.completed,
+                AppointmentStatus.confirmed,
+                "Completed",
+                "Confirmed",
+            ]),
             Appointment.appointment_datetime >= start_dt,
             Appointment.appointment_datetime < end_dt,
         )
@@ -899,6 +934,67 @@ def dashboard(
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
     daily_rev = _revenue_between(db, salon.id, day_start, day_end)
+    week_start = day_start - timedelta(days=day_start.weekday())
+    week_end = week_start + timedelta(days=7)
+    month_start_dt = day_start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start_dt.month == 12:
+        month_end_dt = month_start_dt.replace(year=month_start_dt.year + 1, month=1)
+    else:
+        month_end_dt = month_start_dt.replace(month=month_start_dt.month + 1)
+    weekly_rev = _revenue_between(db, salon.id, week_start, week_end)
+    monthly_rev = _revenue_between(db, salon.id, month_start_dt, month_end_dt)
+    today_bookings_rev = _booking_count_between(db, salon.id, day_start, day_end)
+    avg_booking_today = (daily_rev / today_bookings_rev) if today_bookings_rev else 0.0
+
+    # Last 7 days trend (Mon-style bars)
+    revenue_trend = []
+    for i in range(6, -1, -1):
+        d0 = (day_start - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        d1 = d0 + timedelta(days=1)
+        revenue_trend.append({
+            "date": d0.date().isoformat(),
+            "weekday": d0.weekday(),
+            "amount": _revenue_between(db, salon.id, d0, d1),
+        })
+
+    # Top services (this month)
+    top_services_rows = (
+        db.query(Service.name, func.count(Appointment.id), func.coalesce(func.sum(Service.price), 0))
+        .join(Appointment, Appointment.service_id == Service.id)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed"]),
+            Appointment.appointment_datetime >= month_start_dt,
+            Appointment.appointment_datetime < month_end_dt,
+        )
+        .group_by(Service.name)
+        .order_by(func.count(Appointment.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_services_total = sum(int(r[1] or 0) for r in top_services_rows) or 1
+    top_services = [
+        {"name": r[0], "count": int(r[1] or 0), "revenue": float(r[2] or 0),
+         "pct": round(100.0 * int(r[1] or 0) / top_services_total)}
+        for r in top_services_rows
+    ]
+
+    # Top professionals (this month)
+    top_staff_rows = (
+        db.query(Staff.name, func.count(Appointment.id))
+        .join(Appointment, Appointment.staff_id == Staff.id)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed"]),
+            Appointment.appointment_datetime >= month_start_dt,
+            Appointment.appointment_datetime < month_end_dt,
+        )
+        .group_by(Staff.name)
+        .order_by(func.count(Appointment.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_staff = [{"name": r[0], "count": int(r[1] or 0)} for r in top_staff_rows]
 
     today_appt_count = (
         db.query(func.count(Appointment.id))
@@ -990,6 +1086,13 @@ def dashboard(
         "services": services,
         "staff_members": staff_members,
         "daily_rev": daily_rev,
+        "weekly_rev": weekly_rev,
+        "monthly_rev": monthly_rev,
+        "today_bookings_rev": today_bookings_rev,
+        "avg_booking_today": avg_booking_today,
+        "revenue_trend": revenue_trend,
+        "top_services": top_services,
+        "top_staff": top_staff,
         "today_appt_count": today_appt_count,
         "total_customers": total_customers,
         "new_customers_month": new_customers_month,

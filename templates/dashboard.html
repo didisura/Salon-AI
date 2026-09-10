@@ -901,7 +901,11 @@
                                                     {% endif %}
                                                 </div>
                                                 <div class="text-muted small"><i class="fa-solid fa-phone me-1"></i>{{ appt.customer_phone }}</div>
-                                                <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>{{ appt.service_name }} · {{ appt.staff_name }}</div>
+                                                <div class="text-muted small"><i class="fa-solid fa-scissors me-1"></i>{{ appt.service_name }} · {{ appt.staff_name }}
+                                                    {% if appt.service_price %}
+                                                    · <strong style="color:var(--accent);">{{ "{:,.0f}".format(appt.service_price) }} ETB</strong>
+                                                    {% endif %}
+                                                </div>
                                                 {% if appt.payment_screenshot_url %}
                                                 <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
                                                     <a href="{{ appt.payment_screenshot_url }}" target="_blank" rel="noopener"
@@ -992,7 +996,21 @@
                         {% for w in waitlist_entries %}
                         <tr>
                             <td data-label="ደንበኛ / Customer" class="fw-bold">{{ w.customer_name }}</td>
-                            <td data-label="ስልክ / Phone">{{ w.customer_phone }}</td>
+                            <td data-label="ስልክ / Phone">
+                                {{ w.customer_phone }}
+                                <div class="mt-1 d-flex gap-1 flex-wrap">
+                                    <a href="tel:{{ w.customer_phone }}" class="btn btn-sm btn-outline-soft py-0 px-2" style="font-size:0.72rem;font-weight:600;">
+                                        <i class="fa-solid fa-phone"></i>
+                                    </a>
+                                    <a href="https://wa.me/{{ w.customer_phone }}" target="_blank" rel="noopener"
+                                       class="btn btn-sm py-0 px-2" style="font-size:0.72rem;font-weight:600;background:#25D366;color:#fff;border:none;border-radius:8px;"
+                                       title="Notify via WhatsApp">
+                                        <i class="fa-brands fa-whatsapp"></i>
+                                        <span data-lang-am>አሳውቅ</span>
+                                        <span data-lang-en>Notify</span>
+                                    </a>
+                                </div>
+                            </td>
                             <td data-label="አገልግሎት / Service">{{ w.service_name }}</td>
                             <td data-label="ባለሙያ / Staff">{{ w.staff_name }}</td>
                             <td data-label="ቀን / Date">{{ w.preferred_date }}</td>
@@ -1038,28 +1056,115 @@
         <!-- ==================== REVENUE ==================== -->
         {% if active_tab == 'revenue' %}
         <section class="row g-3 mb-3">
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="metric-card">
                     <span class="label" data-lang-am>የዛሬ ገቢ</span>
                     <span class="label" data-lang-en>Today</span>
-                    <div class="value" style="color:var(--accent);">{{ "{:,.2f}".format(daily_rev) }} ETB</div>
+                    <div class="value" style="color:var(--accent);">{{ "{:,.0f}".format(daily_rev|default(0)) }} ETB</div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
+                <div class="metric-card">
+                    <span class="label" data-lang-am>ቀጠሮዎች</span>
+                    <span class="label" data-lang-en>Bookings</span>
+                    <div class="value">{{ today_bookings_rev|default(0) }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="metric-card">
+                    <span class="label" data-lang-am>አማካይ ቀጠሮ</span>
+                    <span class="label" data-lang-en>Avg booking</span>
+                    <div class="value">{{ "{:,.0f}".format(avg_booking_today|default(0)) }} ETB</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
                 <div class="metric-card">
                     <span class="label" data-lang-am>የዚህ ሳምንት</span>
                     <span class="label" data-lang-en>This week</span>
-                    <div class="value text-success">{{ "{:,.2f}".format(weekly_rev) }} ETB</div>
+                    <div class="value text-success">{{ "{:,.0f}".format(weekly_rev|default(0)) }} ETB</div>
                 </div>
             </div>
             <div class="col-12 col-md-4">
                 <div class="metric-card">
                     <span class="label" data-lang-am>የዚህ ወር</span>
                     <span class="label" data-lang-en>This month</span>
-                    <div class="value text-primary">{{ "{:,.2f}".format(monthly_rev) }} ETB</div>
+                    <div class="value text-primary">{{ "{:,.0f}".format(monthly_rev|default(0)) }} ETB</div>
                 </div>
             </div>
         </section>
+
+        <!-- 7-day trend -->
+        {% if revenue_trend is defined and revenue_trend %}
+        {% set max_amt = namespace(v=1) %}
+        {% for t in revenue_trend %}{% if t.amount > max_amt.v %}{% set max_amt.v = t.amount %}{% endif %}{% endfor %}
+        <div class="card-soft mb-3">
+            <h5 class="fw-bold mb-3" style="font-size:1rem;">
+                <span data-lang-am>የ7 ቀን አዝማሚያ</span>
+                <span data-lang-en>7-day trend</span>
+            </h5>
+            <div class="d-flex align-items-end justify-content-between gap-1" style="height:120px;">
+                {% set day_am = ['ሰኞ','ማክሰ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'] %}
+                {% set day_en = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+                {% for t in revenue_trend %}
+                {% set h = 8 if max_amt.v == 0 else (12 + (t.amount / max_amt.v * 100)|int) %}
+                <div class="text-center flex-fill">
+                    <div class="small text-muted mb-1" style="font-size:0.65rem;">{{ "{:,.0f}".format(t.amount) }}</div>
+                    <div style="height:{{ h }}px;background:linear-gradient(180deg,var(--accent),#C4A574);border-radius:8px 8px 4px 4px;margin:0 auto;width:70%;min-width:18px;"></div>
+                    <div class="small fw-semibold mt-1" style="font-size:0.7rem;">
+                        <span data-lang-am>{{ day_am[t.weekday] }}</span>
+                        <span data-lang-en>{{ day_en[t.weekday] }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6">
+                <div class="card-soft h-100">
+                    <h5 class="fw-bold mb-3" style="font-size:1rem;">
+                        <span data-lang-am>ከፍተኛ አገልግሎቶች</span>
+                        <span data-lang-en>Top services</span>
+                    </h5>
+                    {% if top_services is defined and top_services %}
+                    {% for s in top_services %}
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small fw-semibold">
+                            <span>{{ loop.index }}. {{ s.name }}</span>
+                            <span>{{ s.pct }}% · {{ "{:,.0f}".format(s.revenue) }} ETB</span>
+                        </div>
+                        <div style="height:8px;background:#F0E8DC;border-radius:6px;overflow:hidden;">
+                            <div style="height:100%;width:{{ s.pct }}%;background:var(--accent);border-radius:6px;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted small mb-0"><span data-lang-am>ገና መረጃ የለም</span><span data-lang-en>No data yet</span></p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="card-soft h-100">
+                    <h5 class="fw-bold mb-3" style="font-size:1rem;">
+                        <span data-lang-am>ከፍተኛ ባለሙያዎች</span>
+                        <span data-lang-en>Top professionals</span>
+                    </h5>
+                    {% if top_staff is defined and top_staff %}
+                    {% for s in top_staff %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded-3" style="background:#FAFAF8;border:1px solid var(--border);">
+                        <span class="fw-semibold">{{ loop.index }}. {{ s.name }}</span>
+                        <span class="small text-muted">{{ s.count }}
+                            <span data-lang-am>ቀጠሮ</span><span data-lang-en>bookings</span>
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted small mb-0"><span data-lang-am>ገና መረጃ የለም</span><span data-lang-en>No data yet</span></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
         <section class="card-soft">
             <h5 class="fw-bold mb-3">
                 <span data-lang-am>በቀን ክልል ገቢ</span>
