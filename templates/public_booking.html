@@ -1,1380 +1,2323 @@
-<!DOCTYPE html>
-<html lang="am">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ salon.name }} - ቀጠሮ ይያዙ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <style>
-        :root {
-            --accent: #9C6B3F;
-            --accent-hover: #7E5530;
-            --cream: #F6ECE1;
-            --border: #E3D3C0;
-            --text: #2D2424;
-            --muted: #7A6E6E;
-            --green: #2E7D32;
-            --star: #E6A817;
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
-        }
-        * { box-sizing: border-box; }
-        body {
-            background: #FAFAF8;
-            font-family: 'Noto Sans Ethiopic', sans-serif;
-            min-height: 100vh;
-            color: var(--text);
-            margin: 0;
-            padding-bottom: calc(84px + var(--safe-bottom));
-            -webkit-tap-highlight-color: transparent;
-        }
+import csv
+import io
+import os
+import secrets
+import time
+from collections import defaultdict, deque
+from datetime import datetime, date, timedelta
+from typing import List, Optional
+from urllib.parse import urlencode
 
-        function copyAccount(text, btn) {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(function () {
-        if (!btn) return;
-        var old = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
-        setTimeout(function () { btn.innerHTML = old; }, 1200);
-    }).catch(function () {
-        // fallback
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand('copy'); } catch (e) {}
-        document.body.removeChild(ta);
-        if (btn) {
-            var old = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
-            setTimeout(function () { btn.innerHTML = old; }, 1200);
-        }
-    });
-}
+import uuid
+from pathlib import Path
 
-/* Language */
-        .lang-toggle {
-            position: fixed; top: 12px; right: 12px; z-index: 2000;
-            display: flex; align-items: center; gap: 6px;
-            background: rgba(255,255,255,0.94); border: 1px solid var(--border);
-            border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 0.78rem;
-            color: var(--accent); cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-        }
-        [data-lang-en] { display: none; }
-        html[lang="en"] [data-lang-am] { display: none !important; }
-        html[lang="en"] [data-lang-en] { display: inline !important; }
-        html[lang="am"] [data-lang-am] { display: inline !important; }
-        html[lang="am"] [data-lang-en] { display: none !important; }
+from fastapi import (
+    FastAPI, Request, Depends, Form, WebSocket, WebSocketDisconnect, status,
+    UploadFile, File,
+)
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-        .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 24px; }
+from database import Base, engine, get_db
+from models import (
+    Salon, Service, Staff, StaffDayOff, Appointment, Waitlist,
+    AppointmentStatus, GalleryImage, Testimonial, MediaAsset,
+)
+from security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_admin_token,
+    get_current_salon,
+    get_current_admin,
+    NotAuthenticatedException,
+)
 
-        /* Hero */
-        .hero {
-            position: relative; height: 220px; width: 100%;
-            background-size: cover; background-position: center; background-color: #5A4936;
-        }
-        .hero.no-photo { background-image: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%); }
-        .hero-overlay {
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 100%);
-            display: flex; flex-direction: column; justify-content: flex-end;
-            padding: 18px 18px 16px;
-        }
-        .hero h1 { color: #fff; font-weight: 800; font-size: 1.45rem; margin: 0 0 2px; }
-        .hero .tagline { color: #EADFD0; font-size: 0.85rem; margin: 0; }
+Base.metadata.create_all(bind=engine)
 
-        /* Trust bar */
-        .trust-bar {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
-            background: #fff; border: 1px solid var(--border); border-radius: 14px;
-            padding: 12px 14px; margin: -28px 0 16px; position: relative; z-index: 2;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.06); font-size: 0.82rem; font-weight: 600; color: #5A4936;
-        }
-        .trust-bar .sep { color: var(--border); font-weight: 400; }
-        .trust-bar .star { color: var(--star); }
-        .trust-bar i { color: var(--accent); }
 
-        /* Sections */
-        .section { margin-bottom: 20px; }
-        .section-title {
-            font-size: 1rem; font-weight: 700; margin: 0 0 12px; color: var(--text);
-            display: flex; align-items: center; gap: 8px;
-        }
-        .section-title .step-num {
-            width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff;
-            font-size: 0.75rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
-        }
+def _ensure_staff_day_hours_column():
+    """One-time, idempotent startup migration.
 
-        /* Category chips */
-        .cat-row {
-            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
-            -webkit-overflow-scrolling: touch; scrollbar-width: none;
-        }
-        .cat-row::-webkit-scrollbar { display: none; }
-        .cat-chip {
-            flex: 0 0 auto; border: 1px solid var(--border); background: #fff;
-            color: #5A4936; font-weight: 600; font-size: 0.78rem;
-            padding: 8px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
-        }
-        .cat-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    Base.metadata.create_all() above only creates TABLES that don't exist
+    yet — it never alters a table that's already there. Your `staff` table
+    already existed before the `day_hours` column was added to the model,
+    so that column would never actually appear in the real database no
+    matter how many times the app restarts, and every save of per-day
+    staff hours would silently do nothing. This checks for the column and
+    adds it if it's missing, so existing deployments get patched
+    automatically on next boot without a manual migration step.
+    """
+    from sqlalchemy import inspect, text
 
-        /* Gallery */
-        .gallery-row {
-            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch; padding-bottom: 4px;
-        }
-        .gallery-row::-webkit-scrollbar { height: 4px; }
-        .g-tile {
-            flex: 0 0 140px; height: 150px; border-radius: 14px; overflow: hidden;
-            scroll-snap-align: start; border: 1px solid var(--border); background: var(--cream);
-            position: relative; cursor: pointer;
-        }
-        .g-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .g-tile .badge {
-            position: absolute; left: 8px; bottom: 8px;
-            background: rgba(0,0,0,0.7); color: #fff; font-size: 0.65rem; font-weight: 700;
-            padding: 3px 8px; border-radius: 999px;
-        }
-        .g-tile.hidden { display: none; }
-        .g-empty {
-            flex: 1; text-align: center; padding: 24px; color: var(--muted); font-size: 0.85rem;
-            border: 1px dashed var(--border); border-radius: 14px; background: #fff;
-        }
+    inspector = inspect(engine)
+    try:
+        existing_columns = [c["name"] for c in inspector.get_columns("staff")]
+    except Exception:
+        # Table doesn't exist yet (fresh DB) — create_all() above already
+        # created it correctly, with the column, via the model definition.
+        return
 
-        /* Reviews summary */
-        .reviews-card {
-            background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 16px;
-        }
-        .rev-top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
-        .rev-score { text-align: center; min-width: 72px; }
-        .rev-score .big { font-size: 2rem; font-weight: 800; color: var(--text); line-height: 1; }
-        .rev-score .stars { color: var(--star); font-size: 0.75rem; letter-spacing: 1px; margin: 4px 0; }
-        .rev-score .count { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
-        .rev-bars { flex: 1; }
-        .rev-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.72rem; color: var(--muted); }
-        .rev-bar-row .lbl { width: 12px; text-align: right; font-weight: 700; }
-        .rev-bar-track { flex: 1; height: 6px; background: #F0E8DC; border-radius: 4px; overflow: hidden; }
-        .rev-bar-fill { height: 100%; background: var(--star); border-radius: 4px; }
-        .rev-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-        .rev-filter {
-            border: 1px solid var(--border); background: #fff; border-radius: 999px;
-            padding: 5px 12px; font-size: 0.72rem; font-weight: 600; color: #5A4936; cursor: pointer;
-        }
-        .rev-filter.active { background: var(--cream); border-color: var(--accent); color: var(--accent); }
-        .testimonial-scroll {
-            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-        }
-        .t-card {
-            flex: 0 0 240px; scroll-snap-align: start;
-            background: #FAFAF8; border: 1px solid var(--border); border-radius: 14px; padding: 12px;
-        }
-        .t-card .stars { color: var(--star); font-size: 0.7rem; margin-bottom: 6px; }
-        .t-card .quote { font-size: 0.82rem; color: #5A4936; font-style: italic; margin-bottom: 8px; line-height: 1.4; }
-        .t-card .who { font-size: 0.75rem; font-weight: 700; color: var(--text); }
-        .t-card .meta { font-size: 0.7rem; color: var(--muted); }
+    if "day_hours" in existing_columns:
+        return
 
-        /* Booking card */
-        .book-card {
-            background: #fff; border: 1px solid var(--border); border-radius: 20px;
-            padding: 20px 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.03);
-        }
+    dialect = engine.dialect.name
+    col_type = "JSON" if dialect == "postgresql" else "TEXT"
 
-        /* Step progress */
-        .steps-bar {
-            display: flex; gap: 4px; margin-bottom: 18px;
-        }
-        .steps-bar .dot {
-            flex: 1; height: 4px; border-radius: 4px; background: #EDE4D6;
-            transition: background .2s;
-        }
-        .steps-bar .dot.done, .steps-bar .dot.active { background: var(--accent); }
+    with engine.begin() as conn:
+        conn.execute(text(f"ALTER TABLE staff ADD COLUMN day_hours {col_type}"))
 
-        .step-panel { display: none; }
-        .step-panel.active { display: block; animation: fadeIn .2s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-        /* Service cards */
-        .svc-list { display: flex; flex-direction: column; gap: 10px; }
-        .svc-card {
-            display: flex; align-items: center; gap: 12px;
-            border: 1.5px solid var(--border); border-radius: 14px; padding: 14px;
-            cursor: pointer; background: #fff; transition: all .15s;
-        }
-        .svc-card:hover { border-color: var(--accent); }
-        .svc-card.selected {
-            border-color: var(--accent); background: var(--cream);
-            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
-        }
-        .svc-card input { display: none; }
-        .svc-icon {
-            width: 44px; height: 44px; border-radius: 12px; background: var(--cream);
-            display: flex; align-items: center; justify-content: center;
-            color: var(--accent); font-size: 1.1rem; flex-shrink: 0;
-        }
-        .svc-card.selected .svc-icon { background: var(--accent); color: #fff; }
-        .svc-body { flex: 1; min-width: 0; }
-        .svc-name { font-weight: 700; font-size: 0.95rem; margin: 0 0 2px; }
-        .svc-meta { font-size: 0.78rem; color: var(--muted); margin: 0; }
-        .svc-price { font-weight: 800; color: var(--accent); font-size: 0.95rem; white-space: nowrap; }
 
-        /* Staff */
-        .staff-list {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 12px;
-        }
-        .staff-pick {
-            position: relative; text-align: center; cursor: pointer;
-        }
-        .staff-pick input { position: absolute; opacity: 0; pointer-events: none; }
-        .staff-ring {
-            width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 6px;
-            border: 2.5px solid var(--border); padding: 3px; background: var(--cream);
-            transition: all .15s; overflow: hidden;
-        }
-        .staff-ring img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
-        .staff-pick input:checked ~ .staff-ring {
-            border-color: var(--accent); box-shadow: 0 0 0 3px rgba(156,107,63,0.2);
-        }
-        .staff-check {
-            position: absolute; top: 0; right: calc(50% - 40px); width: 20px; height: 20px;
-            border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.6rem;
-            display: none; align-items: center; justify-content: center; border: 2px solid #fff;
-        }
-        .staff-pick input:checked ~ .staff-check { display: flex; }
-        .staff-pick .nm { font-size: 0.78rem; font-weight: 700; color: #5A4936; }
-        .staff-any {
-            border: 1.5px dashed var(--border); border-radius: 14px; padding: 12px;
-            text-align: center; cursor: pointer; margin-top: 8px; font-weight: 600; font-size: 0.85rem; color: var(--muted);
-        }
-        .staff-any.selected { border-color: var(--accent); border-style: solid; background: var(--cream); color: var(--accent); }
+_ensure_staff_day_hours_column()
 
-        /* Time wheel */
-        .eth-time-picker {
-            background: var(--cream); border: 1px solid var(--border); border-radius: 14px; padding: 12px;
-        }
-        .eth-wheel-shell {
-            position: relative; display: flex; align-items: center; justify-content: center;
-            background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 0 10px;
-        }
-        .eth-wheel-highlight {
-            position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%);
-            height: 42px; border-radius: 9px;
-            background: rgba(156,107,63,0.1);
-            border-top: 1px solid rgba(156,107,63,0.35);
-            border-bottom: 1px solid rgba(156,107,63,0.35);
-            pointer-events: none; z-index: 1;
-        }
-        .wheel-col {
-            position: relative; height: 168px; overflow-y: scroll; scroll-snap-type: y mandatory;
-            padding-top: 63px; padding-bottom: 63px; -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; z-index: 2; cursor: grab; user-select: none; width: 100%;
-        }
-        .wheel-col::-webkit-scrollbar { display: none; }
-        .wheel-item {
-            height: 42px; display: flex; align-items: center; justify-content: center;
-            font-size: 1rem; font-weight: 600; color: #B9A990;
-            scroll-snap-align: center; transition: color .12s, font-size .12s; cursor: pointer;
-        }
-        .wheel-item.active { color: #5A4936; font-size: 1.2rem; }
-        .eth-preview { margin-top: 8px; font-weight: 700; color: var(--accent); font-size: 1.05rem; text-align: center; }
+# ---------------------------------------------------------------------------
+# Photo uploads — local disk under static/uploads/
+# ---------------------------------------------------------------------------
+UPLOAD_DIR = Path("static/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-        .form-control, .form-select {
-            border-radius: 12px; border: 1px solid var(--border); background: #fff;
-            min-height: 48px; padding: 12px 14px; font-size: 1rem;
-        }
-        .form-control:focus, .form-select:focus {
-            border-color: var(--accent); box-shadow: 0 0 0 0.2rem rgba(156,107,63,0.12);
-        }
-        .form-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 
-        /* Nav between steps */
-        .step-nav {
-            display: flex; gap: 10px; margin-top: 18px;
-        }
-        .btn-next {
-            flex: 1; background: var(--accent); color: #fff; border: none; font-weight: 700;
-            min-height: 48px; border-radius: 14px; font-size: 0.95rem;
-        }
-        .btn-next:hover { background: var(--accent-hover); color: #fff; }
-        .btn-back {
-            background: #fff; color: var(--text); border: 1px solid var(--border); font-weight: 600;
-            min-height: 48px; border-radius: 14px; padding: 0 18px;
-        }
 
-        /* Confirm summary */
-        .summary-box {
-            background: var(--cream); border: 1px solid var(--border); border-radius: 14px;
-            padding: 14px 16px; margin-bottom: 16px;
-        }
-        .summary-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 6px 0; font-size: 0.88rem;
-        }
-        .summary-row .lbl { color: var(--muted); font-weight: 600; }
-        .summary-row .val { font-weight: 700; color: var(--text); text-align: right; }
+def _ensure_photo_columns():
+    """Idempotent startup migration for photo-related columns.
 
-        /* Sticky CTA */
-        .sticky-cta {
-            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
-            background: #fff; border-top: 1px solid var(--border);
-            padding: 12px 16px calc(12px + var(--safe-bottom));
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
-        }
-        .sticky-cta-inner {
-            max-width: 480px; margin: 0 auto;
-            display: flex; align-items: center; gap: 12px;
-        }
-        .sticky-cta .price-hint {
-            flex: 1; font-size: 0.8rem; color: var(--muted); font-weight: 600; line-height: 1.25;
-        }
-        .sticky-cta .price-hint strong { display: block; color: var(--text); font-size: 0.95rem; }
-        .sticky-cta .btn-cta {
-            background: var(--accent); color: #fff; border: none; font-weight: 700;
-            border-radius: 14px; padding: 14px 22px; font-size: 0.95rem; white-space: nowrap;
-            box-shadow: 0 4px 14px rgba(156,107,63,0.3);
-        }
-        .sticky-cta .btn-cta:hover { background: var(--accent-hover); color: #fff; }
-        body.booking-open .sticky-cta { display: none; }
-        body.success-view .sticky-cta { display: none; }
+    create_all() only creates missing TABLES — it never ALTERs existing
+    ones. Older deployments already have `salons` and `staff` without
+    cover_photo_url / photo_url, so we add those columns if missing.
+    GalleryImage is a new table and will be created by create_all().
+    """
+    from sqlalchemy import inspect, text
 
-        /* Success */
-        .confirm-card {
-            text-align: center; padding: 32px 20px;
-            border-radius: 20px; border: 1px solid #C8E6C9;
-            background: linear-gradient(180deg, #E8F5E9 0%, #fff 50%);
-        }
-        .confirm-icon {
-            width: 72px; height: 72px; border-radius: 50%; background: var(--green); color: #fff;
-            display: flex; align-items: center; justify-content: center; font-size: 2rem;
-            margin: 0 auto 16px; box-shadow: 0 8px 20px rgba(46,125,50,0.28);
-            animation: pop .4s ease;
-        }
-        @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .confirm-card h3 { font-weight: 800; font-size: 1.3rem; color: #1B5E20; margin: 0 0 8px; }
-        .confirm-card .thanks { font-size: 0.95rem; color: #3E5C40; font-weight: 600; margin: 0 0 8px; }
-        .confirm-card .sub { font-size: 0.85rem; color: var(--muted); margin: 0 0 18px; }
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+    str_type = "VARCHAR(500)" if dialect == "postgresql" else "TEXT"
 
-        .waitlist-card {
-            text-align: center; padding: 32px 20px;
-            border-radius: 20px; border: 1px solid #FFE0B2;
-            background: linear-gradient(180deg, #FFF8E1 0%, #fff 50%);
-        }
-        .waitlist-icon {
-            width: 72px; height: 72px; border-radius: 50%; background: #ED6C02; color: #fff;
-            display: flex; align-items: center; justify-content: center; font-size: 2rem;
-            margin: 0 auto 16px;
-        }
+    try:
+        staff_cols = [c["name"] for c in inspector.get_columns("staff")]
+    except Exception:
+        staff_cols = []
+    if staff_cols and "photo_url" not in staff_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE staff ADD COLUMN photo_url {str_type}"))
 
-        .hours-strip, .location-strip {
-            display: flex; align-items: flex-start; gap: 10px;
-            border: 1px solid var(--border); border-radius: 12px;
-            padding: 12px 14px; margin-bottom: 12px; font-size: .85rem; color: #5A4936;
-            background: #fff;
-        }
-        .hours-strip { background: var(--cream); align-items: center; }
-        .hours-strip i, .location-strip i { color: var(--accent); }
-        .location-strip a { color: var(--accent); font-weight: 600; text-decoration: none; }
-        #salonMap { height: 180px; width: 100%; border-radius: 12px; margin-top: 8px; border: 1px solid var(--border); }
-        .map-loading {
-            height: 180px; display: flex; align-items: center; justify-content: center;
-            background: var(--cream); border-radius: 12px; margin-top: 8px; color: var(--muted); font-size: 0.85rem;
-        }
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "cover_photo_url" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN cover_photo_url {str_type}"))
 
-        .lightbox {
-            display: none; position: fixed; inset: 0; z-index: 9999;
-            background: rgba(0,0,0,0.88); align-items: center; justify-content: center; padding: 20px;
-        }
-        .lightbox.show { display: flex; }
-        .lightbox img { max-width: 100%; max-height: 80vh; border-radius: 14px; }
-        .lightbox-close {
-            position: absolute; top: 16px; right: 16px; width: 40px; height: 40px;
-            border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 1.1rem;
-        }
+    # gallery_images.category
+    try:
+        gi_cols = [c["name"] for c in inspector.get_columns("gallery_images")]
+    except Exception:
+        gi_cols = []
+    if gi_cols and "category" not in gi_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE gallery_images ADD COLUMN category {str_type}"))
 
-        .alert { border-radius: 12px; font-size: 0.88rem; }
-    </style>
-</head>
-<body class="{% if success or waitlisted %}success-view{% endif %}">
 
-<button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
-    <i class="fa-solid fa-language"></i>
-    <span id="langLabel">EN</span>
-</button>
+    # salon.slug for pretty public URLs /book/my-salon
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "slug" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN slug {str_type}"))
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_salons_slug ON salons (slug)"))
+            except Exception:
+                pass
 
-<!-- HERO -->
-<div class="hero {{ 'no-photo' if not salon.cover_photo_url else '' }}"
-     {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}');"{% endif %}>
-    <div class="hero-overlay">
-        <h1>{{ salon.name }}</h1>
-        <p class="tagline">
-            <span data-lang-am>ቀጠሮዎን በቀላሉ ይያዙ</span>
-            <span data-lang-en>Book your appointment easily</span>
-        </p>
-    </div>
-</div>
+    # Salon deposit settings
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "deposit_enabled" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE salons ADD COLUMN deposit_enabled INTEGER DEFAULT 0"))
+    if salon_cols and "payment_methods" not in salon_cols:
+        with engine.begin() as conn:
+            dialect = engine.dialect.name
+            jtype = "JSON" if dialect == "postgresql" else "TEXT"
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN payment_methods {jtype}"))
 
-<div class="wrap">
+    # Service deposit_amount
+    try:
+        svc_cols = [c["name"] for c in inspector.get_columns("services")]
+    except Exception:
+        svc_cols = []
+    if svc_cols and "deposit_amount" not in svc_cols:
+        with engine.begin() as conn:
+            dialect = engine.dialect.name
+            ntype = "NUMERIC(10,2)" if dialect == "postgresql" else "REAL"
+            conn.execute(text(f"ALTER TABLE services ADD COLUMN deposit_amount {ntype} DEFAULT 0"))
 
-    <!-- TRUST BAR -->
-    {% set review_count = (testimonials|length) if testimonials is defined and testimonials else 0 %}
-    {% set rating_sum = namespace(value=0) %}
-    {% if testimonials is defined and testimonials %}
-        {% for t in testimonials %}{% set rating_sum.value = rating_sum.value + (t.rating or 5) %}{% endfor %}
-    {% endif %}
-    {% set avg_rating = (rating_sum.value / review_count) if review_count > 0 else 0 %}
-    <div class="trust-bar">
-        {% if review_count > 0 %}
-        <span><span class="star">★</span> {{ '%.1f'|format(avg_rating) }}</span>
-        <span class="sep">·</span>
-        <span>{{ review_count }} <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span></span>
-        <span class="sep">·</span>
-        {% endif %}
-        {% if salon.address %}
-        <span><i class="fa-solid fa-location-dot"></i>
-            {% set addr_short = salon.address.split(',')[0] if ',' in salon.address else salon.address %}
-            {{ addr_short[:28] }}{% if addr_short|length > 28 %}…{% endif %}
-        </span>
-        <span class="sep">·</span>
-        {% endif %}
-        <span><i class="fa-solid fa-clock"></i>
-            <span data-lang-am>ዛሬ ክፍት</span>
-            <span data-lang-en>Open today</span>
-        </span>
-    </div>
+    # Appointment payment fields
+    try:
+        appt_cols = [c["name"] for c in inspector.get_columns("appointments")]
+    except Exception:
+        appt_cols = []
+    for col, coltype in [
+        ("deposit_amount", "NUMERIC(10,2)" if engine.dialect.name == "postgresql" else "REAL"),
+        ("payment_method", str_type),
+        ("payment_screenshot_url", str_type),
+        ("payment_reviewed", "INTEGER DEFAULT 0"),
+    ]:
+        if appt_cols and col not in appt_cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col} {coltype}"))
 
-    <!-- GALLERY -->
-    <div class="section">
-        <h2 class="section-title">
-            <span data-lang-am>የስራ ናሙናዎች</span>
-            <span data-lang-en>Our work</span>
-        </h2>
-        <div class="cat-row" id="catFilters">
-            <button type="button" class="cat-chip active" data-cat="all"><span data-lang-am>ሁሉም</span><span data-lang-en>All</span></button>
-            <button type="button" class="cat-chip" data-cat="hair"><span data-lang-am>ፀጉር</span><span data-lang-en>Hair</span></button>
-            <button type="button" class="cat-chip" data-cat="nails"><span data-lang-am>ጥፍር</span><span data-lang-en>Nails</span></button>
-            <button type="button" class="cat-chip" data-cat="manicure"><span data-lang-am>ሜካፕ</span><span data-lang-en>Makeup</span></button>
-            <button type="button" class="cat-chip" data-cat="facial"><span data-lang-am>ፊት</span><span data-lang-en>Facial</span></button>
-            <button type="button" class="cat-chip" data-cat="massage"><span data-lang-am>ስፓ</span><span data-lang-en>Spa</span></button>
-            <button type="button" class="cat-chip" data-cat="other"><span data-lang-am>ባርበር</span><span data-lang-en>Barber</span></button>
-        </div>
-        <div class="gallery-row" id="galleryScroll">
-            {% if salon.gallery_images %}
-                {% for img in salon.gallery_images %}
-                {% set cat = (img.category or 'other')|lower %}
-                <div class="g-tile" data-cat="{{ cat }}" onclick="openLightbox('{{ img.image_url }}')">
-                    <img src="{{ img.image_url }}" alt="" loading="lazy">
-                    <span class="badge">
-                        {% if cat == 'nails' or cat == 'manicure' or cat == 'pedicure' %}<span data-lang-am>ጥፍር</span><span data-lang-en>Nails</span>
-                        {% elif cat == 'hair' %}<span data-lang-am>ፀጉር</span><span data-lang-en>Hair</span>
-                        {% elif cat == 'facial' %}<span data-lang-am>ፊት</span><span data-lang-en>Facial</span>
-                        {% elif cat == 'massage' %}<span data-lang-am>ስፓ</span><span data-lang-en>Spa</span>
-                        {% else %}<span data-lang-am>ሌላ</span><span data-lang-en>Other</span>{% endif %}
-                    </span>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="g-empty">
-                    <span data-lang-am>የስራ ናሙናዎች በቅርቡ</span>
-                    <span data-lang-en>Work samples coming soon</span>
-                </div>
-            {% endif %}
-        </div>
-    </div>
+    # Convert appointments.status from PostgreSQL ENUM to VARCHAR so new
+    # statuses (Pending Payment, etc.) never require ALTER TYPE and never 500.
+    if engine.dialect.name == "postgresql":
+        try:
+            with engine.begin() as conn:
+                # Only alter if still an enum-backed column
+                row = conn.execute(text(
+                    """
+                    SELECT data_type, udt_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'appointments' AND column_name = 'status'
+                    """
+                )).fetchone()
+                if row and (row[0] == 'USER-DEFINED' or (row[1] and 'appointment' in str(row[1]).lower())):
+                    conn.execute(text(
+                        "ALTER TABLE appointments "
+                        "ALTER COLUMN status TYPE VARCHAR(30) "
+                        "USING status::text"
+                    ))
+        except Exception:
+            pass
 
-    <!-- REVIEWS -->
-    <div class="section">
-        <h2 class="section-title">
-            <span data-lang-am>ግምገማዎች</span>
-            <span data-lang-en>Reviews</span>
-        </h2>
-        <div class="reviews-card">
-            {% if review_count > 0 %}
-            {% set bars = namespace(c5=0, c4=0, c3=0, c2=0, c1=0) %}
-            {% for t in testimonials %}
-                {% set r = t.rating or 5 %}
-                {% if r >= 5 %}{% set bars.c5 = bars.c5 + 1 %}
-                {% elif r == 4 %}{% set bars.c4 = bars.c4 + 1 %}
-                {% elif r == 3 %}{% set bars.c3 = bars.c3 + 1 %}
-                {% elif r == 2 %}{% set bars.c2 = bars.c2 + 1 %}
-                {% else %}{% set bars.c1 = bars.c1 + 1 %}{% endif %}
-            {% endfor %}
-            <div class="rev-top">
-                <div class="rev-score">
-                    <div class="big">{{ '%.1f'|format(avg_rating) }}</div>
-                    <div class="stars">★★★★★</div>
-                    <div class="count">{{ review_count }} <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span></div>
-                </div>
-                <div class="rev-bars">
-                    {% for star, cnt in [(5, bars.c5), (4, bars.c4), (3, bars.c3), (2, bars.c2), (1, bars.c1)] %}
-                    <div class="rev-bar-row">
-                        <span class="lbl">{{ star }}</span>
-                        <div class="rev-bar-track">
-                            <div class="rev-bar-fill" style="width:{{ ((cnt / review_count) * 100)|int }}%;"></div>
-                        </div>
-                        <span>{{ cnt }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="rev-filters">
-                <button type="button" class="rev-filter active" data-sort="recent"><span data-lang-am>አዲስ</span><span data-lang-en>Recent</span></button>
-                <button type="button" class="rev-filter" data-sort="high"><span data-lang-am>ከፍተኛ</span><span data-lang-en>Highest</span></button>
-                <button type="button" class="rev-filter" data-sort="photo"><span data-lang-am>ፎቶ ያላቸው</span><span data-lang-en>With photos</span></button>
-            </div>
-            <div class="testimonial-scroll" id="tScroll">
-                {% for t in testimonials %}
-                <div class="t-card" data-rating="{{ t.rating or 5 }}" data-photo="{{ 1 if t.client_photo_url else 0 }}" data-id="{{ t.id }}">
-                    <div class="stars">{% for i in range(t.rating or 5) %}★{% endfor %}</div>
-                    <div class="quote">“{{ t.comment }}”</div>
-                    <div class="who">{{ t.client_name }}{% if t.is_celebrity %} · ★{% endif %}</div>
-                    {% if t.service_label %}<div class="meta">{{ t.service_label }}</div>{% endif %}
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-muted small mb-0 text-center py-2">
-                <span data-lang-am>ግምገማዎች በቅርቡ ይታያሉ</span>
-                <span data-lang-en>Reviews coming soon</span>
-            </p>
-            {% endif %}
-        </div>
-    </div>
 
-    {% if salon.phone %}
-    <div class="location-strip">
-        <i class="fa-solid fa-phone"></i>
-        <div>
-            <div class="fw-semibold"><span data-lang-am>ስልክ</span><span data-lang-en>Call us</span></div>
-            <a href="tel:{{ salon.phone }}" style="font-weight:700;font-size:1.05rem;">{{ salon.phone }}</a>
-        </div>
-    </div>
-    {% endif %}
+_ensure_photo_columns()
 
-    <div class="hours-strip">
-        <i class="fa-solid fa-clock"></i>
-        <span>{{ hours_label }} · {{ days_label }}</span>
-    </div>
+def _ensure_salon_slugs():
+    """Assign missing slugs so /book/{name} works for existing salons."""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        salons = db.query(Salon).filter((Salon.slug == None) | (Salon.slug == "")).all()  # noqa: E711
+        for s in salons:
+            s.slug = _unique_slug(db, s.name, s.id)
+        if salons:
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
-    {% if salon.address %}
-    <div class="location-strip">
-        <i class="fa-solid fa-location-dot"></i>
-        <div style="flex:1;">
-            <div class="fw-semibold"><span data-lang-am>አድራሻ</span><span data-lang-en>Location</span></div>
-            <div id="salonAddressText">{{ salon.address }}</div>
-            <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | replace(' ', '+') }}" target="_blank" rel="noopener">
-                <span data-lang-am>በGoogle Maps ክፈት</span>
-                <span data-lang-en>Open in Maps</span>
-            </a>
-            <div id="mapLoading" class="map-loading"><i class="fa-solid fa-spinner fa-spin me-2"></i>...</div>
-            <div id="salonMap" style="display:none;"></div>
-        </div>
-    </div>
-    {% endif %}
 
-    <!-- BOOKING -->
-    <div class="book-card" id="bookingSection">
-        {% if success == 'pending_payment' %}
-        <div id="pendingPaymentCard" class="confirm-card" style="border-color:#FFE0B2;background:linear-gradient(180deg,#FFF8E1 0%,#fff 50%);">
-            <div class="confirm-icon" style="background:#ED6C02;"><i class="fa-solid fa-hourglass-half"></i></div>
-            <h3 style="color:#E65100;">
-                <span data-lang-am>ክፍያዎ ተልኳል!</span>
-                <span data-lang-en>Payment proof received!</span>
-            </h3>
-            <p class="thanks">
-                <span data-lang-am>ሳሎኑ ክፍያዎን እያረጋገጠ ነው… ትንሽ ይ ይጠብቁ።</span>
-                <span data-lang-en>The salon is verifying your payment… please wait a moment.</span>
-            </p>
-            <p class="sub" id="pendingWaitHint">
-                <i class="fa-solid fa-spinner fa-spin me-1"></i>
-                <span data-lang-am>በመጠባበቅ ላይ</span>
-                <span data-lang-en>Waiting for confirmation</span>
-            </p>
-            <p class="sub">{{ salon.name }}</p>
-            {% if salon.phone %}
-            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
-            </a>
-            {% endif %}
-        </div>
 
-        <div id="confirmedAfterPayCard" class="confirm-card" style="display:none;border-color:#A5D6A7;box-shadow:0 0 0 0 rgba(46,125,50,0.45);animation:glowPulse 1.6s ease-in-out infinite;">
-            <div class="confirm-icon" style="background:var(--green);box-shadow:0 0 24px rgba(46,125,50,0.55);">
-                <i class="fa-solid fa-check"></i>
-            </div>
-            <h3 style="color:#1B5E20;">
-                <span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span>
-                <span data-lang-en>Your booking is confirmed!</span>
-            </h3>
-            <p class="thanks" style="font-size:1.05rem;">
-                <span data-lang-am>ስለመረጡን እናመሰግናለን</span>
-                <span data-lang-en>Thanks for choosing us</span>
-            </p>
-            <p class="sub" id="confirmedApptMeta">{{ salon.name }}</p>
-            {% if salon.phone %}
-            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--green);color:var(--green);border-radius:10px;font-weight:600;">
-                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
-            </a>
-            {% endif %}
-            <div>
-                <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
-                    <span data-lang-am>ተመለስ</span>
-                    <span data-lang-en>Back</span>
-                </a>
-            </div>
-        </div>
-        <style>
-            @keyframes glowPulse {
-                0%   { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); }
-                50%  { box-shadow: 0 0 28px 6px rgba(46,125,50,0.35); }
-                100% { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); }
-            }
-        </style>
-        <script>
-        (function pollPaymentConfirm() {
-            const apptId = {{ appt_id or 'null' }};
-            const salonId = '{{ salon.slug or salon.id }}';
-            if (!apptId) return;
-            const pending = document.getElementById('pendingPaymentCard');
-            const confirmed = document.getElementById('confirmedAfterPayCard');
-            const meta = document.getElementById('confirmedApptMeta');
-            let tries = 0;
-            function tick() {
-                tries += 1;
-                fetch('/book/' + salonId + '/status/' + apptId)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data && data.confirmed) {
-                            if (pending) pending.style.display = 'none';
-                            if (confirmed) confirmed.style.display = 'block';
-                            if (meta) {
-                                const bits = [];
-                                if (data.service_name) bits.push(data.service_name);
-                                if (data.appointment_time) bits.push(data.appointment_time);
-                                meta.textContent = (bits.join(' · ') || '') + (bits.length ? ' · ' : '') + '{{ salon.name | e }}';
-                            }
-                            return;
-                        }
-                        if (tries < 120) setTimeout(tick, 4000); // up to ~8 min
-                    })
-                    .catch(() => { if (tries < 120) setTimeout(tick, 5000); });
-            }
-            setTimeout(tick, 2500);
-        })();
-        </script>
+def _content_type_for_ext(ext: str) -> str:
+    return {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }.get(ext, "application/octet-stream")
 
-{% elif success %}
-        <div class="confirm-card">
-            <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
-            <h3>
-                <span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span>
-                <span data-lang-en>Your booking is confirmed!</span>
-            </h3>
-            <p class="thanks">
-                <span data-lang-am>ስለመረጡን እናመሰግናለን</span>
-                <span data-lang-en>Thank you for choosing us</span>
-            </p>
-            <p class="sub">{{ salon.name }}</p>
-            {% if salon.phone %}
-            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
-            </a>
-            {% endif %}
-            <div>
-                <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
-                    <span data-lang-am>ሌላ ቀጠሮ ያዙ</span>
-                    <span data-lang-en>Book another</span>
-                </a>
-            </div>
-        </div>
 
-        {% elif waitlisted %}
-        <div class="waitlist-card">
-            <div class="waitlist-icon"><i class="fa-solid fa-list-check"></i></div>
-            <h3 style="font-weight:800;color:#E65100;font-size:1.2rem;">
-                <span data-lang-am>ወደ ተጠባባቂ ዝርዝር ገብተዋል</span>
-                <span data-lang-en>You’re on the waitlist</span>
-            </h3>
-            <p class="sub" style="color:var(--muted);margin:8px 0 16px;">
-                <span data-lang-am>ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</span>
-                <span data-lang-en>We’ll contact you when a slot opens.</span>
-            </p>
-            <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
-                <span data-lang-am>ተመለስ</span><span data-lang-en>Back</span>
-            </a>
-        </div>
+def _save_upload(file: UploadFile, subfolder: str = "", salon_id: Optional[int] = None) -> str:
+    """Persist an uploaded image in the database (survives redeploys).
 
-        {% else %}
+    Also writes a disk cache under static/uploads/ when possible.
+    Returns a stable public URL: /media/{id}
 
-        {% if error == 'booking_failed' %}
-        <div class="alert alert-danger">
-            <span data-lang-am>ቀጠሮ ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።</span>
-            <span data-lang-en>Could not save booking. Please try again.</span>
-        </div>
-        {% endif %}
-        {% if error == 'deposit_required' %}
-        <div class="alert alert-warning">
-            <span data-lang-am>እባክዎ የቅድሚያ ክፍያ ማረጋገጫ (screenshot) ይስቀሉ።</span>
-            <span data-lang-en>Please upload a payment screenshot to complete booking.</span>
-        </div>
-        {% endif %}
-        {% if error == 'outside_hours' %}
-        <div class="alert alert-danger">
-            <span data-lang-am>የመረጡት ሰዓት ከባለሙያው የስራ ሰዓት ውጪ ነው።</span>
-            <span data-lang-en>That time is outside the staff member’s working hours.</span>
-        </div>
-        {% endif %}
-        {% if error == 'conflict' %}
-        <div class="alert alert-danger">
-            <div class="mb-2">
-                <span data-lang-am>ይህ ሰዓት ተይዟል። አማራጭ ይምረጡ፦</span>
-                <span data-lang-en>This time is taken. Choose an option:</span>
-            </div>
-            {% if next_slot %}
-            <form action="/book/{{ salon.slug or salon.id }}" method="post" class="d-inline-block me-1 mb-1">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                <input type="hidden" name="appointment_time" value="{{ next_slot }}">
-                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                    <span data-lang-am>በ{{ next_slot_display }} ያዙ</span>
-                    <span data-lang-en>Book at {{ next_slot_display }}</span>
-                </button>
-            </form>
-            {% endif %}
-            {% for alt in alt_staff %}
-            <form action="/book/{{ salon.slug or salon.id }}" method="post" class="d-inline-block me-1 mb-1">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ alt.id }}">
-                <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
-                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                    {{ alt.name }}
-                </button>
-            </form>
-            {% endfor %}
-            <form action="/book/{{ salon.slug or salon.id }}/waitlist" method="post" class="d-inline-block mb-1">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
-                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                    <span data-lang-am>ተጠባባቂ ዝርዝር</span>
-                    <span data-lang-en>Waitlist</span>
-                </button>
-            </form>
-        </div>
-        {% endif %}
+    Raises ValueError on invalid type / size.
+    """
+    import base64
+    from database import SessionLocal
 
-        <!-- Progress -->
-        <div class="steps-bar" id="stepsBar">
-            <div class="dot active" data-s="1"></div>
-            <div class="dot" data-s="2"></div>
-            <div class="dot" data-s="3"></div>
-            <div class="dot" data-s="4"></div>
-            <div class="dot" data-s="5"></div>
-        </div>
+    if not file or not file.filename:
+        raise ValueError("No file provided")
 
-        <form action="/book/{{ salon.slug or salon.id }}" method="post" id="bookingForm" enctype="multipart/form-data">
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValueError("Invalid image type. Allowed: jpg, jpeg, png, webp, gif")
 
-            <!-- STEP 1: Service -->
-            <div class="step-panel active" data-step="1">
-                <h2 class="section-title">
-                    <span class="step-num">1</span>
-                    <span data-lang-am>አገልግሎት ይምረጡ</span>
-                    <span data-lang-en>Choose service</span>
-                </h2>
-                <div class="svc-list">
-                    {% for s in services %}
-                    <label class="svc-card {% if conflict_service and s.id == conflict_service %}selected{% elif not conflict_service and loop.first %}selected{% endif %}">
-                        <input type="radio" name="service_id" value="{{ s.id }}"
-                            data-name="{{ s.name }}" data-price="{{ s.price }}" data-deposit="{{ s.deposit_amount or 0 }}"
-                            {% if conflict_service and s.id == conflict_service %}checked{% elif not conflict_service and loop.first %}checked{% endif %}
-                            required onchange="onServicePick(this)">
-                        <div class="svc-icon"><i class="fa-solid fa-spa"></i></div>
-                        <div class="svc-body">
-                            <p class="svc-name">{{ s.name }}</p>
-                            <p class="svc-meta">
-                                {% if s.duration_minutes %}{{ s.duration_minutes }} <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>{% else %}—{% endif %}
-                            </p>
-                        </div>
-                        <div class="svc-price">
-                            {{ s.price }} ETB
-                            {% if salon.deposit_enabled and s.deposit_amount and s.deposit_amount|float > 0 %}
-                            <div style="font-size:0.7rem;font-weight:600;color:var(--muted);margin-top:2px;">
-                                <span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span>
-                                {{ s.deposit_amount }} ETB
-                            </div>
-                            {% endif %}
-                        </div>
-                    </label>
-                    {% endfor %}
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-next" onclick="goStep(2)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                        <i class="fa-solid fa-arrow-right ms-1"></i>
-                    </button>
-                </div>
-            </div>
+    data = file.file.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("Image too large (max 5 MB)")
 
-            <!-- STEP 2: Staff -->
-            <div class="step-panel" data-step="2">
-                <h2 class="section-title">
-                    <span class="step-num">2</span>
-                    <span data-lang-am>ባለሙያ ይምረጡ</span>
-                    <span data-lang-en>Choose professional</span>
-                </h2>
-                <div class="staff-list">
-                    {% for st in staff_members %}
-                    {% set avatar_name = (st.name or 'S')|replace(' ', '+') %}
-                    {% set avatar_url = 'https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ avatar_name %}
-                    {% set photo_src = st.photo_url if (st.photo_url and st.photo_url|trim) else avatar_url %}
-                    <label class="staff-pick">
-                        <input type="radio" name="staff_id" value="{{ st.id }}"
-                            data-name="{{ st.name }}"
-                            data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
-                            data-close="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}"
-                            data-days="{{ st.working_days if st.working_days else salon.working_days }}"
-                            {% if conflict_staff and st.id == conflict_staff %}checked
-                            {% elif not conflict_staff and loop.first %}checked{% endif %}
-                            required onchange="onStaffPick()">
-                        <span class="staff-check"><i class="fa-solid fa-check"></i></span>
-                        <div class="staff-ring">
-                            <img class="staff-photo-img" src="{{ photo_src }}" alt="{{ st.name }}" data-fallback="{{ avatar_url }}" loading="lazy">
-                        </div>
-                        <div class="nm">{{ st.name }}</div>
-                    </label>
-                    {% endfor %}
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn-next" onclick="goStep(3)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                    </button>
-                </div>
-            </div>
+    asset_id = uuid.uuid4().hex
+    content_type = _content_type_for_ext(ext)
+    b64 = base64.b64encode(data).decode("ascii")
 
-            <!-- STEP 3: Date & time -->
-            <div class="step-panel" data-step="3">
-                <h2 class="section-title">
-                    <span class="step-num">3</span>
-                    <span data-lang-am>ቀንና ሰዓት</span>
-                    <span data-lang-en>Date & time</span>
-                </h2>
-                <div class="mb-3">
-                    <label class="form-label"><span data-lang-am>ቀን</span><span data-lang-en>Date</span></label>
-                    <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label"><span data-lang-am>ሰዓት (ኢትዮጵያ)</span><span data-lang-en>Time (Ethiopian)</span></label>
-                    <div class="eth-time-picker">
-                        <div class="eth-wheel-shell">
-                            <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col" id="wheelEth"></div>
-                        </div>
-                        <div class="eth-preview" id="ethPreview">ጧት 9:00 ሰዓት</div>
-                    </div>
-                    <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
-                    <p class="small text-muted mt-2 mb-0" id="staffHoursHint"></p>
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn-next" onclick="goStep(4)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                    </button>
-                </div>
-            </div>
+    # Primary store: database
+    db = SessionLocal()
+    try:
+        db.add(MediaAsset(
+            id=asset_id,
+            salon_id=salon_id,
+            content_type=content_type,
+            data=b64,
+        ))
+        db.commit()
+    finally:
+        db.close()
 
-            <!-- STEP 4: Info -->
-            <div class="step-panel" data-step="4">
-                <h2 class="section-title">
-                    <span class="step-num">4</span>
-                    <span data-lang-am>የእርስዎ መረጃ</span>
-                    <span data-lang-en>Your information</span>
-                </h2>
-                <div class="mb-3">
-                    <label class="form-label"><span data-lang-am>ሙሉ ስም</span><span data-lang-en>Full name</span></label>
-                    <input type="text" name="customer_name" id="customerName" class="form-control" value="{{ conflict_name or '' }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label"><span data-lang-am>ስልክ ቁጥር</span><span data-lang-en>Phone number</span></label>
-                    <input type="tel" name="customer_phone" id="customerPhone" class="form-control" value="{{ conflict_phone or '' }}" required placeholder="0911223344">
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn-next" onclick="goStep(5)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                    </button>
-                </div>
-            </div>
+    # Best-effort disk cache (optional; may vanish on redeploy)
+    try:
+        dest_dir = UPLOAD_DIR / subfolder if subfolder else UPLOAD_DIR
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        with open(dest_dir / f"{asset_id}{ext}", "wb") as f:
+            f.write(data)
+    except Exception:
+        pass
 
-            <!-- STEP 5: Confirm (+ optional deposit) -->
-            <div class="step-panel" data-step="5">
-                <h2 class="section-title">
-                    <span class="step-num">5</span>
-                    <span data-lang-am>ያረጋግጡ</span>
-                    <span data-lang-en>Confirm booking</span>
-                </h2>
-                <div class="summary-box">
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
-                        <span class="val" id="sumService">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ባለሙያ</span><span data-lang-en>Professional</span></span>
-                        <span class="val" id="sumStaff">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ቀን / ሰዓት</span><span data-lang-en>Date / time</span></span>
-                        <span class="val" id="sumWhen">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ስም</span><span data-lang-en>Name</span></span>
-                        <span class="val" id="sumName">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
-                        <span class="val" id="sumPrice" style="color:var(--accent);">—</span>
-                    </div>
-                    <div class="summary-row" id="sumDepositRow" style="display:none;">
-                        <span class="lbl"><span data-lang-am>ቅድሚያ ክፍያ</span><span data-lang-en>Deposit due</span></span>
-                        <span class="val" id="sumDeposit" style="color:#E65100;">—</span>
-                    </div>
-                </div>
+    return f"/media/{asset_id}"
 
-                {% if salon.deposit_enabled %}
-                <div id="depositBlock" style="display:none;margin-bottom:16px;">
-                    <div style="background:#FFF8E1;border:1px solid #FFE0B2;border-radius:14px;padding:14px;margin-bottom:12px;">
-                        <div style="font-weight:700;margin-bottom:8px;color:#E65100;">
-                            <i class="fa-solid fa-money-bill-transfer me-1"></i>
-                            <span data-lang-am>ቅድሚያ ክፍያ ያስፈልጋል</span>
-                            <span data-lang-en>Deposit required</span>
-                        </div>
-                        <p class="small text-muted mb-2" style="margin:0;">
-                            <span data-lang-am>ከታች ካሉት የክፍያ ዘዴዎች አንዱን ይምረጡ፣ ይክፈሉ፣ ከዚያ የክፍያ ማረጋገጫ screenshot ይስቀሉ።</span>
-                            <span data-lang-en>Choose a payment method below, pay the deposit, then upload a screenshot of the payment.</span>
-                        </p>
-                        {% if salon.payment_methods %}
-                        <div class="mb-2">
-                            {% for m in salon.payment_methods %}
-                            <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:#fff;">
-                                <input type="radio" name="payment_method" value="{{ m.name }}" style="margin-top:4px;" {% if loop.first %}checked{% endif %}>
-                                <div style="flex:1;min-width:0;">
-                                    <div style="font-weight:700;">{{ m.name }}</div>
-                                    {% if m.account %}
-                                    <div class="d-flex align-items-center gap-2" style="margin-top:4px;">
-                                        <span style="font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.3px;">{{ m.account }}</span>
-                                        <button type="button" onclick="event.preventDefault();event.stopPropagation();copyAccount('{{ m.account|e }}', this)"
-                                                style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--accent);cursor:pointer;">
-                                            <i class="fa-regular fa-copy me-1"></i>
-                                            <span data-lang-am>ቅዳ</span>
-                                            <span data-lang-en>Copy</span>
-                                        </button>
-                                    </div>
-                                    {% endif %}
-                                    {% if m.instructions %}<div class="small text-muted mt-1">{{ m.instructions }}</div>{% endif %}
-                                </div>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <p class="small text-muted">
-                            <span data-lang-am>የክፍያ ዘዴ አልተቀናበረም — ሳሎኑን በስልክ ያግኙ።</span>
-                            <span data-lang-en>No payment methods configured — please call the salon.</span>
-                        </p>
-                        {% endif %}
-                        <label class="form-label">
-                            <span data-lang-am>የክፍያ screenshot</span>
-                            <span data-lang-en>Payment screenshot</span>
-                        </label>
-                        <input type="file" name="payment_screenshot" id="paymentScreenshot" accept="image/*" class="form-control">
-                    </div>
-                </div>
-                {% endif %}
 
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="submit" class="btn-next">
-                        <i class="fa-solid fa-calendar-check me-1"></i>
-                        <span data-lang-am>ቀጠሮ አረጋግጥ</span>
-                        <span data-lang-en>Confirm booking</span>
-                    </button>
-                </div>
-            </div>
+app = FastAPI(title="Melkegna Salon Platform")
+templates = Jinja2Templates(directory="templates")
 
-        </form>
-        {% endif %}
-    </div>
-</div>
+# Ensure static root exists before mounting (Railway / fresh deploys)
+Path("static").mkdir(parents=True, exist_ok=True)
+Path("static/uploads").mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-<!-- Sticky CTA -->
-{% if not success and not waitlisted %}
-{% set min_price = namespace(v=None) %}
-{% for s in services %}
-    {% if min_price.v is none or s.price < min_price.v %}{% set min_price.v = s.price %}{% endif %}
-{% endfor %}
-<div class="sticky-cta" id="stickyCta">
-    <div class="sticky-cta-inner">
-        <div class="price-hint">
-            <strong id="stickyPriceLabel">
-                {% if min_price.v is not none %}
-                <span data-lang-am>ከ {{ min_price.v }} ብር ጀምሮ</span>
-                <span data-lang-en>From {{ min_price.v }} ETB</span>
-                {% else %}
-                <span data-lang-am>ቀጠሮ ያዙ</span>
-                <span data-lang-en>Book now</span>
-                {% endif %}
-            </strong>
-            <span data-lang-am>ዛሬ ይያዙ · ቀላል ቀጠሮ</span>
-            <span data-lang-en>Book today · Easy booking</span>
-        </div>
-        <button type="button" class="btn-cta" onclick="startBooking()">
-            <span data-lang-am>አሁን ያዙ</span>
-            <span data-lang-en>Book now</span>
-        </button>
-    </div>
-</div>
-{% endif %}
 
-<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
-    <button type="button" class="lightbox-close" onclick="closeLightbox(event)"><i class="fa-solid fa-xmark"></i></button>
-    <img id="lightboxImg" src="" alt="">
-</div>
+@app.get("/media/{asset_id}")
+def serve_media(asset_id: str, db: Session = Depends(get_db)):
+    """Serve an image stored in the database (survives redeploys)."""
+    import base64
+    from fastapi.responses import Response
 
-<script>
-function copyAccount(text, btn) {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(function () {
-        if (!btn) return;
-        var old = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
-        setTimeout(function () { btn.innerHTML = old; }, 1200);
-    }).catch(function () {
-        // fallback
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand('copy'); } catch (e) {}
-        document.body.removeChild(ta);
-        if (btn) {
-            var old = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
-            setTimeout(function () { btn.innerHTML = old; }, 1200);
-        }
-    });
-}
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if not asset:
+        return Response(status_code=404, content=b"Not found")
+    try:
+        raw = base64.b64decode(asset.data)
+    except Exception:
+        return Response(status_code=500, content=b"Corrupt image")
+    return Response(
+        content=raw,
+        media_type=asset.content_type or "image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
-/* Language */
-function toggleLang() {
-    const html = document.documentElement;
-    const next = html.lang === 'am' ? 'en' : 'am';
-    html.lang = next;
-    localStorage.setItem('melkegna_public_lang', next);
-    document.getElementById('langLabel').textContent = next === 'am' ? 'EN' : 'አማ';
-    document.title = next === 'en' ? '{{ salon.name | e }} - Book' : '{{ salon.name | e }} - ቀጠሮ ይያዙ';
-    updateStaffHint();
-    refreshSummary();
-}
-(function() {
-    const saved = localStorage.getItem('melkegna_public_lang') || 'am';
-    document.documentElement.lang = saved;
-    document.getElementById('langLabel').textContent = saved === 'am' ? 'EN' : 'አማ';
-})();
 
-/* Sticky → open booking */
-function startBooking() {
-    document.body.classList.add('booking-open');
-    const el = document.getElementById('bookingSection');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    goStep(1);
-}
+ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
+SLOT_STEP_MINUTES = 15
 
-/* Steps */
-let currentStep = 1;
-function goStep(n) {
-    if (n === 2 && !document.querySelector('input[name="service_id"]:checked')) return;
-    if (n === 3 && !document.querySelector('input[name="staff_id"]:checked')) return;
-    if (n === 4) {
-        updatePreviewAndHidden();
-        if (!document.getElementById('appointmentTimeHidden').value) {
-            alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
-            return;
-        }
+# ---------------------------------------------------------------------------
+# Very simple in-memory rate limiting for login endpoints.
+# Good enough for a single-instance deployment; resets on restart and does
+# NOT share state across multiple server processes/replicas. If you scale
+# to multiple Railway instances, move this to Redis or a DB table instead.
+# ---------------------------------------------------------------------------
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 5 * 60  # 5 minutes
+
+_login_attempts: dict[str, deque] = defaultdict(deque)
+
+
+def _is_rate_limited(bucket_key: str) -> bool:
+    now = time.time()
+    attempts = _login_attempts[bucket_key]
+    while attempts and now - attempts[0] > LOGIN_WINDOW_SECONDS:
+        attempts.popleft()
+    return len(attempts) >= LOGIN_MAX_ATTEMPTS
+
+
+def _record_attempt(bucket_key: str) -> None:
+    _login_attempts[bucket_key].append(time.time())
+
+
+def _valid_admin_key(key: Optional[str]) -> bool:
+    if not key:
+        return False
+    return secrets.compare_digest(key, ADMIN_SECRET_KEY)
+
+
+def _eth_display(dt: Optional[datetime]) -> Optional[str]:
+    """Format a datetime in Ethiopian time, e.g. 'ጧት 3:15 ሰዓት'."""
+    if not dt:
+        return None
+    total = (dt.hour * 60 + dt.minute - 360) % 1440
+    eh, em = total // 60, total % 60
+    if eh < 6:
+        p, h = "ጧት", 12 if eh == 0 else eh
+    elif eh < 12:
+        p, h = "ቀን", eh
+    elif eh < 18:
+        p, h = "ማታ", 12 if eh == 12 else eh - 12
+    else:
+        p, h = "ለሊት", eh - 12
+    return f"{p} {h}:{em:02d} ሰዓት"
+
+
+# ---------------------------------------------------------------------------
+# Day-of-week names (Amharic short form + English full form), used anywhere
+# we want to show "which day" a date falls on rather than just the date
+# itself — e.g. the home dashboard header and customer search results.
+# Index is Python's date.weekday() (0=Monday ... 6=Sunday).
+# ---------------------------------------------------------------------------
+_DAY_NAMES_AM = ["ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ", "እሁድ"]
+_DAY_NAMES_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+def _day_names(d: Optional[date]):
+    """Returns (amharic_name, english_name) for a given date, or (None, None)."""
+    if not d:
+        return None, None
+    idx = d.weekday()
+    return _DAY_NAMES_AM[idx], _DAY_NAMES_EN[idx]
+
+
+# ---------------------------------------------------------------------------
+# FIX: flexible appointment-datetime parser.
+#
+# The "book appointment" datetime string is produced by JS in
+# dashboard.html / public_booking.html (the Ethiopian scroll-wheel time
+# picker). That JS always appends seconds, e.g.:
+#
+#     hidden.value = bookDate + 'T' + wheelValue + ':00';
+#     // -> "2026-09-10T09:00:00"
+#
+# But every backend route used to parse it with:
+#
+#     datetime.strptime(appointment_time, "%Y-%m-%dT%H:%M")
+#
+# ...a format with NO seconds. strptime doesn't ignore trailing text, so
+# that mismatch throws:
+#
+#     ValueError: unconverted data remains: :00
+#
+# which FastAPI turns into a 500 Internal Server Error. This happened on
+# every booking attempt through the wheel picker (not just the
+# staff-unavailable path) — the "next available slot" quick-book buttons
+# happened to work because THAT value is built server-side without
+# seconds ("%Y-%m-%dT%H:%M"), so the two formats were silently
+# inconsistent depending on which UI path produced the string.
+#
+# This helper accepts BOTH formats so it doesn't matter which one a given
+# form field happens to send, now or in the future.
+# ---------------------------------------------------------------------------
+def _parse_appt_datetime(value: str) -> datetime:
+    value = (value or "").strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"Unrecognized appointment datetime format: {value!r}")
+
+
+@app.exception_handler(NotAuthenticatedException)
+async def not_authenticated_handler(request: Request, exc: NotAuthenticatedException):
+    # Admin routes redirect to the admin login; everything else to salon login.
+    if request.url.path.startswith("/admin"):
+        return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+class SalonNotActiveException(Exception):
+    def __init__(self, salon: Salon):
+        self.salon = salon
+
+
+@app.exception_handler(SalonNotActiveException)
+async def salon_not_active_handler(request: Request, exc: SalonNotActiveException):
+    return templates.TemplateResponse(
+        request, "pending.html", {"salon": exc.salon}, status_code=status.HTTP_403_FORBIDDEN
+    )
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active: dict[int, list[WebSocket]] = {}
+
+    async def connect(self, salon_id: int, ws: WebSocket):
+        await ws.accept()
+        self.active.setdefault(salon_id, []).append(ws)
+
+    def disconnect(self, salon_id: int, ws: WebSocket):
+        if ws in self.active.get(salon_id, []):
+            self.active[salon_id].remove(ws)
+
+    async def broadcast(self, salon_id: int, payload: dict):
+        for ws in list(self.active.get(salon_id, [])):
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                self.disconnect(salon_id, ws)
+
+
+manager = ConnectionManager()
+
+
+@app.websocket("/ws/salon/{salon_id}")
+async def ws_salon(websocket: WebSocket, salon_id: int):
+    await manager.connect(salon_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(salon_id, websocket)
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
+def _slugify_name(name: str) -> str:
+    """URL slug from salon name. Keeps Latin + Ethiopic letters so Amharic names work."""
+    import re
+    text = (name or "").strip().lower()
+    # spaces -> hyphen
+    text = re.sub(r"\s+", "-", text)
+    # keep word chars (unicode letters/digits) and hyphens
+    text = re.sub(r"[^\w\-]", "", text, flags=re.UNICODE)
+    text = re.sub(r"-+", "-", text).strip("-")
+    return text[:120] if text else ""
+
+
+def _unique_slug(db: Session, name: str, salon_id: Optional[int] = None) -> str:
+    base = _slugify_name(name)
+    if not base:
+        base = f"salon-{salon_id or 'new'}"
+    candidate = base
+    n = 2
+    while True:
+        q = db.query(Salon).filter(Salon.slug == candidate)
+        if salon_id:
+            q = q.filter(Salon.id != salon_id)
+        if not q.first():
+            return candidate
+        candidate = f"{base}-{n}"
+        n += 1
+
+
+def _resolve_salon(db: Session, salon_ref: str):
+    """Resolve /book/{ref} by slug first, then numeric id (legacy links)."""
+    salon_ref = (salon_ref or "").strip()
+    if not salon_ref:
+        return None
+    salon = db.query(Salon).filter(Salon.slug == salon_ref).first()
+    if salon:
+        return salon
+    if salon_ref.isdigit():
+        return db.query(Salon).filter(Salon.id == int(salon_ref)).first()
+    return None
+
+def _parse_date(value: Optional[str]) -> Optional[date]:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _parse_time_hhmm(value: Optional[str]):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except (ValueError, TypeError):
+        return None
+
+
+def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime) -> float:
+    """Sum service prices for appointments in range that count as revenue.
+
+    Counts Confirmed + Completed (excludes Cancelled / No-Show). Salon owners
+    expect today's booked amount to show as soon as a booking is confirmed,
+    not only after marking Complete.
+    """
+    total = (
+        db.query(func.coalesce(func.sum(Service.price), 0))
+        .join(Appointment, Appointment.service_id == Service.id)
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.status.in_([
+                AppointmentStatus.completed,
+                AppointmentStatus.confirmed,
+                "Completed",
+                "Confirmed",
+            ]),
+            Appointment.appointment_datetime >= start_dt,
+            Appointment.appointment_datetime < end_dt,
+        )
+        .scalar()
+    )
+    return float(total or 0)
+
+
+def _booking_count_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime) -> int:
+    return int(
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.status.in_([
+                AppointmentStatus.completed,
+                AppointmentStatus.confirmed,
+                "Completed",
+                "Confirmed",
+            ]),
+            Appointment.appointment_datetime >= start_dt,
+            Appointment.appointment_datetime < end_dt,
+        )
+        .scalar()
+        or 0
+    )
+
+
+def _revenue_details_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime):
+    """Every completed appointment in the given window, oldest first — the
+    itemized, customer-by-customer breakdown behind the revenue totals.
+    Used by both the dashboard's revenue tab and the CSV export, so the
+    on-screen table and the downloaded file always agree."""
+    return (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.status.in_([
+                AppointmentStatus.completed,
+                AppointmentStatus.confirmed,
+                "Completed",
+                "Confirmed",
+            ]),
+            Appointment.appointment_datetime >= start_dt,
+            Appointment.appointment_datetime < end_dt,
+        )
+        .order_by(Appointment.appointment_datetime)
+        .all()
+    )
+
+
+def _service_duration(db: Session, service_id: int) -> int:
+    duration = db.query(Service.duration_minutes).filter(Service.id == service_id).scalar()
+    return duration or 30
+
+
+# ---------------------------------------------------------------------------
+# Working hours / working days — salon level + per-staff overrides + day-offs
+# ---------------------------------------------------------------------------
+def _is_working_day(salon: Salon, d: date) -> bool:
+    return d.weekday() in salon.working_days_set
+
+
+def _within_business_hours(salon: Salon, appt_dt: datetime, end_dt: datetime) -> bool:
+    if not _is_working_day(salon, appt_dt.date()):
+        return False
+    day = appt_dt.date()
+    open_dt = datetime.combine(day, salon.opening_time)
+    close_dt = datetime.combine(day, salon.closing_time)
+    return open_dt <= appt_dt and end_dt <= close_dt
+
+
+def _staff_is_off(db: Session, staff_id: int, d: date) -> bool:
+    return db.query(StaffDayOff.id).filter(
+        StaffDayOff.staff_id == staff_id, StaffDayOff.off_date == d
+    ).first() is not None
+
+
+def _staff_hours_for_day(staff: Staff, salon: Salon, d: date):
+    """Open/close time for this staff member on this specific date.
+
+    Priority:
+      1. A per-day override saved via "Custom days / half-day per day"
+         (staff.day_hours[str(weekday)]) — this is what lets a staff
+         member work e.g. only 2 hours or 6 hours on a given day.
+      2. The staff member's own overall custom hours (staff.opening_time /
+         staff.closing_time), if set.
+      3. The salon's default hours.
+
+    This used to be missing entirely — the per-day picker in the UI wrote
+    to day_open_N / day_close_N fields that the backend never read, so a
+    staff member's hours always fell back to the salon's hours no matter
+    what was picked and "saved" in the Staff modal.
+    """
+    day_hours = staff.day_hours or {}
+    override = day_hours.get(str(d.weekday()))
+    if override and override.get("open") and override.get("close"):
+        o = _parse_time_hhmm(override["open"])
+        c = _parse_time_hhmm(override["close"])
+        if o and c:
+            return o, c
+    return staff.effective_hours(salon)
+
+
+def _within_staff_hours(db: Session, salon: Salon, staff: Staff, appt_dt: datetime, end_dt: datetime) -> bool:
+    """Checks salon hours AND this staff member's own working days/hours
+    (including any per-day override) AND that they aren't marked off that
+    specific day."""
+    if not _within_business_hours(salon, appt_dt, end_dt):
+        return False
+
+    day = appt_dt.date()
+    if day.weekday() not in staff.effective_working_days(salon):
+        return False
+
+    if _staff_is_off(db, staff.id, day):
+        return False
+
+    open_t, close_t = _staff_hours_for_day(staff, salon, day)
+    open_dt = datetime.combine(day, open_t)
+    close_dt = datetime.combine(day, close_t)
+    return open_dt <= appt_dt and end_dt <= close_dt
+
+
+def _staff_has_overlap(
+    db: Session,
+    salon_id: int,
+    staff_id: int,
+    start_dt: datetime,
+    end_dt: datetime,
+    exclude_appointment_id: Optional[int] = None,
+) -> bool:
+    day_start = datetime.combine(start_dt.date(), datetime.min.time())
+    day_end = day_start + timedelta(days=1)
+
+    q = (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon_id,
+            Appointment.staff_id == staff_id,
+            Appointment.status.notin_([AppointmentStatus.cancelled, AppointmentStatus.no_show]),
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime < day_end,
+        )
+    )
+    if exclude_appointment_id:
+        q = q.filter(Appointment.id != exclude_appointment_id)
+
+    for existing in q.all():
+        existing_start = existing.appointment_datetime
+        existing_duration = existing.service.duration_minutes if existing.service else 30
+        existing_end = existing_start + timedelta(minutes=existing_duration)
+        if existing_start < end_dt and existing_end > start_dt:
+            return True
+    return False
+
+
+def _available_staff_for_slot(
+    db: Session,
+    salon: Salon,
+    start_dt: datetime,
+    end_dt: datetime,
+    exclude_staff_id: Optional[int] = None,
+):
+    """Every staff member at this salon who is working that day/hours,
+    not marked off, and free for the whole [start_dt, end_dt) window."""
+    staff_list = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
+    return [
+        st for st in staff_list
+        if st.id != exclude_staff_id
+        and _within_staff_hours(db, salon, st, start_dt, end_dt)
+        and not _staff_has_overlap(db, salon.id, st.id, start_dt, end_dt)
+    ]
+
+
+def _next_available_slot(
+    db: Session,
+    salon: Salon,
+    staff: Staff,
+    duration_minutes: int,
+    requested_dt: datetime,
+) -> Optional[datetime]:
+    """Search forward same-day, within THIS staff member's effective
+    hours/days (including any per-day override), skipping if they're off
+    that day."""
+    day = requested_dt.date()
+    if day.weekday() not in staff.effective_working_days(salon):
+        return None
+    if _staff_is_off(db, staff.id, day):
+        return None
+
+    open_t, close_t = _staff_hours_for_day(staff, salon, day)
+    business_end = datetime.combine(day, close_t)
+
+    slot_start = requested_dt + timedelta(minutes=SLOT_STEP_MINUTES)
+    while slot_start + timedelta(minutes=duration_minutes) <= business_end:
+        slot_end = slot_start + timedelta(minutes=duration_minutes)
+        if not _staff_has_overlap(db, salon.id, staff.id, slot_start, slot_end):
+            return slot_start
+        slot_start += timedelta(minutes=SLOT_STEP_MINUTES)
+    return None
+
+
+def _normalize_phone(raw: str) -> str:
+    raw = raw.strip()
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    return digits
+
+
+def get_active_salon(
+    salon: Salon = Depends(get_current_salon),
+    db: Session = Depends(get_db),
+) -> Salon:
+    now = datetime.utcnow()
+
+    if salon.status == "active" and salon.subscription_expires_at and salon.subscription_expires_at < now:
+        salon.status = "expired"
+        db.commit()
+
+    if salon.status != "active":
+        raise SalonNotActiveException(salon)
+
+    return salon
+
+
+# ---------------------------------------------------------------------------
+# Super Admin
+# ---------------------------------------------------------------------------
+@app.get("/admin/login", response_class=HTMLResponse)
+def admin_login_page(request: Request, error: Optional[str] = None):
+    return templates.TemplateResponse(request, "admin_login.html", {"error": error})
+
+
+@app.post("/admin/login")
+def admin_login(request: Request, password: str = Form(...)):
+    bucket_key = f"admin:{request.client.host if request.client else 'unknown'}"
+    if _is_rate_limited(bucket_key):
+        return RedirectResponse(
+            url="/admin/login?error=Too many attempts, please wait a few minutes",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not _valid_admin_key(password):
+        _record_attempt(bucket_key)
+        return RedirectResponse(
+            url="/admin/login?error=የተሳሳተ ቁልፍ (Invalid admin key)",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    redirect = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.set_cookie(
+        key="admin_token",
+        value=create_admin_token(),
+        httponly=True,
+        samesite="lax",
+        secure=True,
+        max_age=8 * 60 * 60,
+    )
+    return redirect
+
+
+@app.get("/admin/logout")
+def admin_logout():
+    redirect = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.delete_cookie("admin_token")
+    return redirect
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_dashboard(
+    request: Request,
+    _: bool = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    salons = db.query(Salon).order_by(Salon.id.desc()).all()
+    return templates.TemplateResponse(request, "admin.html", {"salons": salons})
+
+
+@app.post("/admin/approve/{salon_id}")
+def admin_approve(
+    salon_id: int,
+    days: int = Form(...),
+    _: bool = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        now = datetime.utcnow()
+        base = salon.subscription_expires_at if (salon.subscription_expires_at and salon.subscription_expires_at > now) else now
+        salon.subscription_expires_at = base + timedelta(days=days)
+        salon.status = "active"
+        db.commit()
+
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/admin/suspend/{salon_id}")
+def admin_suspend(
+    salon_id: int,
+    _: bool = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        salon.status = "suspended"
+        db.commit()
+
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/login")
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request, error: Optional[str] = None):
+    return templates.TemplateResponse(request, "register.html", {"error": error})
+
+
+@app.post("/register")
+def register_salon(
+    name: str = Form(...),
+    owner_name: str = Form(...),
+    phone: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    opening_time: str = Form("08:00"),
+    closing_time: str = Form("20:00"),
+    working_days: List[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    phone_clean = _normalize_phone(phone)
+    if len(phone_clean) < 9:
+        return RedirectResponse(url="/register?error=invalid_phone", status_code=status.HTTP_303_SEE_OTHER)
+
+    # Password checks happen before the DB lookup below, on purpose:
+    # it's cheaper, and it avoids leaking "this phone number exists"
+    # to someone just probing the form with garbage passwords.
+    if len(password) < 8:
+        return RedirectResponse(url="/register?error=weak_password", status_code=status.HTTP_303_SEE_OTHER)
+
+    if password != confirm_password:
+        return RedirectResponse(url="/register?error=password_mismatch", status_code=status.HTTP_303_SEE_OTHER)
+
+    if db.query(Salon.id).filter(Salon.phone == phone_clean).first():
+        return RedirectResponse(url="/register?error=exists", status_code=status.HTTP_303_SEE_OTHER)
+
+    open_t = _parse_time_hhmm(opening_time)
+    close_t = _parse_time_hhmm(closing_time)
+    if not open_t or not close_t or close_t <= open_t:
+        return RedirectResponse(url="/register?error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+
+    day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
+    if not day_ints:
+        return RedirectResponse(url="/register?error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+
+    salon = Salon(
+        name=name,
+        owner_name=owner_name,
+        phone=phone_clean,
+        hashed_password=hash_password(password),
+        status="pending",
+        subscription_expires_at=None,
+        opening_time=open_t,
+        closing_time=close_t,
+        working_days=",".join(str(d) for d in day_ints),
+    )
+    db.add(salon)
+    db.flush()
+    salon.slug = _unique_slug(db, name, salon.id)
+    db.commit()
+
+    return RedirectResponse(url="/login?registered=1", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, error: Optional[str] = None, registered: Optional[str] = None):
+    return templates.TemplateResponse(
+        request, "login.html", {"error": error, "registered": registered}
+    )
+
+
+@app.post("/login")
+def login(
+    request: Request,
+    phone: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    phone_clean = _normalize_phone(phone)
+    bucket_key = f"login:{phone_clean}"
+    if _is_rate_limited(bucket_key):
+        return RedirectResponse(url="/login?error=too_many_attempts", status_code=status.HTTP_303_SEE_OTHER)
+
+    salon = db.query(Salon).filter(Salon.phone == phone_clean).first()
+    if not salon or not verify_password(password, salon.hashed_password):
+        _record_attempt(bucket_key)
+        return RedirectResponse(url="/login?error=invalid", status_code=status.HTTP_303_SEE_OTHER)
+
+    token = create_access_token({"sub": str(salon.id)})
+    redirect = RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=True,
+        max_age=60 * 60,
+    )
+    return redirect
+
+
+@app.get("/logout")
+def logout():
+    redirect = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.delete_cookie("access_token")
+    return redirect
+
+
+# ---------------------------------------------------------------------------
+# Privacy Policy
+# ---------------------------------------------------------------------------
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page(request: Request):
+    return templates.TemplateResponse(request, "privacy.html", {})
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(
+    request: Request,
+    tab: str = "home",
+    selected_date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    error: Optional[str] = None,
+    conflict_name: Optional[str] = None,
+    conflict_phone: Optional[str] = None,
+    conflict_service: Optional[int] = None,
+    conflict_staff: Optional[int] = None,
+    conflict_time: Optional[str] = None,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    today = date.today()
+    current_date = today.isoformat()
+    # Ensure this salon has a pretty public URL slug based on its name
+    try:
+        desired = _slugify_name(salon.name)
+        current = (getattr(salon, "slug", None) or "").strip()
+        needs = (not current) or current.startswith("salon-") or (desired and current != desired and not current.startswith(desired))
+        if needs and desired:
+            salon.slug = _unique_slug(db, salon.name, salon.id)
+            db.commit()
+            db.refresh(salon)
+        elif not current:
+            salon.slug = _unique_slug(db, salon.name, salon.id)
+            db.commit()
+            db.refresh(salon)
+    except Exception:
+        db.rollback()
+
+
+    day_start = datetime.combine(today, datetime.min.time())
+    day_end = day_start + timedelta(days=1)
+
+    services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
+    staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
+
+    daily_rev = _revenue_between(db, salon.id, day_start, day_end)
+    week_start = day_start - timedelta(days=day_start.weekday())
+    week_end = week_start + timedelta(days=7)
+    month_start_dt = day_start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start_dt.month == 12:
+        month_end_dt = month_start_dt.replace(year=month_start_dt.year + 1, month=1)
+    else:
+        month_end_dt = month_start_dt.replace(month=month_start_dt.month + 1)
+    weekly_rev = _revenue_between(db, salon.id, week_start, week_end)
+    monthly_rev = _revenue_between(db, salon.id, month_start_dt, month_end_dt)
+    today_bookings_rev = _booking_count_between(db, salon.id, day_start, day_end)
+    avg_booking_today = (daily_rev / today_bookings_rev) if today_bookings_rev else 0.0
+
+    # Last 7 days trend (Mon-style bars)
+    revenue_trend = []
+    for i in range(6, -1, -1):
+        d0 = (day_start - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        d1 = d0 + timedelta(days=1)
+        revenue_trend.append({
+            "date": d0.date().isoformat(),
+            "weekday": d0.weekday(),
+            "amount": _revenue_between(db, salon.id, d0, d1),
+        })
+
+    # Top services (this month)
+    top_services_rows = (
+        db.query(Service.name, func.count(Appointment.id), func.coalesce(func.sum(Service.price), 0))
+        .join(Appointment, Appointment.service_id == Service.id)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed"]),
+            Appointment.appointment_datetime >= month_start_dt,
+            Appointment.appointment_datetime < month_end_dt,
+        )
+        .group_by(Service.name)
+        .order_by(func.count(Appointment.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_services_total = sum(int(r[1] or 0) for r in top_services_rows) or 1
+    top_services = [
+        {"name": r[0], "count": int(r[1] or 0), "revenue": float(r[2] or 0),
+         "pct": round(100.0 * int(r[1] or 0) / top_services_total)}
+        for r in top_services_rows
+    ]
+
+    # Top professionals (this month)
+    top_staff_rows = (
+        db.query(Staff.name, func.count(Appointment.id))
+        .join(Appointment, Appointment.staff_id == Staff.id)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed"]),
+            Appointment.appointment_datetime >= month_start_dt,
+            Appointment.appointment_datetime < month_end_dt,
+        )
+        .group_by(Staff.name)
+        .order_by(func.count(Appointment.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_staff = [{"name": r[0], "count": int(r[1] or 0)} for r in top_staff_rows]
+
+    today_appt_count = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime < day_end,
+        )
+        .scalar()
+        or 0
+    )
+
+    total_customers = (
+        db.query(func.count(func.distinct(Appointment.customer_phone)))
+        .filter(Appointment.salon_id == salon.id)
+        .scalar()
+        or 0
+    )
+
+    # New unique customers this calendar month (first-seen phone in this month)
+    month_start = day_start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Phones whose earliest appointment falls within this month
+    first_seen_subq = (
+        db.query(
+            Appointment.customer_phone.label("phone"),
+            func.min(Appointment.appointment_datetime).label("first_at"),
+        )
+        .filter(Appointment.salon_id == salon.id)
+        .group_by(Appointment.customer_phone)
+        .subquery()
+    )
+    new_customers_month = (
+        db.query(func.count())
+        .select_from(first_seen_subq)
+        .filter(first_seen_subq.c.first_at >= month_start)
+        .scalar()
+        or 0
+    )
+
+    try:
+        # Online bookings that paid a deposit — show on Home so owner can
+        # review the screenshot quickly and cancel if needed. Slot is already
+        # confirmed/reserved for the customer.
+        pending_payment_appts = (
+            db.query(Appointment)
+            .filter(
+                Appointment.salon_id == salon.id,
+                Appointment.payment_screenshot_url.isnot(None),
+                Appointment.payment_reviewed != 1,
+                Appointment.status.notin_([
+                    AppointmentStatus.cancelled,
+                    AppointmentStatus.no_show,
+                    "Cancelled",
+                    "No-Show",
+                ]),
+            )
+            .order_by(Appointment.created_at.desc())
+            .limit(30)
+            .all()
+        )
+        pending_payment_count = len(pending_payment_appts)
+    except Exception:
+        pending_payment_appts = []
+        pending_payment_count = 0
+
+    no_show_count_today = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status == AppointmentStatus.no_show,
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime < day_end,
+        )
+        .scalar()
+        or 0
+    )
+
+    testimonials = (
+        db.query(Testimonial)
+        .filter(Testimonial.salon_id == salon.id)
+        .order_by(Testimonial.is_pinned.desc(), Testimonial.id.desc())
+        .limit(50)
+        .all()
+    )
+
+    context = {
+        "salon": salon,
+        "active_tab": tab,
+        "current_date": current_date,
+        "services": services,
+        "staff_members": staff_members,
+        "daily_rev": daily_rev,
+        "weekly_rev": weekly_rev,
+        "monthly_rev": monthly_rev,
+        "today_bookings_rev": today_bookings_rev,
+        "avg_booking_today": avg_booking_today,
+        "revenue_trend": revenue_trend,
+        "top_services": top_services,
+        "top_staff": top_staff,
+        "today_appt_count": today_appt_count,
+        "total_customers": total_customers,
+        "new_customers_month": new_customers_month,
+        "pending_payment_count": pending_payment_count,
+        "pending_payment_appts": pending_payment_appts,
+        "no_show_count_today": no_show_count_today,
+        "error": error,
+        "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.slug or salon.id}",
+        "testimonials": testimonials,
     }
-    if (n === 5) {
-        const name = document.getElementById('customerName')?.value?.trim();
-        const phone = document.getElementById('customerPhone')?.value?.trim();
-        if (!name || !phone) {
-            alert(document.documentElement.lang === 'en' ? 'Please enter name and phone.' : 'እባክዎ ስምና ስልክ ይሙሉ።');
-            return;
+
+    if tab == "home":
+        sel_date = _parse_date(selected_date) or today
+        d_start = datetime.combine(sel_date, datetime.min.time())
+        d_end = d_start + timedelta(days=1)
+        appointments = (
+            db.query(Appointment)
+            .filter(
+                Appointment.salon_id == salon.id,
+                Appointment.appointment_datetime >= d_start,
+                Appointment.appointment_datetime < d_end,
+            )
+            .order_by(Appointment.appointment_datetime)
+            .all()
+        )
+        context["appointments"] = appointments
+        context["selected_date"] = sel_date.isoformat()
+
+        # Day-of-week name for whichever date is selected, so the board
+        # header reads e.g. "ሰኞ / Monday · 2026-08-24" instead of just the
+        # raw date — easier to recognize the day at a glance.
+        sel_day_am, sel_day_en = _day_names(sel_date)
+        context["selected_day_am"] = sel_day_am
+        context["selected_day_en"] = sel_day_en
+
+        if error == "conflict" and conflict_time and conflict_service and conflict_staff:
+            conflict_dt = _parse_appt_datetime(conflict_time)
+            c_duration = _service_duration(db, conflict_service)
+            c_end = conflict_dt + timedelta(minutes=c_duration)
+
+            conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+            alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+            next_slot = (
+                _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
+                if conflict_staff_obj else None
+            )
+
+            context.update({
+                "conflict_name": conflict_name,
+                "conflict_phone": conflict_phone,
+                "conflict_service": conflict_service,
+                "conflict_staff": conflict_staff,
+                "conflict_staff_name": conflict_staff_obj.name if conflict_staff_obj else "",
+                "conflict_time": conflict_time,
+                "conflict_date": conflict_dt.date().isoformat(),
+                "alt_staff": alt_staff,
+                "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
+                "next_slot_display": _eth_display(next_slot),
+            })
+
+    elif tab == "reserve":
+        context["waitlist_entries"] = (
+            db.query(Waitlist)
+            .filter(Waitlist.salon_id == salon.id)
+            .order_by(Waitlist.preferred_date)
+            .all()
+        )
+
+    elif tab == "revenue":
+        week_start = day_start - timedelta(days=today.weekday())
+        month_start = day_start.replace(day=1)
+
+        context["weekly_rev"] = _revenue_between(db, salon.id, week_start, day_end)
+        context["monthly_rev"] = _revenue_between(db, salon.id, month_start, day_end)
+        context["start_date"] = start_date or current_date
+        context["end_date"] = end_date or current_date
+
+        # Itemized, customer-by-customer breakdown for whatever range is
+        # selected (defaults to today). Same query backs the on-screen
+        # table and the /export-revenue file, so they always match, and an
+        # owner can pull up any past day or month, not just a total.
+        custom_rev = None
+        custom_details = []
+        s, e = _parse_date(start_date), _parse_date(end_date)
+        if s and e:
+            range_start = datetime.combine(s, datetime.min.time())
+            range_end = datetime.combine(e, datetime.min.time()) + timedelta(days=1)
+            custom_rev = _revenue_between(db, salon.id, range_start, range_end)
+            custom_details = _revenue_details_between(db, salon.id, range_start, range_end)
+        context["custom_rev"] = custom_rev
+        context["custom_details"] = custom_details
+
+    return templates.TemplateResponse(request, "dashboard.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Revenue export — itemized CSV for any date range, so an owner can pull
+# up a detailed, per-customer/per-staff record of revenue even months later.
+# ---------------------------------------------------------------------------
+@app.get("/export-revenue")
+def export_revenue(
+    start_date: str,
+    end_date: str,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    s = _parse_date(start_date)
+    e = _parse_date(end_date)
+    if not s or not e:
+        return RedirectResponse(url="/dashboard?tab=revenue", status_code=status.HTTP_303_SEE_OTHER)
+
+    start_dt = datetime.combine(s, datetime.min.time())
+    end_dt = datetime.combine(e, datetime.min.time()) + timedelta(days=1)
+
+    appts = _revenue_details_between(db, salon.id, start_dt, end_dt)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Date", "Time", "Customer Name", "Phone", "Service", "Staff", "Price (ETB)"])
+
+    total = 0.0
+    for a in appts:
+        price = float(a.service_price or 0)
+        total += price
+        writer.writerow([
+            a.appointment_datetime.date().isoformat(),
+            a.appointment_time,
+            a.customer_name,
+            a.customer_phone,
+            a.service_name,
+            a.staff_name,
+            f"{price:.2f}",
+        ])
+
+    writer.writerow([])
+    writer.writerow(["", "", "", "", "", "TOTAL", f"{total:.2f}"])
+
+    buffer.seek(0)
+    filename = f"{salon.name}_revenue_{s.isoformat()}_to_{e.isoformat()}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Salon-level working hours
+# ---------------------------------------------------------------------------
+@app.post("/update-hours")
+def update_hours(
+    opening_time: str = Form(...),
+    closing_time: str = Form(...),
+    working_days: List[str] = Form(default=[]),
+    address: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    open_t = _parse_time_hhmm(opening_time)
+    close_t = _parse_time_hhmm(closing_time)
+    if not open_t or not close_t or close_t <= open_t:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+
+    day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
+    if not day_ints:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+
+    salon.opening_time = open_t
+    salon.closing_time = close_t
+    salon.working_days = ",".join(str(d) for d in day_ints)
+    if address is not None:
+        salon.address = address.strip() or None
+    db.commit()
+
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Staff-level schedule overrides + day-offs
+# ---------------------------------------------------------------------------
+@app.post("/update-staff-schedule")
+def update_staff_schedule(
+    staff_id: int = Form(...),
+    use_custom_hours: Optional[str] = Form(None),
+    opening_time: Optional[str] = Form(None),
+    closing_time: Optional[str] = Form(None),
+    use_custom_days: Optional[str] = Form(None),
+    working_days: List[str] = Form(default=[]),
+    # Per-day open/close overrides from the "Custom days / half-day per
+    # day" panel (day_open_0..6 / day_close_0..6 hidden inputs in
+    # dashboard.html). These were previously never read by this endpoint,
+    # which is why per-day hours (e.g. a staff member working only 2 or 6
+    # hours on a given day) silently failed to save and the staff member
+    # just kept using the salon's default hours.
+    day_open_0: Optional[str] = Form(None),
+    day_close_0: Optional[str] = Form(None),
+    day_open_1: Optional[str] = Form(None),
+    day_close_1: Optional[str] = Form(None),
+    day_open_2: Optional[str] = Form(None),
+    day_close_2: Optional[str] = Form(None),
+    day_open_3: Optional[str] = Form(None),
+    day_close_3: Optional[str] = Form(None),
+    day_open_4: Optional[str] = Form(None),
+    day_close_4: Optional[str] = Form(None),
+    day_open_5: Optional[str] = Form(None),
+    day_close_5: Optional[str] = Form(None),
+    day_open_6: Optional[str] = Form(None),
+    day_close_6: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    if not staff:
+        return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+    if use_custom_hours:
+        open_t = _parse_time_hhmm(opening_time)
+        close_t = _parse_time_hhmm(closing_time)
+        if not open_t or not close_t or close_t <= open_t:
+            return RedirectResponse(url="/dashboard?tab=staff&error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+        staff.opening_time = open_t
+        staff.closing_time = close_t
+    else:
+        staff.opening_time = None
+        staff.closing_time = None
+
+    if use_custom_days:
+        day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
+        if not day_ints:
+            return RedirectResponse(url="/dashboard?tab=staff&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+        staff.working_days = ",".join(str(d) for d in day_ints)
+
+        # Build the per-day hours map. Only enabled days can carry an
+        # override; a day with no valid open<close pair simply falls back
+        # to the staff member's overall hours (or the salon's) at read
+        # time via _staff_hours_for_day, so it's safe to just omit it here.
+        day_open_by_index = {
+            0: day_open_0, 1: day_open_1, 2: day_open_2, 3: day_open_3,
+            4: day_open_4, 5: day_open_5, 6: day_open_6,
         }
-        refreshSummary();
-    }
-    currentStep = n;
-    document.querySelectorAll('.step-panel').forEach(p => {
-        p.classList.toggle('active', parseInt(p.dataset.step, 10) === n);
-    });
-    document.querySelectorAll('#stepsBar .dot').forEach(d => {
-        const s = parseInt(d.dataset.s, 10);
-        d.classList.toggle('active', s === n);
-        d.classList.toggle('done', s < n);
-    });
-    document.body.classList.add('booking-open');
-    if (n === 3) setTimeout(() => {
-        const col = document.getElementById('wheelEth');
-        if (col) col.dispatchEvent(new Event('scroll'));
-    }, 50);
-}
-
-function onServicePick(el) {
-    document.querySelectorAll('.svc-card').forEach(c => c.classList.remove('selected'));
-    el.closest('.svc-card').classList.add('selected');
-    const price = el.dataset.price;
-    const label = document.getElementById('stickyPriceLabel');
-    if (label && price) {
-        const en = document.documentElement.lang === 'en';
-        label.innerHTML = en
-            ? `<span data-lang-en style="display:inline">From ${price} ETB</span>`
-            : `<span data-lang-am style="display:inline">ከ ${price} ብር ጀምሮ</span>`;
-    }
-}
-function onStaffPick() { updateStaffHint(); }
-
-function refreshSummary() {
-    const svc = document.querySelector('input[name="service_id"]:checked');
-    const st = document.querySelector('input[name="staff_id"]:checked');
-    const name = document.getElementById('customerName')?.value || '—';
-    const when = document.getElementById('ethPreview')?.textContent || '';
-    const date = document.getElementById('ethDate')?.value || '';
-    document.getElementById('sumService').textContent = svc ? svc.dataset.name : '—';
-    document.getElementById('sumStaff').textContent = st ? st.dataset.name : '—';
-    document.getElementById('sumWhen').textContent = date + (when ? ' · ' + when : '');
-    document.getElementById('sumName').textContent = name;
-    document.getElementById('sumPrice').textContent = svc ? (svc.dataset.price + ' ETB') : '—';
-    const dep = svc ? parseFloat(svc.dataset.deposit || '0') : 0;
-    const depRow = document.getElementById('sumDepositRow');
-    const depVal = document.getElementById('sumDeposit');
-    const depBlock = document.getElementById('depositBlock');
-    const depositOn = {{ 'true' if salon.deposit_enabled else 'false' }};
-    if (depositOn && dep > 0) {
-        if (depRow) depRow.style.display = 'flex';
-        if (depVal) depVal.textContent = dep + ' ETB';
-        if (depBlock) depBlock.style.display = 'block';
-    } else {
-        if (depRow) depRow.style.display = 'none';
-        if (depBlock) depBlock.style.display = 'none';
-    }
-}
-
-/* Gallery filter */
-document.querySelectorAll('#catFilters .cat-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-        document.querySelectorAll('#catFilters .cat-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        const cat = chip.dataset.cat;
-        document.querySelectorAll('#galleryScroll .g-tile').forEach(t => {
-            t.classList.toggle('hidden', cat !== 'all' && t.dataset.cat !== cat && !(cat === 'nails' && ['manicure','pedicure','nails'].includes(t.dataset.cat)));
-        });
-    });
-});
-
-/* Review sort */
-document.querySelectorAll('.rev-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.rev-filter').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const sort = btn.dataset.sort;
-        const scroll = document.getElementById('tScroll');
-        if (!scroll) return;
-        const cards = Array.from(scroll.querySelectorAll('.t-card'));
-        cards.sort((a, b) => {
-            if (sort === 'high') return parseInt(b.dataset.rating) - parseInt(a.dataset.rating);
-            if (sort === 'photo') return parseInt(b.dataset.photo) - parseInt(a.dataset.photo);
-            return parseInt(b.dataset.id) - parseInt(a.dataset.id);
-        });
-        cards.forEach(c => scroll.appendChild(c));
-    });
-});
-
-/* Lightbox */
-function openLightbox(src) {
-    document.getElementById('lightboxImg').src = src;
-    document.getElementById('lightbox').classList.add('show');
-}
-function closeLightbox(e) {
-    if (e && e.target && e.target.id === 'lightboxImg') return;
-    document.getElementById('lightbox').classList.remove('show');
-}
-
-/* Staff photo fallback */
-document.querySelectorAll('img.staff-photo-img').forEach(img => {
-    img.addEventListener('error', function () {
-        const fb = img.getAttribute('data-fallback');
-        if (fb && img.src !== fb) img.src = fb;
-    });
-});
-
-/* Ethiopian time wheel */
-function westernToEth(h, m) {
-    const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
-    const eh = Math.floor(total / 60);
-    const em = total % 60;
-    let period, displayH;
-    if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
-    else if (eh < 12) { period = 'ቀን'; displayH = eh; }
-    else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
-    else { period = 'ለሊት'; displayH = eh - 12; }
-    return { period, hour: displayH, minute: em };
-}
-const ITEM_H = 42;
-function buildEthSlots() {
-    const slots = [];
-    for (let i = 0; i < 96; i++) {
-        const wh = (6 + Math.floor(i / 4)) % 24;
-        const mm = (i % 4) * 15;
-        const eth = westernToEth(wh, mm);
-        slots.push({
-            label: `${eth.period} ${eth.hour}:${String(eth.minute).padStart(2,'0')}`,
-            hhmm: `${String(wh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`
-        });
-    }
-    return slots;
-}
-function initWheel(container, values, initial, onChange) {
-    container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${ITEM_H}px;">${v}</div>`).join('');
-    const items = Array.from(container.querySelectorAll('.wheel-item'));
-    let current = null;
-    function scrollTo(idx, smooth) {
-        idx = Math.max(0, Math.min(values.length - 1, idx));
-        container.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'auto' });
-    }
-    function idx() { return Math.max(0, Math.min(values.length - 1, Math.round(container.scrollTop / ITEM_H))); }
-    function mark(i) {
-        items.forEach((it, j) => it.classList.toggle('active', j === i));
-        if (values[i] !== current) { current = values[i]; onChange(values[i]); }
-    }
-    let t;
-    container.addEventListener('scroll', () => {
-        mark(idx());
-        clearTimeout(t);
-        t = setTimeout(() => { const i = idx(); scrollTo(i, true); mark(i); }, 100);
-    }, { passive: true });
-    items.forEach((it, i) => it.addEventListener('click', () => { scrollTo(i, true); mark(i); }));
-    const start = Math.max(0, values.indexOf(initial));
-    requestAnimationFrame(() => { scrollTo(start, false); mark(start); });
-    return { set: (v) => scrollTo(values.indexOf(v), true) };
-}
-let selectedHHMM = '09:00';
-const slots = buildEthSlots();
-const labels = slots.map(s => s.label);
-const byLabel = {};
-slots.forEach(s => { byLabel[s.label] = s.hhmm; });
-const wheelEl = document.getElementById('wheelEth');
-let ethWheel = { set(){} };
-if (wheelEl) {
-    const init = slots.find(s => s.hhmm === selectedHHMM) || slots[0];
-    ethWheel = initWheel(wheelEl, labels, init.label, (label) => {
-        selectedHHMM = byLabel[label];
-        const prev = document.getElementById('ethPreview');
-        if (prev) prev.textContent = label + ' ሰዓት';
-        updatePreviewAndHidden();
-    });
-}
-function updatePreviewAndHidden() {
-    const dateVal = document.getElementById('ethDate')?.value;
-    const hidden = document.getElementById('appointmentTimeHidden');
-    if (!hidden) return;
-    if (!dateVal) { hidden.value = ''; return; }
-    hidden.value = `${dateVal}T${selectedHHMM}:00`;
-}
-document.getElementById('ethDate')?.addEventListener('change', updatePreviewAndHidden);
-
-const dayAm = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
-const dayEn = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-function updateStaffHint() {
-    const checked = document.querySelector('input[name="staff_id"]:checked');
-    const hint = document.getElementById('staffHoursHint');
-    if (!checked || !hint) return;
-    const open = checked.dataset.open, close = checked.dataset.close, days = checked.dataset.days || '';
-    const en = document.documentElement.lang === 'en';
-    const names = en ? dayEn : dayAm;
-    const dayLabels = days.split(',').filter(Boolean).map(d => names[parseInt(d)]).join(en ? ', ' : '፣ ');
-    const [oh, om] = open.split(':').map(Number);
-    const [ch, cm] = close.split(':').map(Number);
-    const o = westernToEth(oh, om), c = westernToEth(ch, cm);
-    const hp = `${o.period} ${o.hour}:${String(o.minute).padStart(2,'0')} – ${c.period} ${c.hour}:${String(c.minute).padStart(2,'0')}`;
-    hint.textContent = en ? `Hours: ${hp} · ${dayLabels}` : `የስራ ሰዓት፡ ${hp} · ${dayLabels}`;
-}
-
-document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
-    updatePreviewAndHidden();
-    if (!document.getElementById('appointmentTimeHidden').value) {
-        e.preventDefault();
-        alert(document.documentElement.lang === 'en' ? 'Please select date & time.' : 'እባክዎ ቀንና ሰዓት ይምረጡ።');
-        return;
-    }
-    const svc = document.querySelector('input[name="service_id"]:checked');
-    const dep = svc ? parseFloat(svc.dataset.deposit || '0') : 0;
-    const depositOn = {{ 'true' if salon.deposit_enabled else 'false' }};
-    if (depositOn && dep > 0) {
-        const shot = document.getElementById('paymentScreenshot');
-        if (!shot || !shot.files || !shot.files.length) {
-            e.preventDefault();
-            alert(document.documentElement.lang === 'en'
-                ? 'Please upload a payment screenshot.'
-                : 'እባክዎ የክፍያ screenshot ይስቀሉ።');
+        day_close_by_index = {
+            0: day_close_0, 1: day_close_1, 2: day_close_2, 3: day_close_3,
+            4: day_close_4, 5: day_close_5, 6: day_close_6,
         }
-    }
-});
 
-document.addEventListener('DOMContentLoaded', () => {
-    updateStaffHint();
-    updatePreviewAndHidden();
-    const conflictTime = "{{ conflict_time or '' }}";
-    if (conflictTime) {
-        try {
-            const [datePart, timePart] = conflictTime.split('T');
-            const [hh, mm] = timePart.split(':').map(Number);
-            const snap = Math.round((mm || 0) / 15) * 15 % 60;
-            const hhmm = `${String(hh).padStart(2,'0')}:${String(snap).padStart(2,'0')}`;
-            document.getElementById('ethDate').value = datePart;
-            selectedHHMM = hhmm;
-            const s = slots.find(x => x.hhmm === hhmm);
-            if (s) ethWheel.set(s.label);
-            updatePreviewAndHidden();
-            goStep(1);
-        } catch(e) {}
+        day_hours = {}
+        for i in day_ints:
+            o = _parse_time_hhmm(day_open_by_index.get(i))
+            c = _parse_time_hhmm(day_close_by_index.get(i))
+            if o and c and c > o:
+                day_hours[str(i)] = {
+                    "open": day_open_by_index[i],
+                    "close": day_close_by_index[i],
+                }
+
+        staff.day_hours = day_hours or None
+    else:
+        staff.working_days = None
+        staff.day_hours = None
+
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/add-staff-dayoff")
+def add_staff_dayoff(
+    staff_id: int = Form(...),
+    off_date: str = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    d = _parse_date(off_date)
+    if staff and d:
+        exists = db.query(StaffDayOff.id).filter(
+            StaffDayOff.staff_id == staff.id, StaffDayOff.off_date == d
+        ).first()
+        if not exists:
+            db.add(StaffDayOff(staff_id=staff.id, off_date=d))
+            db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-staff-dayoff")
+def delete_staff_dayoff(
+    dayoff_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.query(StaffDayOff).filter(
+        StaffDayOff.id == dayoff_id,
+        StaffDayOff.staff_id.in_(db.query(Staff.id).filter(Staff.salon_id == salon.id))
+    ).delete(synchronize_session=False)
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Customer search
+# ---------------------------------------------------------------------------
+@app.get("/search-customer")
+def search_customer(
+    q: str,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    q = q.strip()
+    if not q:
+        return JSONResponse({"results": []})
+
+    q_digits = _normalize_phone(q)
+    filters = [Appointment.customer_name.ilike(f"%{q}%")]
+    if q_digits:
+        filters.append(Appointment.customer_phone.ilike(f"%{q_digits}%"))
+    else:
+        filters.append(Appointment.customer_phone.ilike(f"%{q}%"))
+
+    matches = (
+        db.query(Appointment)
+        .filter(Appointment.salon_id == salon.id, or_(*filters))
+        .order_by(Appointment.appointment_datetime.desc())
+        .limit(25)
+        .all()
+    )
+
+    seen_phones = set()
+    results = []
+    for a in matches:
+        if a.customer_phone in seen_phones:
+            continue
+        seen_phones.add(a.customer_phone)
+        appt_date = a.appointment_datetime.date()
+        day_am, day_en = _day_names(appt_date)
+        results.append({
+            "customer_name": a.customer_name,
+            "customer_phone": a.customer_phone,
+            "service_name": a.service_name,
+            "appointment_date": appt_date.isoformat(),
+            "appointment_time": a.appointment_time,
+            "day_am": day_am,
+            "day_en": day_en,
+            "status": a.status.value,
+        })
+
+    return JSONResponse({"results": results})
+
+
+# ---------------------------------------------------------------------------
+# Appointments (admin / walk-in)
+# ---------------------------------------------------------------------------
+@app.post("/book-appointment")
+def book_appointment(
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    service_id: int = Form(...),
+    staff_id: int = Form(...),
+    appointment_time: str = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        params = urlencode({"tab": "home", "error": "invalid_time"})
+        return RedirectResponse(url=f"/dashboard?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    duration = _service_duration(db, service_id)
+    end_dt = appt_dt + timedelta(minutes=duration)
+
+    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+
+    if not staff_obj or not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+        params = urlencode({
+            "tab": "home",
+            "error": "outside_hours",
+            "selected_date": appt_dt.date().isoformat(),
+        })
+        return RedirectResponse(url=f"/dashboard?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
+        params = urlencode({
+            "tab": "home",
+            "error": "conflict",
+            "selected_date": appt_dt.date().isoformat(),
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/dashboard?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    db.add(Appointment(
+        salon_id=salon.id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        service_id=service_id,
+        staff_id=staff_id,
+        appointment_datetime=appt_dt,
+        status=AppointmentStatus.confirmed,
+        source="walk-in",
+    ))
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/dashboard?tab=home&selected_date={appt_dt.date().isoformat()}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@app.post("/update-appointment-status")
+async def update_appointment_status(
+    request: Request,
+    appointment_id: int = Form(...),
+    status_value: str = Form(..., alias="status"),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if not appt:
+        if is_ajax:
+            return JSONResponse({"success": False, "error": "not_found"}, status_code=404)
+        return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        appt.status = AppointmentStatus(status_value)
+    except ValueError:
+        if is_ajax:
+            return JSONResponse({"success": False, "error": "invalid_status"}, status_code=400)
+        return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+    db.commit()
+
+    if is_ajax:
+        return JSONResponse({"success": True, "status": appt.status.value})
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Waitlist
+# ---------------------------------------------------------------------------
+@app.post("/add-waitlist")
+def add_waitlist(
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    service_id: int = Form(...),
+    staff_id: Optional[int] = Form(None),
+    preferred_date: str = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.add(Waitlist(
+        salon_id=salon.id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        service_id=service_id,
+        staff_id=staff_id or None,
+        preferred_date=_parse_date(preferred_date) or date.today(),
+    ))
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-waitlist")
+def delete_waitlist(
+    waitlist_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.query(Waitlist).filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id).delete()
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/convert-waitlist/{waitlist_id}")
+def convert_waitlist(
+    waitlist_id: int,
+    appointment_time: str = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    entry = (
+        db.query(Waitlist)
+        .filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id)
+        .first()
+    )
+    if not entry:
+        return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=reserve&error=invalid_time", status_code=status.HTTP_303_SEE_OTHER)
+
+    staff_id = entry.staff_id or db.query(Staff.id).filter(Staff.salon_id == salon.id).limit(1).scalar()
+    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    c_duration = _service_duration(db, entry.service_id)
+    c_end = appt_dt + timedelta(minutes=c_duration)
+
+    if not staff_obj or not _within_staff_hours(db, salon, staff_obj, appt_dt, c_end):
+        return RedirectResponse(url="/dashboard?tab=reserve&error=outside_hours", status_code=status.HTTP_303_SEE_OTHER)
+
+    if _staff_has_overlap(db, salon.id, staff_id, appt_dt, c_end):
+        return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=status.HTTP_303_SEE_OTHER)
+
+    db.add(Appointment(
+        salon_id=salon.id,
+        customer_name=entry.customer_name,
+        customer_phone=entry.customer_phone,
+        service_id=entry.service_id,
+        staff_id=staff_id,
+        appointment_datetime=appt_dt,
+        status=AppointmentStatus.confirmed,
+        source="walk-in",
+    ))
+    db.delete(entry)
+    db.commit()
+
+    return RedirectResponse(url="/dashboard?tab=reserve", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+@app.post("/add-service")
+def add_service(
+    name: str = Form(...),
+    price: float = Form(...),
+    duration_minutes: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.add(Service(salon_id=salon.id, name=name, price=price, duration_minutes=duration_minutes))
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-service")
+def delete_service(
+    service_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).delete()
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Staff
+# ---------------------------------------------------------------------------
+@app.post("/add-staff")
+async def add_staff(
+    name: str = Form(...),
+    photo: Optional[UploadFile] = File(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    photo_url = None
+    if photo and photo.filename:
+        try:
+            photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}", salon_id=salon.id)
+        except ValueError:
+            photo_url = None
+
+    try:
+        db.add(Staff(salon_id=salon.id, name=name, photo_url=photo_url))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        redirect = RedirectResponse(url="/login?error=session_expired", status_code=status.HTTP_303_SEE_OTHER)
+        redirect.delete_cookie("access_token")
+        return redirect
+
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/update-staff-photo")
+async def update_staff_photo(
+    staff_id: int = Form(...),
+    photo: UploadFile = File(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    if not staff:
+        return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        staff.photo_url = _save_upload(photo, subfolder=f"staff/{salon.id}", salon_id=salon.id)
+        db.commit()
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=staff&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
+
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/upload-cover-photo")
+async def upload_cover_photo(
+    photo: UploadFile = File(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    try:
+        url = _save_upload(photo, subfolder=f"cover/{salon.id}", salon_id=salon.id)
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
+
+    salon.cover_photo_url = url
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/upload-gallery-photo")
+async def upload_gallery_photo(
+    photo: UploadFile = File(...),
+    caption: Optional[str] = Form(None),
+    category: Optional[str] = Form("other"),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    try:
+        url = _save_upload(photo, subfolder=f"gallery/{salon.id}", salon_id=salon.id)
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_image", status_code=status.HTTP_303_SEE_OTHER)
+
+    allowed = {"nails", "manicure", "pedicure", "massage", "facial", "hair", "other"}
+    cat = (category or "other").strip().lower()
+    if cat not in allowed:
+        cat = "other"
+
+    db.add(GalleryImage(
+        salon_id=salon.id,
+        image_url=url,
+        caption=(caption or "").strip() or None,
+        category=cat,
+    ))
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/add-testimonial")
+async def add_testimonial(
+    client_name: str = Form(...),
+    comment: str = Form(...),
+    rating: int = Form(5),
+    service_label: Optional[str] = Form(None),
+    is_pinned: Optional[str] = Form(None),
+    is_celebrity: Optional[str] = Form(None),
+    client_photo: Optional[UploadFile] = File(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    photo_url = None
+    if client_photo and client_photo.filename:
+        try:
+            photo_url = _save_upload(client_photo, subfolder=f"testimonials/{salon.id}", salon_id=salon.id)
+        except ValueError:
+            photo_url = None
+
+    r = max(1, min(5, int(rating or 5)))
+    db.add(Testimonial(
+        salon_id=salon.id,
+        client_name=client_name.strip(),
+        comment=comment.strip(),
+        rating=r,
+        service_label=(service_label or "").strip() or None,
+        client_photo_url=photo_url,
+        is_pinned=1 if is_pinned else 0,
+        is_celebrity=1 if is_celebrity else 0,
+    ))
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/toggle-testimonial-pin")
+def toggle_testimonial_pin(
+    testimonial_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    t = db.query(Testimonial).filter(Testimonial.id == testimonial_id, Testimonial.salon_id == salon.id).first()
+    if t:
+        t.is_pinned = 0 if t.is_pinned else 1
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-testimonial")
+def delete_testimonial(
+    testimonial_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    t = db.query(Testimonial).filter(Testimonial.id == testimonial_id, Testimonial.salon_id == salon.id).first()
+    if t:
+        db.delete(t)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-gallery-photo")
+def delete_gallery_photo(
+    image_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    img = (
+        db.query(GalleryImage)
+        .filter(GalleryImage.id == image_id, GalleryImage.salon_id == salon.id)
+        .first()
+    )
+    if img:
+        try:
+            if img.image_url and img.image_url.startswith("/static/"):
+                disk_path = Path(img.image_url[len("/static/"):])
+                full = Path("static") / disk_path
+                if full.is_file():
+                    full.unlink()
+        except Exception:
+            pass
+        db.delete(img)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/delete-staff")
+def delete_staff(
+    staff_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).delete()
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=staff", status_code=status.HTTP_303_SEE_OTHER)
+
+
+
+# ---------------------------------------------------------------------------
+# Deposit / payment settings (salon owner)
+# ---------------------------------------------------------------------------
+@app.post("/settings/deposit")
+async def settings_deposit(
+    deposit_enabled: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    salon.deposit_enabled = 1 if deposit_enabled in ("1", "on", "true", "yes") else 0
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/settings/payment-methods")
+async def settings_payment_methods(
+    method_names: List[str] = Form(default=[]),
+    method_accounts: List[str] = Form(default=[]),
+    method_notes: List[str] = Form(default=[]),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    methods = []
+    for i, name in enumerate(method_names):
+        name = (name or "").strip()
+        if not name:
+            continue
+        account = method_accounts[i].strip() if i < len(method_accounts) else ""
+        notes = method_notes[i].strip() if i < len(method_notes) else ""
+        methods.append({"name": name, "account": account, "instructions": notes})
+    salon.payment_methods = methods
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/update-service-deposit")
+def update_service_deposit(
+    service_id: int = Form(...),
+    deposit_amount: float = Form(0),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
+    if svc:
+        svc.deposit_amount = max(0, float(deposit_amount or 0))
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=services", status_code=status.HTTP_303_SEE_OTHER)
+
+
+
+@app.post("/dismiss-payment-proof")
+def dismiss_payment_proof(
+    appointment_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Remove a deposit screenshot from the Home review list (booking stays confirmed)."""
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if appt:
+        appt.payment_reviewed = 1
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/confirm-deposit-payment")
+def confirm_deposit_payment(
+    appointment_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Owner marks a pending-payment booking as confirmed after verifying screenshot."""
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if appt:
+        st = getattr(appt.status, "value", str(appt.status))
+        if st in ("Pending Payment", "pending_payment", AppointmentStatus.pending_payment.value):
+            appt.status = AppointmentStatus.confirmed
+            db.commit()
+            # live notify salon dashboards
+            try:
+                import asyncio
+                asyncio.get_event_loop().create_task(manager.broadcast(salon.id, {
+                    "event": "payment_confirmed",
+                    "appointment_id": appt.id,
+                }))
+            except Exception:
+                pass
+    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Public customer-facing booking page
+# ---------------------------------------------------------------------------
+@app.get("/book/{salon_ref}", response_class=HTMLResponse)
+def public_booking_page(
+    request: Request,
+    salon_ref: str,
+    error: Optional[str] = None,
+    success: Optional[str] = None,
+    waitlisted: Optional[str] = None,
+    appt_id: Optional[int] = None,
+    conflict_name: Optional[str] = None,
+    conflict_phone: Optional[str] = None,
+    conflict_service: Optional[int] = None,
+    conflict_staff: Optional[int] = None,
+    conflict_time: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    salon = _resolve_salon(db, salon_ref)
+    if not salon:
+        return HTMLResponse("Salon not found", status_code=404)
+
+    services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
+    staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
+
+    testimonials = (
+        db.query(Testimonial)
+        .filter(Testimonial.salon_id == salon.id)
+        .order_by(Testimonial.is_pinned.desc(), Testimonial.id.desc())
+        .limit(20)
+        .all()
+    )
+
+    context = {
+        "salon": salon,
+        "salon_ref": salon.slug or str(salon.id),
+        "services": services,
+        "staff_members": staff_members,
+        "current_date": date.today().isoformat(),
+        "error": error,
+        "success": success,
+        "waitlisted": waitlisted,
+        "hours_label": salon.hours_label,
+        "days_label": salon.working_days_label,
+        "testimonials": testimonials,
+        "appt_id": appt_id,
     }
-});
-</script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script>
-(function() {
-    const addressEl = document.getElementById('salonAddressText');
-    const mapEl = document.getElementById('salonMap');
-    const loadingEl = document.getElementById('mapLoading');
-    if (!addressEl || !mapEl) return;
-    const address = (addressEl.textContent || '').trim();
-    if (!address) { if (loadingEl) loadingEl.style.display = 'none'; return; }
-    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address), {
-        headers: { 'Accept': 'application/json' }
-    }).then(r => r.json()).then(results => {
-        if (loadingEl) loadingEl.style.display = 'none';
-        mapEl.style.display = 'block';
-        let lat = 9.03, lon = 38.74, zoom = 12;
-        if (results && results.length) { lat = +results[0].lat; lon = +results[0].lon; zoom = 16; }
-        const map = L.map('salonMap', { scrollWheelZoom: false }).setView([lat, lon], zoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-        L.marker([lat, lon]).addTo(map).bindPopup('<strong>{{ salon.name | e }}</strong>').openPopup();
-        setTimeout(() => map.invalidateSize(), 200);
-    }).catch(() => { if (loadingEl) loadingEl.innerHTML = '—'; });
-})();
-</script>
-</body>
-</html>
+
+    if error == "conflict" and conflict_time and conflict_service and conflict_staff:
+        conflict_dt = _parse_appt_datetime(conflict_time)
+        c_duration = _service_duration(db, conflict_service)
+        c_end = conflict_dt + timedelta(minutes=c_duration)
+
+        conflict_staff_obj = db.query(Staff).filter(Staff.id == conflict_staff).first()
+        alt_staff = _available_staff_for_slot(db, salon, conflict_dt, c_end, exclude_staff_id=conflict_staff)
+        next_slot = (
+            _next_available_slot(db, salon, conflict_staff_obj, c_duration, conflict_dt)
+            if conflict_staff_obj else None
+        )
+
+        context.update({
+            "conflict_name": conflict_name,
+            "conflict_phone": conflict_phone,
+            "conflict_service": conflict_service,
+            "conflict_staff": conflict_staff,
+            "conflict_staff_name": conflict_staff_obj.name if conflict_staff_obj else "",
+            "conflict_time": conflict_time,
+            "conflict_date": conflict_dt.date().isoformat(),
+            "alt_staff": alt_staff,
+            "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
+            "next_slot_display": _eth_display(next_slot),
+        })
+
+    return templates.TemplateResponse(request, "public_booking.html", context)
+
+
+@app.post("/book/{salon_ref}")
+async def public_booking_submit(
+    salon_ref: str,
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    service_id: int = Form(...),
+    staff_id: int = Form(...),
+    appointment_time: str = Form(...),
+    payment_method: Optional[str] = Form(None),
+    payment_screenshot: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    salon = _resolve_salon(db, salon_ref)
+    if not salon:
+        return HTMLResponse("Salon not found", status_code=404)
+    salon_id = salon.id
+    public_path = salon.slug or str(salon.id)
+
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        params = urlencode({
+            "error": "invalid_time",
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    duration = _service_duration(db, service_id)
+    end_dt = appt_dt + timedelta(minutes=duration)
+
+    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+
+    if not staff_obj or not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+        params = urlencode({
+            "error": "outside_hours",
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
+        params = urlencode({
+            "error": "conflict",
+            "conflict_name": customer_name,
+            "conflict_phone": customer_phone,
+            "conflict_service": service_id,
+            "conflict_staff": staff_id,
+            "conflict_time": appointment_time,
+        })
+        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
+    deposit_amt = float(svc.deposit_amount or 0) if svc else 0.0
+    needs_deposit = bool(salon.deposit_enabled) and deposit_amt > 0
+
+    screenshot_url = None
+    pay_method = (payment_method or "").strip() or None
+    if needs_deposit:
+        if not payment_screenshot or not payment_screenshot.filename:
+            params = urlencode({
+                "error": "deposit_required",
+                "conflict_name": customer_name,
+                "conflict_phone": customer_phone,
+                "conflict_service": service_id,
+                "conflict_staff": staff_id,
+                "conflict_time": appointment_time,
+            })
+            return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+        try:
+            screenshot_url = _save_upload(
+                payment_screenshot,
+                subfolder=f"payments/{salon.id}",
+                salon_id=salon.id,
+            )
+        except ValueError:
+            params = urlencode({"error": "invalid_image"})
+            return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=status.HTTP_303_SEE_OTHER)
+
+    # Deposit bookings are confirmed immediately so the slot is reserved.
+    # The salon still sees the screenshot on the dashboard home and can cancel
+    # if the proof looks wrong.
+    appt_status = AppointmentStatus.confirmed
+
+    appt = Appointment(
+        salon_id=salon.id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        service_id=service_id,
+        staff_id=staff_id,
+        appointment_datetime=appt_dt,
+        status=appt_status,
+        source="online",
+        deposit_amount=deposit_amt if needs_deposit else 0,
+        payment_method=pay_method,
+        payment_screenshot_url=screenshot_url,
+    )
+    db.add(appt)
+    try:
+        db.commit()
+        db.refresh(appt)
+    except Exception as exc:
+        db.rollback()
+        # Enum label still missing in PG — insert as Confirmed, keep proof
+        import logging
+        logging.getLogger("melkegna").warning("booking status insert failed: %s", exc)
+        appt = Appointment(
+            salon_id=salon.id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            service_id=service_id,
+            staff_id=staff_id,
+            appointment_datetime=appt_dt,
+            status=AppointmentStatus.confirmed,
+            source="online",
+            deposit_amount=deposit_amt if needs_deposit else 0,
+            payment_method=pay_method,
+            payment_screenshot_url=screenshot_url,
+        )
+        db.add(appt)
+        try:
+            db.commit()
+            db.refresh(appt)
+        except Exception:
+            db.rollback()
+            params = urlencode({"error": "booking_failed"})
+            return RedirectResponse(
+                url=f"/book/{public_path}?{params}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+    await manager.broadcast(salon.id, {
+        "event": "new_booking",
+        "appointment": {
+            "id": appt.id,
+            "appointment_time": appt.appointment_time,
+            "customer_name": appt.customer_name,
+            "customer_phone": appt.customer_phone,
+            "service_name": appt.service_name,
+            "service_price": appt.service_price,
+            "staff_name": appt.staff_name,
+            "status": appt.status.value,
+            "source": appt.source,
+            "deposit_amount": float(appt.deposit_amount or 0),
+        },
+    })
+
+    return RedirectResponse(
+        url=f"/book/{public_path}?success=1&appt_id={appt.id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+
+@app.get("/book/{salon_ref}/status/{appointment_id}")
+def public_booking_status(salon_ref: str, appointment_id: int, db: Session = Depends(get_db)):
+    """Customer polls this after deposit upload until the salon confirms payment."""
+    salon = _resolve_salon(db, salon_ref)
+    if not salon:
+        return JSONResponse({"ok": False, "status": "not_found"}, status_code=404)
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if not appt:
+        return JSONResponse({"ok": False, "status": "not_found"}, status_code=404)
+    st = getattr(appt.status, "value", str(appt.status))
+    return JSONResponse({
+        "ok": True,
+        "status": st,
+        "confirmed": st == "Confirmed" or st == AppointmentStatus.confirmed.value,
+        "customer_name": appt.customer_name,
+        "appointment_time": appt.appointment_time,
+        "service_name": appt.service_name,
+    })
+
+
+@app.post("/book/{salon_ref}/waitlist")
+def public_join_waitlist(
+    salon_ref: str,
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    service_id: int = Form(...),
+    staff_id: Optional[int] = Form(None),
+    preferred_date: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    salon = _resolve_salon(db, salon_ref)
+    if not salon:
+        return HTMLResponse("Salon not found", status_code=404)
+    public_path = salon.slug or str(salon.id)
+
+    db.add(Waitlist(
+        salon_id=salon.id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        service_id=service_id,
+        staff_id=staff_id or None,
+        preferred_date=_parse_date(preferred_date) or date.today(),
+    ))
+    db.commit()
+
+    return RedirectResponse(url=f"/book/{public_path}?waitlisted=1", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Local / Railway entry point
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
