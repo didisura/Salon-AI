@@ -215,7 +215,16 @@ class Appointment(Base):
     service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
     appointment_datetime = Column(DateTime, nullable=False, index=True)
-    status = Column(Enum(AppointmentStatus), default=AppointmentStatus.confirmed, nullable=False)
+    status = Column(
+        Enum(
+            AppointmentStatus,
+            values_callable=lambda obj: [e.value for e in obj],
+            name="appointmentstatus",
+            native_enum=True,
+        ),
+        default=AppointmentStatus.confirmed,
+        nullable=False,
+    )
     source = Column(String(20), default="walk-in")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

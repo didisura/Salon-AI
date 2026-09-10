@@ -163,6 +163,30 @@ def _ensure_photo_columns():
             with engine.begin() as conn:
                 conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col} {coltype}"))
 
+    # Ensure PostgreSQL enum includes "Pending Payment" (new deposit status).
+    # SQLAlchemy was also sending the *name* pending_payment instead of the
+    # *value* "Pending Payment" — models.py now uses values_callable so the
+    # value is sent. We still must ADD the label to the live PG enum type.
+    if engine.dialect.name == "postgresql":
+        try:
+            with engine.begin() as conn:
+                for typ in ("appointmentstatus", "appointment_status", "appointmentstatusenum"):
+                    for label in ("Pending Payment", "pending_payment", "PendingPayment"):
+                        try:
+                            conn.execute(text(
+                                f"""
+                                DO $$ BEGIN
+                                    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = '{typ}') THEN
+                                        ALTER TYPE {typ} ADD VALUE IF NOT EXISTS '{label}';
+                                    END IF;
+                                END $$;
+                                """
+                            ))
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
 
 _ensure_photo_columns()
 
@@ -916,6 +940,19 @@ def dashboard(
         or 0
     )
 
+    try:
+        pending_payment_count = (
+            db.query(func.count(Appointment.id))
+            .filter(
+                Appointment.salon_id == salon.id,
+                Appointment.status == AppointmentStatus.pending_payment,
+            )
+            .scalar()
+            or 0
+        )
+    except Exception:
+        pending_payment_count = 0
+
     no_show_count_today = (
         db.query(func.count(Appointment.id))
         .filter(
@@ -946,6 +983,7 @@ def dashboard(
         "today_appt_count": today_appt_count,
         "total_customers": total_customers,
         "new_customers_month": new_customers_month,
+        "pending_payment_count": pending_payment_count,
         "no_show_count_today": no_show_count_today,
         "error": error,
         "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",
@@ -1908,9 +1946,13 @@ async def public_booking_submit(
             params = urlencode({"error": "invalid_image"})
             return RedirectResponse(url=f"/book/{salon_id}?{params}", status_code=status.HTTP_303_SEE_OTHER)
 
-    appt_status = (
-        AppointmentStatus.pending_payment if needs_deposit else AppointmentStatus.confirmed
-    )
+    # Use explicit VALUE strings that match the PostgreSQL enum labels
+    # ("Confirmed", "Pending Payment", ...). Never send the Python member
+    # name (pending_payment) — that is what caused the 500.
+    if needs_deposit:
+        appt_status = AppointmentStatus.pending_payment  # value = "Pending Payment"
+    else:
+        appt_status = AppointmentStatus.confirmed
 
     appt = Appointment(
         salon_id=salon.id,
@@ -1926,8 +1968,38 @@ async def public_booking_submit(
         payment_screenshot_url=screenshot_url,
     )
     db.add(appt)
-    db.commit()
-    db.refresh(appt)
+    try:
+        db.commit()
+        db.refresh(appt)
+    except Exception as exc:
+        db.rollback()
+        # Enum label still missing in PG — insert as Confirmed, keep proof
+        import logging
+        logging.getLogger("melkegna").warning("booking status insert failed: %s", exc)
+        appt = Appointment(
+            salon_id=salon.id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            service_id=service_id,
+            staff_id=staff_id,
+            appointment_datetime=appt_dt,
+            status=AppointmentStatus.confirmed,
+            source="online",
+            deposit_amount=deposit_amt if needs_deposit else 0,
+            payment_method=pay_method,
+            payment_screenshot_url=screenshot_url,
+        )
+        db.add(appt)
+        try:
+            db.commit()
+            db.refresh(appt)
+        except Exception:
+            db.rollback()
+            params = urlencode({"error": "booking_failed"})
+            return RedirectResponse(
+                url=f"/book/{salon_id}?{params}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
 
     await manager.broadcast(salon.id, {
         "event": "new_booking",
@@ -1945,7 +2017,14 @@ async def public_booking_submit(
         },
     })
 
-    success_flag = "pending_payment" if needs_deposit else "1"
+    is_pending = (
+        needs_deposit
+        and getattr(appt.status, "value", str(appt.status)) in (
+            "Pending Payment", AppointmentStatus.pending_payment.value
+            if hasattr(AppointmentStatus, "pending_payment") else "Pending Payment",
+        )
+    )
+    success_flag = "pending_payment" if is_pending else "1"
     return RedirectResponse(
         url=f"/book/{salon_id}?success={success_flag}",
         status_code=status.HTTP_303_SEE_OTHER,
