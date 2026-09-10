@@ -1157,8 +1157,10 @@ def dashboard(
         "error": error,
         "hours_label": salon.hours_label,
         "days_label": salon.working_days_label,
-        # Public booking link always uses the slug (name-based)
+        # Public booking link always uses the slug (name-based name)
         "booking_path": salon.slug or str(salon.id),
+        # Full absolute URL shown on the dashboard (copy button)
+        "booking_url": str(request.base_url).rstrip("/") + "/book/" + (salon.slug or str(salon.id)),
     }
 
     if error == "conflict" and conflict_time and conflict_service and conflict_staff:
