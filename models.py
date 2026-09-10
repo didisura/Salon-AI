@@ -2,11 +2,12 @@ import enum
 import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Text, Numeric, DateTime, Date, Time, ForeignKey, Enum, func, JSON
+    Column, Integer, String, Text, Numeric, DateTime, Date, Time, ForeignKey, Enum, func, JSON, TypeDecorator
 )
 from sqlalchemy.orm import relationship
 
 from database import Base
+
 
 
 class AppointmentStatus(str, enum.Enum):
@@ -15,6 +16,37 @@ class AppointmentStatus(str, enum.Enum):
     no_show = "No-Show"
     cancelled = "Cancelled"
     pending_payment = "Pending Payment"
+
+
+class AppointmentStatusType(TypeDecorator):
+    """Store AppointmentStatus as VARCHAR; accept enum or string on bind/result."""
+    impl = String(30)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, AppointmentStatus):
+            return value.value
+        if isinstance(value, str):
+            for e in AppointmentStatus:
+                if value == e.value or value == e.name:
+                    return e.value
+            return value
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return AppointmentStatus(value)
+        except Exception:
+            for e in AppointmentStatus:
+                if e.name == value:
+                    return e
+            return AppointmentStatus.confirmed
+
+
 
 
 class Salon(Base):
@@ -215,16 +247,7 @@ class Appointment(Base):
     service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
     appointment_datetime = Column(DateTime, nullable=False, index=True)
-    status = Column(
-        Enum(
-            AppointmentStatus,
-            values_callable=lambda obj: [e.value for e in obj],
-            name="appointmentstatus",
-            native_enum=True,
-        ),
-        default=AppointmentStatus.confirmed,
-        nullable=False,
-    )
+    status = Column(AppointmentStatusType(), default=AppointmentStatus.confirmed, nullable=False)
     source = Column(String(20), default="walk-in")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

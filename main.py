@@ -163,27 +163,25 @@ def _ensure_photo_columns():
             with engine.begin() as conn:
                 conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col} {coltype}"))
 
-    # Ensure PostgreSQL enum includes "Pending Payment" (new deposit status).
-    # SQLAlchemy was also sending the *name* pending_payment instead of the
-    # *value* "Pending Payment" — models.py now uses values_callable so the
-    # value is sent. We still must ADD the label to the live PG enum type.
+    # Convert appointments.status from PostgreSQL ENUM to VARCHAR so new
+    # statuses (Pending Payment, etc.) never require ALTER TYPE and never 500.
     if engine.dialect.name == "postgresql":
         try:
             with engine.begin() as conn:
-                for typ in ("appointmentstatus", "appointment_status", "appointmentstatusenum"):
-                    for label in ("Pending Payment", "pending_payment", "PendingPayment"):
-                        try:
-                            conn.execute(text(
-                                f"""
-                                DO $$ BEGIN
-                                    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = '{typ}') THEN
-                                        ALTER TYPE {typ} ADD VALUE IF NOT EXISTS '{label}';
-                                    END IF;
-                                END $$;
-                                """
-                            ))
-                        except Exception:
-                            pass
+                # Only alter if still an enum-backed column
+                row = conn.execute(text(
+                    """
+                    SELECT data_type, udt_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'appointments' AND column_name = 'status'
+                    """
+                )).fetchone()
+                if row and (row[0] == 'USER-DEFINED' or (row[1] and 'appointment' in str(row[1]).lower())):
+                    conn.execute(text(
+                        "ALTER TABLE appointments "
+                        "ALTER COLUMN status TYPE VARCHAR(30) "
+                        "USING status::text"
+                    ))
         except Exception:
             pass
 
@@ -945,7 +943,11 @@ def dashboard(
             db.query(func.count(Appointment.id))
             .filter(
                 Appointment.salon_id == salon.id,
-                Appointment.status == AppointmentStatus.pending_payment,
+                Appointment.status.in_([
+                    AppointmentStatus.pending_payment,
+                    "Pending Payment",
+                    "pending_payment",
+                ]),
             )
             .scalar()
             or 0
