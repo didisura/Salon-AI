@@ -939,8 +939,8 @@ def dashboard(
     )
 
     try:
-        pending_payment_count = (
-            db.query(func.count(Appointment.id))
+        pending_payment_appts = (
+            db.query(Appointment)
             .filter(
                 Appointment.salon_id == salon.id,
                 Appointment.status.in_([
@@ -949,10 +949,13 @@ def dashboard(
                     "pending_payment",
                 ]),
             )
-            .scalar()
-            or 0
+            .order_by(Appointment.appointment_datetime.asc())
+            .limit(50)
+            .all()
         )
+        pending_payment_count = len(pending_payment_appts)
     except Exception:
+        pending_payment_appts = []
         pending_payment_count = 0
 
     no_show_count_today = (
@@ -986,6 +989,7 @@ def dashboard(
         "total_customers": total_customers,
         "new_customers_month": new_customers_month,
         "pending_payment_count": pending_payment_count,
+        "pending_payment_appts": pending_payment_appts,
         "no_show_count_today": no_show_count_today,
         "error": error,
         "booking_url": str(request.base_url).rstrip("/") + f"/book/{salon.id}",

@@ -693,6 +693,76 @@
             </div>
         </div>
 
+        <!-- Pending deposit payments — any date, confirm from Home -->
+        {% if pending_payment_appts is defined and pending_payment_appts %}
+        <div class="card-soft mb-3" style="border-color:#FFCC80;background:linear-gradient(180deg,#FFF8E1 0%,#fff 55%);">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="live-dot"></span>
+                    <h5 class="fw-bold m-0" style="font-size:1rem;color:#E65100;">
+                        <span data-lang-am>ቅድሚያ ክፍያ በመጠባበቅ</span>
+                        <span data-lang-en>Pending deposit payments</span>
+                        <span class="badge-counter ms-1">{{ pending_payment_count }}</span>
+                    </h5>
+                </div>
+                <span class="small text-muted">
+                    <span data-lang-am>አሁን አረጋግጡ — ቦታው እንዳይያዝ</span>
+                    <span data-lang-en>Confirm now so the slot stays reserved</span>
+                </span>
+            </div>
+            <div class="d-flex flex-column gap-2">
+                {% for appt in pending_payment_appts %}
+                <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 p-2 rounded-3"
+                     style="background:#fff;border:1px solid #FFE0B2;">
+                    <div style="min-width:0;flex:1;">
+                        <div class="fw-bold">{{ appt.customer_name }}
+                            <span class="text-muted fw-normal small">· {{ appt.customer_phone }}</span>
+                        </div>
+                        <div class="small text-muted">
+                            <i class="fa-solid fa-calendar-day me-1"></i>
+                            {{ appt.appointment_datetime.strftime('%Y-%m-%d') if appt.appointment_datetime else '—' }}
+                            · {{ appt.appointment_time }}
+                        </div>
+                        <div class="small">
+                            {{ appt.service_name }} · {{ appt.staff_name }}
+                            {% if appt.deposit_amount %}
+                            · <strong style="color:#E65100;">{{ appt.deposit_amount }} ETB</strong>
+                            {% endif %}
+                            {% if appt.payment_method %}
+                            · {{ appt.payment_method }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        {% if appt.payment_screenshot_url %}
+                        <a href="{{ appt.payment_screenshot_url }}" target="_blank" rel="noopener"
+                           class="btn btn-sm btn-outline-soft py-1 px-2" style="font-weight:600;font-size:0.78rem;">
+                            <i class="fa-solid fa-image me-1"></i>
+                            <span data-lang-am>Screenshot</span>
+                            <span data-lang-en>Screenshot</span>
+                        </a>
+                        {% endif %}
+                        <form action="/confirm-deposit-payment" method="post" class="m-0">
+                            <input type="hidden" name="appointment_id" value="{{ appt.id }}">
+                            <button type="submit" class="btn btn-sm py-1 px-3"
+                                    style="background:var(--green);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.8rem;">
+                                <i class="fa-solid fa-check me-1"></i>
+                                <span data-lang-am>ክፍያ አረጋግጥ</span>
+                                <span data-lang-en>Confirm paid</span>
+                            </button>
+                        </form>
+                        <a href="/dashboard?tab=home&selected_date={{ appt.appointment_datetime.strftime('%Y-%m-%d') if appt.appointment_datetime else '' }}"
+                           class="btn btn-sm btn-outline-soft py-1 px-2" style="font-size:0.75rem;">
+                            <span data-lang-am>ቀን</span>
+                            <span data-lang-en>Day</span>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Metrics -->
         <section class="metrics-grid">
             <div class="metric-card">
