@@ -175,11 +175,16 @@ def _ensure_package_columns():
         svc_cols = [c["name"] for c in inspector.get_columns("services")]
     except Exception:
         svc_cols = []
+    str500 = "VARCHAR(500)" if dialect == "postgresql" else "TEXT"
+    ntype = "NUMERIC(10,2)" if dialect == "postgresql" else "REAL"
     for col, coltype, default in [
         ("is_package", int_type, "0"),
+        ("min_people", int_type, "1"),
         ("max_people", int_type, None),
         ("includes_text", str_type, None),
         ("allow_outside_hours", int_type, "0"),
+        ("photo_url", str500, None),
+        ("extra_person_price", ntype, None),
     ]:
         if svc_cols and col not in svc_cols:
             with engine.begin() as conn:
@@ -988,8 +993,13 @@ async def book_appointment(
         party = max(1, int(party_size or 1))
     except (TypeError, ValueError):
         party = 1
-    if svc and getattr(svc, "max_people", None):
-        party = min(party, int(svc.max_people))
+    if svc:
+        mn = int(getattr(svc, "min_people", None) or 1)
+        mx = getattr(svc, "max_people", None)
+        if party < mn:
+            party = mn
+        if mx:
+            party = min(party, int(mx))
 
     if staff_obj and svc and not staff_obj.offers_service(svc.id):
         return RedirectResponse(
@@ -1083,22 +1093,45 @@ async def add_service(
     duration_minutes: int = Form(...),
     deposit_amount: float = Form(0),
     is_package: Optional[str] = Form(None),
+    min_people: Optional[int] = Form(None),
     max_people: Optional[int] = Form(None),
+    extra_person_price: Optional[float] = Form(None),
     includes_text: Optional[str] = Form(None),
     allow_outside_hours: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    photo_url = None
+    if photo and photo.filename:
+        try:
+            photo_url = _save_upload(photo, subfolder=f"packages/{salon.id}", salon_id=salon.id)
+        except ValueError:
+            photo_url = None
+    is_pkg = 1 if is_package in ("1", "on", "true", "yes") else 0
+    mn = max(1, int(min_people or 1)) if is_pkg else 1
+    mx = int(max_people) if max_people else None
+    if mx is not None and mx < mn:
+        mx = mn
+    extra = None
+    if is_pkg and extra_person_price not in (None, ""):
+        try:
+            extra = max(0.0, float(extra_person_price))
+        except (TypeError, ValueError):
+            extra = None
     svc = Service(
         salon_id=salon.id,
         name=name.strip(),
         price=price,
         duration_minutes=max(5, int(duration_minutes or 30)),
         deposit_amount=max(0, float(deposit_amount or 0)),
-        is_package=1 if is_package in ("1", "on", "true", "yes") else 0,
-        max_people=int(max_people) if max_people else None,
+        is_package=is_pkg,
+        min_people=mn if is_pkg else None,
+        max_people=mx if is_pkg else None,
+        extra_person_price=extra if is_pkg else None,
         includes_text=(includes_text or "").strip() or None,
         allow_outside_hours=1 if allow_outside_hours in ("1", "on", "true", "yes") else 0,
+        photo_url=photo_url,
     )
     db.add(svc)
     db.commit()
@@ -1109,9 +1142,13 @@ async def add_service(
 async def update_service_package(
     service_id: int = Form(...),
     is_package: Optional[str] = Form(None),
+    min_people: Optional[int] = Form(None),
     max_people: Optional[int] = Form(None),
+    extra_person_price: Optional[float] = Form(None),
+    primary_price: Optional[float] = Form(None),
     includes_text: Optional[str] = Form(None),
     allow_outside_hours: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
@@ -1119,11 +1156,36 @@ async def update_service_package(
     if svc:
         svc.is_package = 1 if is_package in ("1", "on", "true", "yes") else 0
         try:
-            svc.max_people = int(max_people) if max_people not in (None, "") else None
+            mn = int(min_people) if min_people not in (None, "") else 1
+            svc.min_people = max(1, mn)
+        except (TypeError, ValueError):
+            svc.min_people = 1
+        try:
+            mx = int(max_people) if max_people not in (None, "") else None
+            if mx is not None and svc.min_people and mx < svc.min_people:
+                mx = svc.min_people
+            svc.max_people = mx
         except (TypeError, ValueError):
             svc.max_people = None
+        if primary_price not in (None, ""):
+            try:
+                svc.price = max(0.0, float(primary_price))
+            except (TypeError, ValueError):
+                pass
+        if extra_person_price not in (None, ""):
+            try:
+                svc.extra_person_price = max(0.0, float(extra_person_price))
+            except (TypeError, ValueError):
+                svc.extra_person_price = None
+        else:
+            svc.extra_person_price = None
         svc.includes_text = (includes_text or "").strip() or None
         svc.allow_outside_hours = 1 if allow_outside_hours in ("1", "on", "true", "yes") else 0
+        if photo and photo.filename:
+            try:
+                svc.photo_url = _save_upload(photo, subfolder=f"packages/{salon.id}", salon_id=salon.id)
+            except ValueError:
+                pass
         db.commit()
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
@@ -1835,8 +1897,13 @@ async def public_booking_submit(
         party = max(1, int(party_size or 1))
     except (TypeError, ValueError):
         party = 1
-    if svc and getattr(svc, "max_people", None):
-        party = min(party, int(svc.max_people))
+    if svc:
+        mn = int(getattr(svc, "min_people", None) or 1)
+        mx = getattr(svc, "max_people", None)
+        if party < mn:
+            party = mn
+        if mx:
+            party = min(party, int(mx))
 
     # Staff must offer this service (empty service_ids = all)
     if staff_obj and svc and not staff_obj.offers_service(svc.id):

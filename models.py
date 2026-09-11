@@ -168,9 +168,15 @@ class Service(Base):
     # like a service but can bundle multiple treatments, set party size,
     # and optionally allow booking outside normal salon hours.
     is_package = Column(Integer, nullable=False, default=0)  # 0/1
-    max_people = Column(Integer, nullable=True)  # e.g. bridal party of 6
+    min_people = Column(Integer, nullable=True, default=1)  # least party size (e.g. 1 bride)
+    max_people = Column(Integer, nullable=True)  # upper limit (e.g. 10)
     includes_text = Column(String(600), nullable=True)  # free-text: "Hair, Makeup, Nails"
     allow_outside_hours = Column(Integer, nullable=False, default=0)  # 0/1 — wedding early/late slots
+    photo_url = Column(String(500), nullable=True)  # package marketing image
+    # Pricing: base `price` = primary person (bride / main guest).
+    # If extra_person_price is set: total = price + (party_size - 1) * extra_person_price
+    # If extra_person_price is null/0: flat package price regardless of party size.
+    extra_person_price = Column(Numeric(10, 2), nullable=True)
 
     salon = relationship("Salon", back_populates="services")
 
@@ -181,6 +187,23 @@ class Service(Base):
     @property
     def allows_outside(self) -> bool:
         return bool(self.allow_outside_hours)
+
+    def package_total(self, party_size: int = 1) -> float:
+        """Total package price for a given party size.
+        primary (price) + (n-1)*extra_person_price when extra is set; else flat price.
+        """
+        base = float(self.price or 0)
+        n = max(1, int(party_size or 1))
+        mn = int(self.min_people or 1)
+        mx = int(self.max_people) if self.max_people else None
+        if n < mn:
+            n = mn
+        if mx and n > mx:
+            n = mx
+        extra = float(self.extra_person_price or 0)
+        if extra > 0:
+            return base + (n - 1) * extra
+        return base
 
 
 class Staff(Base):

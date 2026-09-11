@@ -226,36 +226,57 @@
             font-size: 0.65rem; color: var(--muted); font-weight: 600; margin-top: 4px;
         }
 
-        /* Special packages (bridal / wedding party) */
+        /* Special packages (bridal / wedding party) — photo-first */
         .pkg-section { margin-bottom: 20px; }
+        .pkg-scroll {
+            display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch; padding-bottom: 6px;
+        }
+        .pkg-scroll::-webkit-scrollbar { height: 4px; }
         .pkg-card {
-            background: #fff; border: 1.5px solid var(--border); border-radius: 16px;
-            padding: 16px; margin-bottom: 10px; cursor: pointer; transition: all .15s;
-            position: relative;
+            flex: 0 0 260px; scroll-snap-align: start;
+            background: #fff; border: 1.5px solid var(--border); border-radius: 18px;
+            overflow: hidden; cursor: pointer; transition: all .15s;
+            position: relative; padding: 0; display: flex; flex-direction: column;
         }
         .pkg-card:hover, .pkg-card.selected {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
-            background: var(--cream);
+            box-shadow: 0 8px 22px rgba(156,107,63,0.18);
+            transform: translateY(-2px);
         }
         .pkg-card input { display: none; }
-        .pkg-badge {
-            display: inline-block; font-size: 0.65rem; font-weight: 800;
-            background: linear-gradient(135deg, #9C6B3F, #ED6C02); color: #fff;
-            padding: 3px 10px; border-radius: 999px; margin-bottom: 8px;
+        .pkg-photo {
+            width: 100%; height: 160px; background: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%);
+            position: relative; overflow: hidden;
         }
-        .pkg-name { font-weight: 800; font-size: 1.05rem; margin: 0 0 4px; color: var(--text); }
-        .pkg-includes { font-size: 0.8rem; color: #5A4936; margin: 0 0 6px; line-height: 1.4; }
+        .pkg-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pkg-photo .pkg-photo-ph {
+            width: 100%; height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: rgba(255,255,255,0.9);
+            gap: 6px; font-weight: 700; font-size: 0.85rem;
+        }
+        .pkg-photo .pkg-photo-ph i { font-size: 2rem; opacity: 0.85; }
+        .pkg-body { padding: 12px 14px 14px; }
+        .pkg-badge {
+            position: absolute; top: 10px; left: 10px; z-index: 2;
+            font-size: 0.65rem; font-weight: 800;
+            background: linear-gradient(135deg, #9C6B3F, #ED6C02); color: #fff;
+            padding: 3px 10px; border-radius: 999px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .pkg-name { font-weight: 800; font-size: 1.02rem; margin: 0 0 4px; color: var(--text); }
+        .pkg-includes { font-size: 0.78rem; color: #5A4936; margin: 0 0 6px; line-height: 1.35;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .pkg-meta {
-            display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 0.78rem;
-            font-weight: 600; color: var(--muted); margin-bottom: 4px;
+            display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.74rem;
+            font-weight: 600; color: var(--muted); margin-bottom: 6px;
         }
         .pkg-meta i { color: var(--accent); }
         .pkg-price { font-weight: 800; color: var(--accent); font-size: 1.05rem; }
         .pkg-outside {
-            font-size: 0.72rem; font-weight: 700; color: #E65100;
+            font-size: 0.68rem; font-weight: 700; color: #E65100;
             background: #FFF8E1; border: 1px solid #FFE0B2; border-radius: 8px;
-            padding: 4px 8px; display: inline-block; margin-top: 6px;
+            padding: 3px 8px; display: inline-block; margin-top: 6px;
         }
 
         /* Booking card */
@@ -527,56 +548,6 @@
         </span>
     </div>
 
-    <!-- SPECIAL PACKAGES (bridal / wedding etc.) — only if salon has any -->
-    {% set packages = services | selectattr('is_package') | list if services is defined else [] %}
-    {% if packages %}
-    <div class="section pkg-section">
-        <h2 class="section-title">
-            <span data-lang-am>ልዩ ፓኬጆች</span>
-            <span data-lang-en>Special packages</span>
-        </h2>
-        <p class="small text-muted mb-2" style="margin-top:-6px;">
-            <span data-lang-am>የሰርግ፣ ብራይዳልና ሌሎች ቡድን ፓኬጆች — በፓኬጅ ሰዓት ውጪም ማስያዝ ይቻላል።</span>
-            <span data-lang-en>Wedding, bridal & group packages — some allow booking outside normal hours.</span>
-        </p>
-        {% for s in packages %}
-        <label class="pkg-card" onclick="pickPackage({{ s.id }}, this)">
-            <input type="radio" name="_pkg_visual" value="{{ s.id }}">
-            <span class="pkg-badge">
-                <i class="fa-solid fa-gift me-1"></i>
-                <span data-lang-am>ፓኬጅ</span><span data-lang-en>Package</span>
-            </span>
-            <div class="pkg-name">{{ s.name }}</div>
-            {% if s.includes_text %}
-            <p class="pkg-includes">{{ s.includes_text }}</p>
-            {% endif %}
-            <div class="pkg-meta">
-                {% if s.duration_minutes %}
-                <span><i class="fa-regular fa-clock"></i> {{ s.duration_minutes }}
-                    <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span></span>
-                {% endif %}
-                {% if s.max_people %}
-                <span><i class="fa-solid fa-users"></i>
-                    <span data-lang-am>እስከ</span><span data-lang-en>Up to</span>
-                    {{ s.max_people }}
-                    <span data-lang-am>ሰዎች</span><span data-lang-en>people</span>
-                </span>
-                {% endif %}
-            </div>
-            <div class="pkg-price">{{ s.price }} ETB</div>
-            {% if s.allow_outside_hours %}
-            <div class="pkg-outside">
-                <i class="fa-solid fa-moon me-1"></i>
-                <span data-lang-am>ከስራ ሰዓት ውጪም ይቻላል</span>
-                <span data-lang-en>Outside hours allowed</span>
-            </div>
-            {% endif %}
-        </label>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- GALLERY -->
     <div class="section">
         <h2 class="section-title">
             <span data-lang-am>የስራ ናሙናዎች</span>
@@ -618,50 +589,43 @@
     <!-- REVIEWS -->
     <div class="section">
         <h2 class="section-title">
-            <span data-lang-am>ግምገማዎች</span>
-            <span data-lang-en>Reviews</span>
+            <span data-lang-am>ደንበኞቻችን</span>
+            <span data-lang-en>Our clients</span>
         </h2>
         <div class="reviews-card">
-            {% if review_count > 0 %}
-            {% set bars = namespace(c5=0, c4=0, c3=0, c2=0, c1=0) %}
-            {% for t in testimonials %}
-                {% set r = t.rating or 5 %}
-                {% if r >= 5 %}{% set bars.c5 = bars.c5 + 1 %}
-                {% elif r == 4 %}{% set bars.c4 = bars.c4 + 1 %}
-                {% elif r == 3 %}{% set bars.c3 = bars.c3 + 1 %}
-                {% elif r == 2 %}{% set bars.c2 = bars.c2 + 1 %}
-                {% else %}{% set bars.c1 = bars.c1 + 1 %}{% endif %}
-            {% endfor %}
-            <div class="rev-top">
+            {% set review_count = (testimonials|length) if testimonials is defined and testimonials else 0 %}
+            {% set rating_sum = namespace(value=0) %}
+            {% if testimonials is defined and testimonials %}
+                {% for t in testimonials %}{% set rating_sum.value = rating_sum.value + (t.rating or 5) %}{% endfor %}
+            {% endif %}
+            {% set avg_rating = (rating_sum.value / review_count) if review_count else 0 %}
+
+            {% if review_count %}
+            <div class="rev-top" style="margin-bottom: 12px;">
                 <div class="rev-score">
-                    <div class="big">{{ '%.1f'|format(avg_rating) }}</div>
-                    <div class="stars">★★★★★</div>
-                    <div class="count">{{ review_count }} <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span></div>
-                </div>
-                <div class="rev-bars">
-                    {% for star, cnt in [(5, bars.c5), (4, bars.c4), (3, bars.c3), (2, bars.c2), (1, bars.c1)] %}
-                    <div class="rev-bar-row">
-                        <span class="lbl">{{ star }}</span>
-                        <div class="rev-bar-track">
-                            <div class="rev-bar-fill" style="width:{{ ((cnt / review_count) * 100)|int }}%;"></div>
-                        </div>
-                        <span>{{ cnt }}</span>
+                    <div class="big">{{ "%.1f"|format(avg_rating) }}</div>
+                    <div class="stars">{% for i in range(5) %}{% if i < (avg_rating|round|int) %}★{% else %}☆{% endif %}{% endfor %}</div>
+                    <div class="count">{{ review_count }}
+                        <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span>
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-            {# Featured: pinned + celebrity — photo & name first for social proof #}
+            {% endif %}
+
+            {# Featured = celebrity + pinned — photo & name only (marketing focus) #}
             {% set featured = [] %}
+            {% if testimonials is defined and testimonials %}
             {% for t in testimonials %}
                 {% if t.is_celebrity or t.is_pinned %}
                     {% if featured.append(t) %}{% endif %}
                 {% endif %}
             {% endfor %}
+            {% endif %}
             {% if featured %}
-            <div class="featured-wrap">
+            <div class="featured-wrap" style="margin-bottom:0;">
                 <div class="featured-label">
-                    <i class="fa-solid fa-star" style="color:var(--star);"></i>
-                    <span data-lang-am>ታዋቂ ደንበኞች</span>
+                    <i class="fa-solid fa-star"></i>
+                    <span data-lang-am>ተለይተው የቀረቡ ደንበኞች</span>
                     <span data-lang-en>Featured clients</span>
                 </div>
                 <div class="featured-scroll">
@@ -676,12 +640,9 @@
                         </div>
                         <div class="feat-name">{{ t.client_name }}</div>
                         {% if t.is_celebrity %}
-                        <span class="feat-badge celeb">★ <span data-lang-am>ታዋቂ</span><span data-lang-en>Celebrity</span></span>
+                        <span class="feat-badge celeb"><span data-lang-am>ታዋቂ</span><span data-lang-en>Celebrity</span></span>
                         {% elif t.is_pinned %}
                         <span class="feat-badge pinned"><span data-lang-am>ተለይቶ</span><span data-lang-en>Featured</span></span>
-                        {% endif %}
-                        {% if t.comment %}
-                        <p class="feat-quote">“{{ t.comment }}”</p>
                         {% endif %}
                         {% if t.service_label %}
                         <div class="feat-svc">{{ t.service_label }}</div>
@@ -690,45 +651,77 @@
                     {% endfor %}
                 </div>
             </div>
-            {% endif %}
-
-            <div class="rev-filters">
-                <button type="button" class="rev-filter active" data-sort="recent"><span data-lang-am>አዲስ</span><span data-lang-en>Recent</span></button>
-                <button type="button" class="rev-filter" data-sort="high"><span data-lang-am>ከፍተኛ</span><span data-lang-en>Highest</span></button>
-                <button type="button" class="rev-filter" data-sort="photo"><span data-lang-am>ፎቶ ያላቸው</span><span data-lang-en>With photos</span></button>
-            </div>
-            <div class="testimonial-scroll" id="tScroll">
-                {% for t in testimonials %}
-                <div class="t-card" data-rating="{{ t.rating or 5 }}" data-photo="{{ 1 if t.client_photo_url else 0 }}" data-id="{{ t.id }}">
-                    <div class="t-head">
-                        <div class="t-avatar">
-                            {% if t.client_photo_url %}
-                            <img src="{{ t.client_photo_url }}" alt="{{ t.client_name }}" loading="lazy">
-                            {% else %}
-                            <div class="ph">{{ (t.client_name or '?')[:1]|upper }}</div>
-                            {% endif %}
-                        </div>
-                        <div style="min-width:0;">
-                            <div class="who">
-                                {{ t.client_name }}
-                                {% if t.is_celebrity %}<span class="celeb-tag">★</span>{% endif %}
-                            </div>
-                            {% if t.service_label %}<div class="meta">{{ t.service_label }}</div>{% endif %}
-                        </div>
-                    </div>
-                    <div class="stars">{% for i in range(t.rating or 5) %}★{% endfor %}</div>
-                    <div class="quote">“{{ t.comment }}”</div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-muted small mb-0 text-center py-2">
+            {% elif not review_count %}
+            <p class="text-muted small mb-0 text-center">
                 <span data-lang-am>ግምገማዎች በቅርቡ ይታያሉ</span>
                 <span data-lang-en>Reviews coming soon</span>
             </p>
             {% endif %}
         </div>
     </div>
+
+    <!-- SPECIAL PACKAGES under clients — photo-first, only if salon has any -->
+    {% set packages = services | selectattr('is_package') | list if services is defined else [] %}
+    {% if packages %}
+    <div class="section pkg-section">
+        <h2 class="section-title">
+            <span data-lang-am>ልዩ ፓኬጆች</span>
+            <span data-lang-en>Special packages</span>
+        </h2>
+        <p class="small text-muted mb-2" style="margin-top:-6px;">
+            <span data-lang-am>የሰርግ፣ ብራይዳልና ሌሎች ቡድን ፓኬጆች</span>
+            <span data-lang-en>Wedding, bridal & group packages</span>
+        </p>
+        <div class="pkg-scroll">
+            {% for s in packages %}
+            <label class="pkg-card" onclick="pickPackage({{ s.id }}, this)">
+                <input type="radio" name="_pkg_visual" value="{{ s.id }}">
+                <span class="pkg-badge">
+                    <i class="fa-solid fa-gift me-1"></i>
+                    <span data-lang-am>ፓኬጅ</span><span data-lang-en>Package</span>
+                </span>
+                <div class="pkg-photo">
+                    {% if s.photo_url %}
+                    <img src="{{ s.photo_url }}" alt="{{ s.name }}" loading="lazy">
+                    {% else %}
+                    <div class="pkg-photo-ph">
+                        <i class="fa-solid fa-rings-wedding"></i>
+                        <span>{{ s.name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="pkg-body">
+                    <div class="pkg-name">{{ s.name }}</div>
+                    {% if s.includes_text %}
+                    <p class="pkg-includes">{{ s.includes_text }}</p>
+                    {% endif %}
+                    <div class="pkg-meta">
+                        {% if s.duration_minutes %}
+                        <span><i class="fa-regular fa-clock"></i> {{ s.duration_minutes }}
+                            <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span></span>
+                        {% endif %}
+                        {% if s.max_people %}
+                        <span><i class="fa-solid fa-users"></i>
+                            <span data-lang-am>እስከ</span><span data-lang-en>Up to</span>
+                            {{ s.max_people }}
+                            <span data-lang-am>ሰዎች</span><span data-lang-en>people</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="pkg-price">{{ s.price }} ETB</div>
+                    {% if s.allow_outside_hours %}
+                    <div class="pkg-outside">
+                        <i class="fa-solid fa-moon me-1"></i>
+                        <span data-lang-am>ከስራ ሰዓት ውጪም ይቻላል</span>
+                        <span data-lang-en>Outside hours OK</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     {% if salon.phone %}
     <div class="location-strip">
@@ -983,7 +976,9 @@
                         <input type="radio" name="service_id" value="{{ s.id }}"
                             data-name="{{ s.name }}" data-price="{{ s.price }}" data-deposit="{{ s.deposit_amount or 0 }}"
                             data-is-package="{{ 1 if s.is_package else 0 }}"
+                            data-min-people="{{ s.min_people or 1 }}"
                             data-max-people="{{ s.max_people or 0 }}"
+                            data-extra-price="{{ s.extra_person_price or 0 }}"
                             data-allow-outside="{{ 1 if s.allow_outside_hours else 0 }}"
                             {% if conflict_service and s.id == conflict_service %}checked{% elif not conflict_service and loop.first %}checked{% endif %}
                             required onchange="onServicePick(this)">
@@ -995,8 +990,8 @@
                             </p>
                             <p class="svc-meta">
                                 {% if s.duration_minutes %}{{ s.duration_minutes }} <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>{% else %}—{% endif %}
-                                {% if s.is_package and s.max_people %}
-                                · <i class="fa-solid fa-users"></i> {{ s.max_people }}
+                                {% if s.is_package %}
+                                · <i class="fa-solid fa-users"></i> {{ s.min_people or 1 }}{% if s.max_people %}–{{ s.max_people }}{% endif %}
                                 {% endif %}
                                 {% if s.is_package and s.includes_text %}
                                 <br><span style="font-size:0.72rem;">{{ s.includes_text }}</span>
@@ -1004,7 +999,12 @@
                             </p>
                         </div>
                         <div class="svc-price">
+                            {% if s.is_package and s.extra_person_price %}
+                            {{ s.price }}+
+                            <span style="font-size:0.7rem;font-weight:600;color:var(--muted);">{{ s.extra_person_price }}/extra</span>
+                            {% else %}
                             {{ s.price }} ETB
+                            {% endif %}
                             {% if salon.deposit_enabled and s.deposit_amount and s.deposit_amount|float > 0 %}
                             <div style="font-size:0.7rem;font-weight:600;color:var(--muted);margin-top:2px;">
                                 <span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span>
@@ -1015,15 +1015,21 @@
                     </label>
                     {% endfor %}
 
-                    <!-- Party size (shown only for packages) -->
-                    <div id="partySizeBlock" style="display:none;margin-top:12px;">
-                        <label class="form-label">
-                            <span data-lang-am>ስንት ሰዎች? (ፓኬጅ)</span>
-                            <span data-lang-en>How many people? (package)</span>
+                    <!-- Party size (packages) — price updates with headcount -->
+                    <div id="partySizeBlock" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--cream);">
+                        <label class="form-label mb-1">
+                            <span data-lang-am>ስንት ሰዎች?</span>
+                            <span data-lang-en>How many people?</span>
                         </label>
                         <input type="number" name="party_size" id="partySize" class="form-control"
-                               min="1" max="50" value="1" style="max-width:140px;">
-                        <p class="small text-muted mt-1 mb-0" id="partySizeHint"></p>
+                               min="1" max="50" value="1" style="max-width:140px;"
+                               oninput="updatePackageTotal()">
+                        <p class="small text-muted mt-1 mb-1" id="partySizeHint"></p>
+                        <div id="packageTotalLine" style="display:none;font-weight:800;color:var(--accent);font-size:1.05rem;">
+                            <span data-lang-am>ጠቅላላ፡</span>
+                            <span data-lang-en>Total:</span>
+                            <span id="packageTotalValue">0</span> ETB
+                        </div>
                     </div>
                 </div>
                 <div class="step-nav">
@@ -1384,30 +1390,71 @@ function onServicePick(el) {
             ? `<span data-lang-en style="display:inline">From ${price} ETB</span>`
             : `<span data-lang-am style="display:inline">ከ ${price} ብር ጀምሮ</span>`;
     }
-    // Party size for packages
+    // Party size + dynamic total for packages
     const isPkg = el.dataset.isPackage === '1';
+    const minP = parseInt(el.dataset.minPeople || '1', 10) || 1;
     const maxP = parseInt(el.dataset.maxPeople || '0', 10) || 0;
+    const extra = parseFloat(el.dataset.extraPrice || '0') || 0;
+    const base = parseFloat(el.dataset.price || '0') || 0;
     const block = document.getElementById('partySizeBlock');
     const input = document.getElementById('partySize');
     const hint = document.getElementById('partySizeHint');
     if (block && input) {
         if (isPkg) {
             block.style.display = 'block';
-            if (maxP > 0) {
-                input.max = maxP;
-                hint.textContent = (document.documentElement.lang === 'en'
-                    ? `Maximum ${maxP} people for this package`
-                    : `ለዚህ ፓኬጅ ከፍተኛው ${maxP} ሰዎች`);
-            } else {
-                input.removeAttribute('max');
-                hint.textContent = '';
+            input.min = minP;
+            if (maxP > 0) input.max = maxP; else input.removeAttribute('max');
+            if (!input.value || parseInt(input.value, 10) < minP) input.value = minP;
+            const en = document.documentElement.lang === 'en';
+            let h = en ? `${minP}` : `${minP}`;
+            if (maxP > 0) h = en ? `${minP}–${maxP} people` : `${minP}–${maxP} ሰዎች`;
+            else h = en ? `At least ${minP} people` : `ቢያንስ ${minP} ሰዎች`;
+            if (extra > 0) {
+                h += en
+                    ? ` · Primary ${base} ETB + ${extra} each extra`
+                    : ` · ዋና ${base} ብር + ተጨማሪ ${extra}`;
             }
+            hint.textContent = h;
+            updatePackageTotal();
         } else {
             block.style.display = 'none';
             input.value = '1';
+            const tot = document.getElementById('packageTotalLine');
+            if (tot) tot.style.display = 'none';
         }
     }
     filterStaffForService();
+}
+function updatePackageTotal() {
+    const svc = document.querySelector('input[name="service_id"]:checked');
+    const input = document.getElementById('partySize');
+    const line = document.getElementById('packageTotalLine');
+    const val = document.getElementById('packageTotalValue');
+    const sticky = document.getElementById('stickyPriceLabel');
+    if (!svc || !input) return;
+    const isPkg = svc.dataset.isPackage === '1';
+    const base = parseFloat(svc.dataset.price || '0') || 0;
+    const extra = parseFloat(svc.dataset.extraPrice || '0') || 0;
+    let n = parseInt(input.value || '1', 10) || 1;
+    const minP = parseInt(svc.dataset.minPeople || '1', 10) || 1;
+    const maxP = parseInt(svc.dataset.maxPeople || '0', 10) || 0;
+    if (n < minP) { n = minP; input.value = n; }
+    if (maxP > 0 && n > maxP) { n = maxP; input.value = n; }
+    let total = base;
+    if (isPkg && extra > 0) total = base + (n - 1) * extra;
+    if (line && val && isPkg) {
+        line.style.display = 'block';
+        val.textContent = total.toLocaleString();
+    }
+    if (sticky) {
+        const en = document.documentElement.lang === 'en';
+        sticky.innerHTML = en
+            ? `<span data-lang-en style="display:inline">${total.toLocaleString()} ETB</span>`
+            : `<span data-lang-am style="display:inline">${total.toLocaleString()} ብር</span>`;
+    }
+    // summary price on step 5
+    const sumPrice = document.getElementById('sumPrice');
+    if (sumPrice) sumPrice.textContent = total.toLocaleString() + ' ETB';
 }
 function filterStaffForService() {
     const svc = document.querySelector('input[name="service_id"]:checked');
@@ -1479,24 +1526,6 @@ document.querySelectorAll('#catFilters .cat-chip').forEach(chip => {
         document.querySelectorAll('#galleryScroll .g-tile').forEach(t => {
             t.classList.toggle('hidden', cat !== 'all' && t.dataset.cat !== cat && !(cat === 'nails' && ['manicure','pedicure','nails'].includes(t.dataset.cat)));
         });
-    });
-});
-
-/* Review sort */
-document.querySelectorAll('.rev-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.rev-filter').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const sort = btn.dataset.sort;
-        const scroll = document.getElementById('tScroll');
-        if (!scroll) return;
-        const cards = Array.from(scroll.querySelectorAll('.t-card'));
-        cards.sort((a, b) => {
-            if (sort === 'high') return parseInt(b.dataset.rating) - parseInt(a.dataset.rating);
-            if (sort === 'photo') return parseInt(b.dataset.photo) - parseInt(a.dataset.photo);
-            return parseInt(b.dataset.id) - parseInt(a.dataset.id);
-        });
-        cards.forEach(c => scroll.appendChild(c));
     });
 });
 

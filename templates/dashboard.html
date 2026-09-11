@@ -1404,7 +1404,12 @@
                                 {% if s.is_package %}
                                 <div class="small text-muted mt-1">
                                     {% if s.includes_text %}{{ s.includes_text }} · {% endif %}
-                                    {% if s.max_people %}<i class="fa-solid fa-users"></i> ≤{{ s.max_people }}{% endif %}
+                                    <i class="fa-solid fa-users"></i>
+                                    {{ s.min_people or 1 }}–{{ s.max_people or '∞' }}
+                                    {% if s.extra_person_price %}
+                                    · <span data-lang-am>ዋና</span><span data-lang-en>Primary</span> {{ s.price }} +
+                                    <span data-lang-am>ተጨማሪ</span><span data-lang-en>extra</span> {{ s.extra_person_price }}
+                                    {% endif %}
                                     {% if s.allow_outside_hours %} · <span style="color:#E65100;font-weight:700;">outside hours</span>{% endif %}
                                 </div>
                                 {% endif %}
@@ -1440,7 +1445,7 @@
                         </tr>
                         <tr class="collapse" id="pkgEdit-{{ s.id }}">
                             <td colspan="5" class="p-0 border-0">
-                                <form action="/update-service-package" method="post"
+                                <form action="/update-service-package" method="post" enctype="multipart/form-data"
                                       class="p-3 m-2 rounded-3" style="background:#faf8f5;border:1px solid var(--border);">
                                     <div class="fw-semibold small mb-2" style="color:var(--accent);">
                                         <i class="fa-solid fa-gift me-1"></i>
@@ -1468,13 +1473,38 @@
                                                    value="{{ s.includes_text or '' }}"
                                                    placeholder="Hair, Makeup, Nails">
                                         </div>
-                                        <div class="col-6 col-md-2">
+                                        <div class="col-4 col-md-2">
                                             <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ከፍተኛ ሰዎች</span>
-                                                <span data-lang-en>Max people</span>
+                                                <span data-lang-am>ዝቅተኛ</span>
+                                                <span data-lang-en>Min ppl</span>
+                                            </label>
+                                            <input type="number" name="min_people" class="form-control form-control-sm"
+                                                   min="1" max="50" value="{{ s.min_people or 1 }}">
+                                        </div>
+                                        <div class="col-4 col-md-2">
+                                            <label class="form-label small text-muted mb-0">
+                                                <span data-lang-am>ከፍተኛ</span>
+                                                <span data-lang-en>Max ppl</span>
                                             </label>
                                             <input type="number" name="max_people" class="form-control form-control-sm"
-                                                   min="1" max="50" value="{{ s.max_people or '' }}" placeholder="6">
+                                                   min="1" max="50" value="{{ s.max_people or '' }}" placeholder="10">
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label small text-muted mb-0">
+                                                <span data-lang-am>ዋና ሰው ዋጋ</span>
+                                                <span data-lang-en>Primary price</span>
+                                            </label>
+                                            <input type="number" name="primary_price" class="form-control form-control-sm"
+                                                   min="0" step="0.01" value="{{ s.price }}">
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label small text-muted mb-0">
+                                                <span data-lang-am>ተጨማሪ ሰው</span>
+                                                <span data-lang-en>Extra / person</span>
+                                            </label>
+                                            <input type="number" name="extra_person_price" class="form-control form-control-sm"
+                                                   min="0" step="0.01" value="{{ s.extra_person_price if s.extra_person_price is not none else '' }}"
+                                                   placeholder="0 = flat">
                                         </div>
                                         <div class="col-12 col-md-auto">
                                             <label class="form-check m-0">
@@ -1486,6 +1516,16 @@
                                                 </span>
                                             </label>
                                         </div>
+                                        <div class="col-12 col-md-4">
+                                            <label class="form-label small text-muted mb-0">
+                                                <span data-lang-am>ፓኬጅ ፎቶ</span>
+                                                <span data-lang-en>Package photo</span>
+                                            </label>
+                                            <input type="file" name="photo" accept="image/*" class="form-control form-control-sm">
+                                            {% if s.photo_url %}
+                                            <div class="mt-1"><img src="{{ s.photo_url }}" alt="" style="height:40px;border-radius:8px;object-fit:cover;"></div>
+                                            {% endif %}
+                                        </div>
                                         <div class="col-12 col-md-auto">
                                             <input type="hidden" name="service_id" value="{{ s.id }}">
                                             <button type="submit" class="btn btn-accent btn-sm">
@@ -1495,6 +1535,12 @@
                                             </button>
                                         </div>
                                     </div>
+                                    {% if s.is_package and s.extra_person_price %}
+                                    <p class="small text-muted mb-0 mt-2">
+                                        <span data-lang-am>ምሳሌ 6 ሰው፡ {{ s.price }} + 5×{{ s.extra_person_price }} = {{ (s.price|float) + 5*(s.extra_person_price|float) }} ETB</span>
+                                        <span data-lang-en>Example 6 people: {{ s.price }} + 5×{{ s.extra_person_price }} = {{ (s.price|float) + 5*(s.extra_person_price|float) }} ETB</span>
+                                    </p>
+                                    {% endif %}
                                 </form>
                             </td>
                         </tr>
@@ -2478,7 +2524,7 @@
 <div class="modal fade" id="addServiceModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form action="/add-service" method="post">
+            <form action="/add-service" method="post" enctype="multipart/form-data">
                 <div class="modal-header">
                     <h5 class="fw-bold m-0">
                         <span data-lang-am>አዲስ አገልግሎት</span>
@@ -2525,21 +2571,54 @@
                                 <input type="text" name="includes_text" class="form-control form-control-sm"
                                        placeholder="Hair, Makeup, Nails / ፀጉር፣ ሜካፕ፣ ጥፍር">
                             </div>
-                            <div class="mb-2">
-                                <label class="form-label small text-muted fw-semibold mb-1">
-                                    <span data-lang-am>ከፍተኛ ሰዎች</span>
-                                    <span data-lang-en>Max people</span>
-                                </label>
-                                <input type="number" name="max_people" class="form-control form-control-sm"
-                                       min="1" max="50" placeholder="6" style="max-width:120px;">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label small text-muted fw-semibold mb-1">
+                                        <span data-lang-am>ዝቅተኛ ሰዎች</span>
+                                        <span data-lang-en>Min people</span>
+                                    </label>
+                                    <input type="number" name="min_people" class="form-control form-control-sm"
+                                           min="1" max="50" value="1" placeholder="1">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small text-muted fw-semibold mb-1">
+                                        <span data-lang-am>ከፍተኛ ሰዎች</span>
+                                        <span data-lang-en>Max people</span>
+                                    </label>
+                                    <input type="number" name="max_people" class="form-control form-control-sm"
+                                           min="1" max="50" placeholder="10">
+                                </div>
                             </div>
-                            <label class="form-check mb-0">
+                            <div class="mb-2 p-2 rounded-3" style="background:#fff;border:1px dashed var(--border);">
+                                <p class="small text-muted mb-2">
+                                    <span data-lang-am>ዋጋ፡ ከላይ ያለው «ዋጋ» የዋና ሰው (ሙሽራ/ዋና) ነው። ተጨማሪ ሰው ከታች ይሙሉ።</span>
+                                    <span data-lang-en>Price above = primary person (bride/main). Set extra person price below.</span>
+                                </p>
+                                <label class="form-label small text-muted fw-semibold mb-1">
+                                    <span data-lang-am>ተጨማሪ ሰው ዋጋ (ETB)</span>
+                                    <span data-lang-en>Extra person price (ETB)</span>
+                                </label>
+                                <input type="number" name="extra_person_price" class="form-control form-control-sm"
+                                       min="0" step="0.01" placeholder="0 = flat package price">
+                                <p class="small text-muted mb-0 mt-1">
+                                    <span data-lang-am>ምሳሌ፡ ዋና 5000 + እያንዳንዱ ተጨማሪ 2000 → 6 ሰው = 5000+(5×2000)=15000</span>
+                                    <span data-lang-en>E.g. primary 5000 + each extra 2000 → 6 people = 15,000</span>
+                                </p>
+                            </div>
+                            <label class="form-check mb-2">
                                 <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input">
                                 <span class="form-check-label small">
                                     <span data-lang-am>ከስራ ሰዓት ውጪ ማስያዝ ይቻላል (ሰርግ ጧት/ማታ)</span>
                                     <span data-lang-en>Allow booking outside salon hours (early/late wedding slots)</span>
                                 </span>
                             </label>
+                            <div class="mb-0">
+                                <label class="form-label small text-muted fw-semibold mb-1">
+                                    <span data-lang-am>ፓኬጅ ፎቶ (ይማርክት)</span>
+                                    <span data-lang-en>Package photo (marketing)</span>
+                                </label>
+                                <input type="file" name="photo" accept="image/*" class="form-control form-control-sm">
+                            </div>
                         </div>
                     </div>
                 </div>
