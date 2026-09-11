@@ -147,10 +147,84 @@
             flex: 0 0 240px; scroll-snap-align: start;
             background: #FAFAF8; border: 1px solid var(--border); border-radius: 14px; padding: 12px;
         }
+        .t-card .t-head {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+        }
+        .t-card .t-avatar {
+            width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+            background: var(--cream); border: 2px solid var(--border); flex-shrink: 0;
+        }
+        .t-card .t-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .t-card .t-avatar .ph {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            color: var(--accent); font-weight: 800; font-size: 0.95rem; background: var(--cream);
+        }
         .t-card .stars { color: var(--star); font-size: 0.7rem; margin-bottom: 6px; }
         .t-card .quote { font-size: 0.82rem; color: #5A4936; font-style: italic; margin-bottom: 8px; line-height: 1.4; }
-        .t-card .who { font-size: 0.75rem; font-weight: 700; color: var(--text); }
+        .t-card .who { font-size: 0.82rem; font-weight: 800; color: var(--text); line-height: 1.2; }
         .t-card .meta { font-size: 0.7rem; color: var(--muted); }
+        .t-card .celeb-tag {
+            display: inline-block; font-size: 0.62rem; font-weight: 800;
+            background: linear-gradient(135deg, #E6A817, #ED6C02); color: #fff;
+            padding: 2px 7px; border-radius: 999px; margin-left: 4px; vertical-align: middle;
+        }
+
+        /* Featured / celebrity strip — photo + name first (marketing focus) */
+        .featured-wrap { margin-bottom: 14px; }
+        .featured-label {
+            font-size: 0.78rem; font-weight: 800; color: var(--accent);
+            margin: 0 0 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .featured-scroll {
+            display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch; padding-bottom: 4px;
+        }
+        .featured-scroll::-webkit-scrollbar { height: 4px; }
+        .feat-card {
+            flex: 0 0 148px; scroll-snap-align: start;
+            background: #fff; border: 1px solid var(--border); border-radius: 16px;
+            padding: 14px 10px 12px; text-align: center;
+            box-shadow: 0 4px 14px rgba(156,107,63,0.08);
+            position: relative;
+        }
+        .feat-card.is-celeb {
+            border-color: #E6A817;
+            background: linear-gradient(180deg, #FFF8E8 0%, #fff 55%);
+            box-shadow: 0 6px 18px rgba(230,168,23,0.18);
+        }
+        .feat-card .feat-photo {
+            width: 88px; height: 88px; border-radius: 50%; margin: 0 auto 10px;
+            overflow: hidden; border: 3px solid var(--accent); background: var(--cream);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .feat-card.is-celeb .feat-photo { border-color: #E6A817; }
+        .feat-card .feat-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .feat-card .feat-photo .ph {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; font-weight: 800; color: var(--accent); background: var(--cream);
+        }
+        .feat-card .feat-name {
+            font-size: 0.88rem; font-weight: 800; color: var(--text); margin: 0 0 3px;
+            line-height: 1.25; word-break: break-word;
+        }
+        .feat-card .feat-badge {
+            display: inline-block; font-size: 0.62rem; font-weight: 800;
+            padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+        }
+        .feat-card .feat-badge.celeb {
+            background: linear-gradient(135deg, #E6A817, #ED6C02); color: #fff;
+        }
+        .feat-card .feat-badge.pinned {
+            background: var(--cream); color: var(--accent); border: 1px solid var(--border);
+        }
+        .feat-card .feat-quote {
+            font-size: 0.72rem; color: #5A4936; font-style: italic; line-height: 1.35;
+            margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .feat-card .feat-svc {
+            font-size: 0.65rem; color: var(--muted); font-weight: 600; margin-top: 4px;
+        }
 
         /* Booking card */
         .book-card {
@@ -494,6 +568,48 @@
                     {% endfor %}
                 </div>
             </div>
+            {# Featured: pinned + celebrity — photo & name first for social proof #}
+            {% set featured = [] %}
+            {% for t in testimonials %}
+                {% if t.is_celebrity or t.is_pinned %}
+                    {% if featured.append(t) %}{% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if featured %}
+            <div class="featured-wrap">
+                <div class="featured-label">
+                    <i class="fa-solid fa-star" style="color:var(--star);"></i>
+                    <span data-lang-am>ታዋቂ ደንበኞች</span>
+                    <span data-lang-en>Featured clients</span>
+                </div>
+                <div class="featured-scroll">
+                    {% for t in featured %}
+                    <div class="feat-card {% if t.is_celebrity %}is-celeb{% endif %}">
+                        <div class="feat-photo">
+                            {% if t.client_photo_url %}
+                            <img src="{{ t.client_photo_url }}" alt="{{ t.client_name }}" loading="lazy">
+                            {% else %}
+                            <div class="ph">{{ (t.client_name or '?')[:1]|upper }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="feat-name">{{ t.client_name }}</div>
+                        {% if t.is_celebrity %}
+                        <span class="feat-badge celeb">★ <span data-lang-am>ታዋቂ</span><span data-lang-en>Celebrity</span></span>
+                        {% elif t.is_pinned %}
+                        <span class="feat-badge pinned"><span data-lang-am>ተለይቶ</span><span data-lang-en>Featured</span></span>
+                        {% endif %}
+                        {% if t.comment %}
+                        <p class="feat-quote">“{{ t.comment }}”</p>
+                        {% endif %}
+                        {% if t.service_label %}
+                        <div class="feat-svc">{{ t.service_label }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <div class="rev-filters">
                 <button type="button" class="rev-filter active" data-sort="recent"><span data-lang-am>አዲስ</span><span data-lang-en>Recent</span></button>
                 <button type="button" class="rev-filter" data-sort="high"><span data-lang-am>ከፍተኛ</span><span data-lang-en>Highest</span></button>
@@ -502,10 +618,24 @@
             <div class="testimonial-scroll" id="tScroll">
                 {% for t in testimonials %}
                 <div class="t-card" data-rating="{{ t.rating or 5 }}" data-photo="{{ 1 if t.client_photo_url else 0 }}" data-id="{{ t.id }}">
+                    <div class="t-head">
+                        <div class="t-avatar">
+                            {% if t.client_photo_url %}
+                            <img src="{{ t.client_photo_url }}" alt="{{ t.client_name }}" loading="lazy">
+                            {% else %}
+                            <div class="ph">{{ (t.client_name or '?')[:1]|upper }}</div>
+                            {% endif %}
+                        </div>
+                        <div style="min-width:0;">
+                            <div class="who">
+                                {{ t.client_name }}
+                                {% if t.is_celebrity %}<span class="celeb-tag">★</span>{% endif %}
+                            </div>
+                            {% if t.service_label %}<div class="meta">{{ t.service_label }}</div>{% endif %}
+                        </div>
+                    </div>
                     <div class="stars">{% for i in range(t.rating or 5) %}★{% endfor %}</div>
                     <div class="quote">“{{ t.comment }}”</div>
-                    <div class="who">{{ t.client_name }}{% if t.is_celebrity %} · ★{% endif %}</div>
-                    {% if t.service_label %}<div class="meta">{{ t.service_label }}</div>{% endif %}
                 </div>
                 {% endfor %}
             </div>
