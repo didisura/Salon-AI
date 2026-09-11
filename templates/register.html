@@ -106,31 +106,11 @@
     .header{padding:24px 18px 80px;} .headline{font-size:1.2rem;} .card{padding:28px 18px 36px;}
     .days-grid{grid-template-columns:repeat(3, 1fr);}
   }
-
-  .lang-toggle {
-    position: absolute; top: 18px; right: 16px; z-index: 5;
-    display: flex; align-items: center; gap: 6px;
-    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35);
-    border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 0.78rem;
-    color: #fff; cursor: pointer; font-family: inherit;
-    backdrop-filter: blur(4px);
-  }
-  .lang-toggle:hover { background: rgba(255,255,255,0.28); }
-  [data-lang-en] { display: none; }
-  html[lang="en"] [data-lang-am] { display: none !important; }
-  html[lang="en"] [data-lang-en] { display: inline !important; }
-  html[lang="am"] [data-lang-am] { display: inline !important; }
-  html[lang="am"] [data-lang-en] { display: none !important; }
-  .brand-am { font-family: 'Noto Sans Ethiopic', sans-serif; font-weight: 700; font-size: 1.1rem; color: #fff; }
-
 </style>
 </head>
-<body data-page="register">
+<body>
   <div class="phone">
     <div class="header">
-      <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()" aria-label="Language">
-        <span id="langLabel">EN</span>
-      </button>
       <a href="/login" class="back-link" aria-label="ተመለስ">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </a>
