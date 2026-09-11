@@ -330,7 +330,8 @@
         .staff-pick {
             position: relative; text-align: center; cursor: pointer;
         }
-        .staff-pick input { position: absolute; opacity: 0; pointer-events: none; }
+        .staff-pick input { position: absolute; opacity: 0; pointer-events: none !important;
+            z-index: 1;}
         .staff-ring {
             width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 6px;
             border: 2.5px solid var(--border); padding: 3px; background: var(--cream);
@@ -357,6 +358,9 @@
         /* Time wheel */
         .eth-time-picker {
             background: var(--cream); border: 1px solid var(--border); border-radius: 14px; padding: 12px;
+            touch-action: pan-y;
+            -webkit-user-select: none;
+            user-select: none;
         }
         .eth-wheel-shell {
             position: relative; display: flex; align-items: center; justify-content: center;
@@ -368,20 +372,71 @@
             background: rgba(156,107,63,0.1);
             border-top: 1px solid rgba(156,107,63,0.35);
             border-bottom: 1px solid rgba(156,107,63,0.35);
-            pointer-events: none; z-index: 1;
+            pointer-events: none !important;
+            z-index: 1;
+        }
+        .eth-wheel-shell {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0;
+            overflow: hidden;
+            touch-action: pan-y;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .eth-wheel-highlight {
+            position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%);
+            height: 44px; border-radius: 9px;
+            background: rgba(156,107,63,0.12);
+            border-top: 1px solid rgba(156,107,63,0.35);
+            border-bottom: 1px solid rgba(156,107,63,0.35);
+            pointer-events: none !important;
+            z-index: 1;
+            z-index: 1;
         }
         .wheel-col {
-            position: relative; height: 168px; overflow-y: scroll; scroll-snap-type: y mandatory;
-            padding-top: 63px; padding-bottom: 63px; -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; z-index: 2; cursor: grab; user-select: none; width: 100%;
+            position: relative;
+            height: 220px;
+            width: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: none; /* we handle drag in JS — fixes stuck wheel on mobile */
+            scrollbar-width: none;
+            z-index: 2;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        .wheel-col::-webkit-scrollbar { display: none; }
+        .wheel-col:active { cursor: grabbing; }
+        .wheel-col::-webkit-scrollbar { display: none; width: 0; height: 0; }
+        .wheel-spacer {
+            height: 88px;
+            flex-shrink: 0;
+            pointer-events: none !important;
+            z-index: 1;
+        }
         .wheel-item {
-            height: 42px; display: flex; align-items: center; justify-content: center;
-            font-size: 1rem; font-weight: 600; color: #B9A990;
-            scroll-snap-align: center; transition: color .12s, font-size .12s; cursor: pointer;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #B9A990;
+            scroll-snap-align: center;
+            transition: color .12s, font-size .12s;
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
         }
-        .wheel-item.active { color: #5A4936; font-size: 1.2rem; }
+        .wheel-item.active { color: #5A4936; font-size: 1.15rem; font-weight: 800; }
         .eth-preview { margin-top: 8px; font-weight: 700; color: var(--accent); font-size: 1.05rem; text-align: center; }
 
         .form-control, .form-select {
@@ -1849,7 +1904,7 @@ function westernToEth(h, m) {
     else { period = 'ለሊት'; displayH = eh - 12; }
     return { period, hour: displayH, minute: em };
 }
-const ITEM_H = 42;
+const ITEM_H = 44;
 function buildEthSlots() {
     const slots = [];
     for (let i = 0; i < 96; i++) {
@@ -1864,29 +1919,127 @@ function buildEthSlots() {
     return slots;
 }
 function initWheel(container, values, initial, onChange) {
-    container.innerHTML = values.map(v => `<div class="wheel-item" style="height:${ITEM_H}px;">${v}</div>`).join('');
+    const ITEM = 44;
+    const SPACER = 88; // (220 - 44) / 2
+    // Spacers instead of CSS padding — scrolls reliably on iOS/Android
+    container.innerHTML =
+        '<div class="wheel-spacer" aria-hidden="true"></div>' +
+        values.map((v, i) =>
+            `<div class="wheel-item" data-idx="${i}" style="height:${ITEM}px;">${v}</div>`
+        ).join('') +
+        '<div class="wheel-spacer" aria-hidden="true"></div>';
+
     const items = Array.from(container.querySelectorAll('.wheel-item'));
     let current = null;
-    function scrollTo(idx, smooth) {
-        idx = Math.max(0, Math.min(values.length - 1, idx));
-        container.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'auto' });
+    let snapTimer = null;
+    let isPointerDown = false;
+    let startY = 0;
+    let startScroll = 0;
+
+    function clampIdx(i) {
+        return Math.max(0, Math.min(values.length - 1, i));
     }
-    function idx() { return Math.max(0, Math.min(values.length - 1, Math.round(container.scrollTop / ITEM_H))); }
+    function idxFromScroll() {
+        return clampIdx(Math.round(container.scrollTop / ITEM));
+    }
+    function scrollToIdx(i, smooth) {
+        i = clampIdx(i);
+        container.scrollTo({ top: i * ITEM, behavior: smooth ? 'smooth' : 'auto' });
+    }
     function mark(i) {
+        i = clampIdx(i);
         items.forEach((it, j) => it.classList.toggle('active', j === i));
-        if (values[i] !== current) { current = values[i]; onChange(values[i]); }
+        if (values[i] !== current) {
+            current = values[i];
+            if (typeof onChange === 'function') onChange(values[i]);
+        }
     }
-    let t;
+    function snap() {
+        const i = idxFromScroll();
+        scrollToIdx(i, true);
+        mark(i);
+    }
+
     container.addEventListener('scroll', () => {
-        mark(idx());
-        clearTimeout(t);
-        t = setTimeout(() => { const i = idx(); scrollTo(i, true); mark(i); }, 100);
+        mark(idxFromScroll());
+        if (isPointerDown) return;
+        clearTimeout(snapTimer);
+        snapTimer = setTimeout(snap, 80);
     }, { passive: true });
-    items.forEach((it, i) => it.addEventListener('click', () => { scrollTo(i, true); mark(i); }));
+
+    // Touch / mouse drag — keeps scroll working even if parent steals gestures
+    container.addEventListener('touchstart', (e) => {
+        if (!e.touches || !e.touches.length) return;
+        isPointerDown = true;
+        clearTimeout(snapTimer);
+        startY = e.touches[0].clientY;
+        startScroll = container.scrollTop;
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+        if (!isPointerDown || !e.touches || !e.touches.length) return;
+        const dy = startY - e.touches[0].clientY;
+        container.scrollTop = startScroll + dy;
+        mark(idxFromScroll());
+        // Prevent page scroll while dragging the wheel
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+    }, { passive: false });
+
+    container.addEventListener('touchend', () => {
+        if (!isPointerDown) return;
+        isPointerDown = false;
+        snap();
+    }, { passive: true });
+
+    container.addEventListener('touchcancel', () => {
+        isPointerDown = false;
+        snap();
+    }, { passive: true });
+
+    container.addEventListener('mousedown', (e) => {
+        isPointerDown = true;
+        clearTimeout(snapTimer);
+        startY = e.clientY;
+        startScroll = container.scrollTop;
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!isPointerDown) return;
+        const dy = startY - e.clientY;
+        container.scrollTop = startScroll + dy;
+    });
+    window.addEventListener('mouseup', () => {
+        if (!isPointerDown) return;
+        isPointerDown = false;
+        snap();
+    });
+
+    items.forEach((it, i) => {
+        it.addEventListener('click', (e) => {
+            e.stopPropagation();
+            scrollToIdx(i, true);
+            mark(i);
+        });
+    });
+
     const start = Math.max(0, values.indexOf(initial));
-    requestAnimationFrame(() => { scrollTo(start, false); mark(start); });
-    return { set: (v) => scrollTo(values.indexOf(v), true) };
+    requestAnimationFrame(() => {
+        scrollToIdx(start, false);
+        mark(start);
+    });
+
+    return {
+        set: (v) => {
+            const ix = values.indexOf(v);
+            if (ix >= 0) {
+                scrollToIdx(ix, true);
+                mark(ix);
+            }
+        }
+    };
 }
+
 let selectedHHMM = '09:00';
 const slots = buildEthSlots();
 const labels = slots.map(s => s.label);
