@@ -720,7 +720,7 @@ def _build_conflict_context(
         "conflict_date": conflict_dt.date().isoformat(),
         "alt_staff": alt_staff,
         "next_slot": next_slot.strftime("%Y-%m-%dT%H:%M") if next_slot else None,
-        "next_slot_display": _eth_display(next_slot) if next_slot else None,
+        "next_slot_display": (_dual_time_display(next_slot) if next_slot else None),
     })
     return ctx
 
@@ -2332,6 +2332,8 @@ def public_my_bookings(
             "customer_name": a.customer_name,
             "date": a.appointment_datetime.strftime("%Y-%m-%d"),
             "time_label": a.appointment_time,
+            "time_label_western": getattr(a, "appointment_time_western", None) or _western_display(a.appointment_datetime),
+            "time_label_dual": f"{a.appointment_time} · {_western_display(a.appointment_datetime)}",
             "service_name": a.service_name,
             "staff_name": a.staff_name,
             "status": st,
