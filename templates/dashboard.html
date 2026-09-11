@@ -616,7 +616,18 @@
                 max-width: 100% !important;
             }
         }
-    </style>
+    
+        .time-dual-main { font-weight: 800; color: var(--accent); }
+        .time-dual-sub { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+        .time-mode-btn {
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border);
+            background: #fff; color: var(--text-dark); font-weight: 600;
+            font-size: 0.78rem; cursor: pointer; width: 100%;
+        }
+        .time-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+</style>
 </head>
 <body>
 
@@ -686,7 +697,13 @@
                 <i class="fa-solid fa-globe"></i>
                 <span id="langLabelSidebar">EN</span>
             </button>
-            <a href="/logout" class="logout-link">
+            
+        <button type="button" class="time-mode-btn" id="timeModeBtn" onclick="toggleTimeModeDash()">
+            <i class="fa-regular fa-clock"></i>
+            <span id="timeModeBtnLabel">ዓ + 12h</span>
+        </button>
+
+        <a href="/logout" class="logout-link">
                 <i class="fa-solid fa-right-from-bracket me-1"></i>
                 <span data-lang-am>ውጣ</span><span data-lang-en>Logout</span>
             </a>
@@ -918,7 +935,7 @@
                         <div class="small text-muted">
                             <i class="fa-solid fa-calendar-day me-1"></i>
                             {{ appt.appointment_datetime.strftime('%Y-%m-%d') if appt.appointment_datetime else '—' }}
-                            · {{ appt.appointment_time }}
+                            · <span class="js-time-dual" data-eth="{{ appt.appointment_time }}" data-west="{{ appt.appointment_time_western }}">{{ appt.appointment_time }} · {{ appt.appointment_time_western }}</span>
                         </div>
                         <div class="small">
                             {{ appt.service_name }} · {{ appt.staff_name }}
@@ -1078,7 +1095,7 @@
                                     <div class="swipe-card-content p-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <div>
-                                                <span class="fw-bold fs-6">{{ appt.appointment_time }}</span>
+                                                <span class="fw-bold fs-6"><span class="js-time-dual" data-eth="{{ appt.appointment_time }}" data-west="{{ appt.appointment_time_western }}">{{ appt.appointment_time }} · {{ appt.appointment_time_western }}</span></span>
                                                 <span class="badge ms-2 status-badge-{{ appt.id }}
                                                     {% if appt.status.value == 'Completed' %}bg-success
                                                     {% elif appt.status.value == 'Cancelled' %}bg-danger
@@ -2886,6 +2903,48 @@ function ethLabel(h, m) {
     return `${period} ${displayH}:${mm}`;
 }
 
+
+/* Time mode eth | dual | intl */
+function westernLabelHM(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  const suffix = h < 12 ? 'AM' : 'PM';
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + String(m||0).padStart(2,'0') + ' ' + suffix;
+}
+function ethLabelHM(hhmm) {
+  if (typeof ethLabel === 'function' && hhmm) {
+    const [h,m] = hhmm.split(':').map(Number);
+    return ethLabel(h, m||0) + ' ሰዓት';
+  }
+  return hhmm || '';
+}
+function getTimeMode() { return localStorage.getItem('melkegna_time') || 'dual'; }
+function setTimeModeLabel() {
+  const mode = getTimeMode();
+  document.documentElement.setAttribute('data-time', mode);
+  const lab = document.getElementById('timeModeBtnLabel');
+  if (lab) {
+    if (mode === 'eth') lab.textContent = 'የኢትዮጵያ';
+    else if (mode === 'intl') lab.textContent = '12h / International';
+    else lab.textContent = 'ዓ + 12h';
+  }
+  document.querySelectorAll('.js-time-dual').forEach(el => {
+    const eth = el.getAttribute('data-eth') || '';
+    const west = el.getAttribute('data-west') || '';
+    if (mode === 'eth') el.innerHTML = eth;
+    else if (mode === 'intl') el.innerHTML = west;
+    else el.innerHTML = eth + ' <span class="time-dual-sub">(' + west + ')</span>';
+  });
+}
+function toggleTimeModeDash() {
+  const cur = getTimeMode();
+  const next = cur === 'dual' ? 'eth' : (cur === 'eth' ? 'intl' : 'dual');
+  localStorage.setItem('melkegna_time', next);
+  setTimeModeLabel();
+}
+document.addEventListener('DOMContentLoaded', setTimeModeLabel);
+
 function fillWheel(col, initialWestern, onChange) {
     if (!col) return;
     col.innerHTML = '';
@@ -3127,7 +3186,14 @@ function showNotAvail(alertBox, okBox, alertMsg, okMsg, submitBtn, text) {
     if (!col || !hidden) return;
     fillWheel(col, '09:00', (w, label) => {
         hidden.value = (document.getElementById('bookDate')?.value || '') + 'T' + w + ':00';
-        if (prev) prev.textContent = label + ' ሰዓት';
+        if (prev) {
+          const mode = getTimeMode();
+          const west = westernLabelHM(w);
+          const eth = label + ' ሰዓት';
+          if (mode === 'intl') prev.innerHTML = '<span class="time-dual-main">' + west + '</span>';
+          else if (mode === 'eth') prev.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
+          else prev.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+        }
         checkStaffAvailability();
     });
     document.getElementById('bookStaffSelect')?.addEventListener('change', checkStaffAvailability);
@@ -3147,7 +3213,14 @@ document.querySelectorAll('.wl-wheel-eth').forEach(col => {
     fillWheel(col, '09:00', (w, label) => {
         const d = dateInp?.value || '';
         if (hidden) hidden.value = d + 'T' + w + ':00';
-        if (prev) prev.textContent = label + ' ሰዓት';
+        if (prev) prev.innerHTML = (function(){
+            const mode = (typeof getTimeMode==='function'?getTimeMode():'dual');
+            const west = (typeof westernLabelHM==='function'?westernLabelHM(w):'');
+            const eth = label + ' ሰዓት';
+            if (mode === 'intl') return '<span class="time-dual-main">'+west+'</span>';
+            if (mode === 'eth') return '<span class="time-dual-main">'+eth+'</span>';
+            return '<span class="time-dual-main">'+eth+'</span><div class="time-dual-sub">'+west+'</div>';
+          })();
     });
     dateInp?.addEventListener('change', () => {
         const w = (hidden?.value || '').split('T')[1]?.slice(0,5) || '09:00';
@@ -3440,7 +3513,14 @@ function openReschedule(id, name, dateStr, timeHM, staffId) {
     fillWheel(col, t, (w, label) => {
       const d = document.getElementById('rescheduleDate')?.value || '';
       if (hidden) hidden.value = d + 'T' + w + ':00';
-      if (prev) prev.textContent = label + ' ሰዓት';
+      if (prev) {
+        const mode = getTimeMode();
+        const west = westernLabelHM(w);
+        const eth = label + ' ሰዓት';
+        if (mode === 'intl') prev.innerHTML = '<span class="time-dual-main">' + west + '</span>';
+        else if (mode === 'eth') prev.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
+        else prev.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+      }
     });
   } else if (hidden) {
     hidden.value = (dateStr || '') + 'T' + t + ':00';

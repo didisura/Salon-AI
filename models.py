@@ -302,6 +302,7 @@ class Appointment(Base):
 
     @property
     def appointment_time(self) -> str:
+        """Ethiopian primary label (local speech)."""
         dt = self.appointment_datetime
         total = (dt.hour * 60 + dt.minute - 360) % 1440
         eh, em = total // 60, total % 60
@@ -314,6 +315,22 @@ class Appointment(Base):
         else:
             p, h = "ለሊት", eh - 12
         return f"{p} {h}:{em:02d} ሰዓት"
+
+    @property
+    def appointment_time_western(self) -> str:
+        """Western 12h clock for customers who use phone time."""
+        dt = self.appointment_datetime
+        h, m = dt.hour, dt.minute
+        suffix = "AM" if h < 12 else "PM"
+        h12 = h % 12
+        if h12 == 0:
+            h12 = 12
+        return f"{h12}:{m:02d} {suffix}"
+
+    @property
+    def appointment_time_dual(self) -> str:
+        """Primary Ethiopian + secondary Western — default product display."""
+        return f"{self.appointment_time} · {self.appointment_time_western}"
 
     @property
     def service_name(self):

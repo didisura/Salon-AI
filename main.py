@@ -362,6 +362,24 @@ def _eth_display(dt: Optional[datetime]) -> Optional[str]:
     return f"{p} {h}:{em:02d} ሰዓት"
 
 
+def _western_display(dt: Optional[datetime]) -> Optional[str]:
+    if not dt:
+        return None
+    h, m = dt.hour, dt.minute
+    suffix = "AM" if h < 12 else "PM"
+    h12 = h % 12
+    if h12 == 0:
+        h12 = 12
+    return f"{h12}:{m:02d} {suffix}"
+
+
+def _dual_time_display(dt: Optional[datetime]) -> Optional[str]:
+    """Ethiopian primary · Western secondary (product default)."""
+    if not dt:
+        return None
+    return f"{_eth_display(dt)} · {_western_display(dt)}"
+
+
 _DAY_NAMES_AM = ["ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ", "እሁድ"]
 _DAY_NAMES_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 

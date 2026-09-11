@@ -551,9 +551,28 @@
         }
 
         .alert { border-radius: 12px; font-size: 0.88rem; }
-    </style>
+    
+        /* Dual time: Ethiopian primary + Western secondary */
+        .time-dual-main { font-weight: 800; color: var(--accent); font-size: 1rem; }
+        .time-dual-sub { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
+        .time-mode-toggle {
+            position: fixed; top: 12px; right: 72px; z-index: 2000;
+            display: flex; align-items: center; gap: 4px;
+            background: rgba(255,255,255,0.94); border: 1px solid var(--border);
+            border-radius: 999px; padding: 6px 10px; font-weight: 700; font-size: 0.72rem;
+            color: var(--accent); cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        html[data-time="intl"] .time-eth-only { display: none !important; }
+        html[data-time="eth"] .time-west-only { display: none !important; }
+
+</style>
 </head>
 <body class="{% if success or waitlisted %}success-view{% endif %}">
+
+<button type="button" class="time-mode-toggle" id="timeModeToggle" onclick="toggleTimeMode()" title="Time format">
+  <span id="timeModeLabel">ዓ/ET</span>
+</button>
+
 
 <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
     <i class="fa-solid fa-language"></i>
@@ -1706,7 +1725,21 @@ function refreshSummary() {
     const date = document.getElementById('ethDate')?.value || '';
     document.getElementById('sumService').textContent = svc ? svc.dataset.name : '—';
     document.getElementById('sumStaff').textContent = st ? st.dataset.name : '—';
-    document.getElementById('sumWhen').textContent = date + (when ? ' · ' + when : '');
+    const sumWhen = document.getElementById('sumWhen');
+    if (sumWhen) {
+      const mode = getTimeMode();
+      let whenText = '';
+      if (selectedHHMM) {
+        const [hh, mm] = selectedHHMM.split(':').map(Number);
+        const w = westernToEth(hh, mm||0);
+        const ethL = `${w.period} ${w.hour}:${String(w.minute).padStart(2,'0')} ሰዓት`;
+        const westL = westernLabel(hh, mm||0);
+        if (mode === 'intl') whenText = westL;
+        else if (mode === 'eth') whenText = ethL;
+        else whenText = ethL + ' · ' + westL;
+      }
+      sumWhen.textContent = date + (whenText ? ' · ' + whenText : '');
+    }
     document.getElementById('sumName').textContent = name;
     document.getElementById('sumPrice').textContent = svc ? (svc.dataset.price + ' ETB') : '—';
     const dep = svc ? parseFloat(svc.dataset.deposit || '0') : 0;
@@ -1755,6 +1788,44 @@ document.querySelectorAll('img.staff-photo-img').forEach(img => {
 });
 
 /* Ethiopian time wheel */
+
+/* ===== Time mode: eth | dual | intl (default dual) ===== */
+function westernLabel(hh, mm) {
+  hh = parseInt(hh, 10); mm = parseInt(mm, 10) || 0;
+  const suffix = hh < 12 ? 'AM' : 'PM';
+  let h12 = hh % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + String(mm).padStart(2,'0') + ' ' + suffix;
+}
+function getTimeMode() {
+  return localStorage.getItem('melkegna_time') || 'dual';
+}
+function applyTimeMode(mode) {
+  document.documentElement.setAttribute('data-time', mode);
+  localStorage.setItem('melkegna_time', mode);
+  const lab = document.getElementById('timeModeLabel');
+  if (lab) {
+    if (mode === 'eth') lab.textContent = 'ዓ/ET';
+    else if (mode === 'intl') lab.textContent = '12h';
+    else lab.textContent = 'ዓ+12';
+  }
+  if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
+  document.querySelectorAll('[data-dual-time]').forEach(el => {
+    const eth = el.getAttribute('data-eth') || '';
+    const west = el.getAttribute('data-west') || '';
+    if (mode === 'eth') el.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
+    else if (mode === 'intl') el.innerHTML = '<span class="time-dual-main">' + west + '</span>';
+    else el.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+  });
+}
+function toggleTimeMode() {
+  const cur = getTimeMode();
+  const next = cur === 'dual' ? 'eth' : (cur === 'eth' ? 'intl' : 'dual');
+  applyTimeMode(next);
+}
+(function initTimeMode() {
+  applyTimeMode(getTimeMode());
+})();
+
 function westernToEth(h, m) {
     const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
     const eh = Math.floor(total / 60);
@@ -1816,16 +1887,28 @@ if (wheelEl) {
     ethWheel = initWheel(wheelEl, labels, init.label, (label) => {
         selectedHHMM = byLabel[label];
         const prev = document.getElementById('ethPreview');
-        if (prev) prev.textContent = label + ' ሰዓት';
         updatePreviewAndHidden();
     });
 }
 function updatePreviewAndHidden() {
     const dateVal = document.getElementById('ethDate')?.value;
     const hidden = document.getElementById('appointmentTimeHidden');
+    const prev = document.getElementById('ethPreview');
     if (!hidden) return;
     if (!dateVal) { hidden.value = ''; return; }
     hidden.value = `${dateVal}T${selectedHHMM}:00`;
+    if (prev && selectedHHMM) {
+        const [hh, mm] = selectedHHMM.split(':').map(Number);
+        const eth = (prev.dataset && prev.dataset.lastEth) || prev.textContent.replace(/\s*·.*/,'').trim();
+        // eth label comes from wheel onChange; rebuild from selectedHHMM
+        const w = westernToEth(hh, mm || 0);
+        const ethLabel = `${w.period} ${w.hour}:${String(w.minute).padStart(2,'0')} ሰዓት`;
+        const westLabel = westernLabel(hh, mm || 0);
+        const mode = getTimeMode();
+        if (mode === 'eth') prev.innerHTML = '<span class="time-dual-main">' + ethLabel + '</span>';
+        else if (mode === 'intl') prev.innerHTML = '<span class="time-dual-main">' + westLabel + '</span>';
+        else prev.innerHTML = '<span class="time-dual-main">' + ethLabel + '</span><div class="time-dual-sub">' + westLabel + '</div>';
+    }
 }
 document.getElementById('ethDate')?.addEventListener('change', updatePreviewAndHidden);
 
@@ -1842,7 +1925,12 @@ function updateStaffHint() {
     const [oh, om] = open.split(':').map(Number);
     const [ch, cm] = close.split(':').map(Number);
     const o = westernToEth(oh, om), c = westernToEth(ch, cm);
-    const hp = `${o.period} ${o.hour}:${String(o.minute).padStart(2,'0')} – ${c.period} ${c.hour}:${String(c.minute).padStart(2,'0')}`;
+    const ethR = `${o.period} ${o.hour}:${String(o.minute).padStart(2,'0')} – ${c.period} ${c.hour}:${String(c.minute).padStart(2,'0')}`;
+    const westR = `${westernLabel(oh, om)} – ${westernLabel(ch, cm)}`;
+    const mode = getTimeMode();
+    let hp = ethR + ' · ' + westR;
+    if (mode === 'eth') hp = ethR;
+    if (mode === 'intl') hp = westR;
     hint.textContent = en ? `Hours: ${hp} · ${dayLabels}` : `የስራ ሰዓት፡ ${hp} · ${dayLabels}`;
 }
 
