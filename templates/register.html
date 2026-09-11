@@ -32,6 +32,7 @@
   .brand{display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:12px;}
   .logo-img{width:68px; height:auto; filter:drop-shadow(0 4px 12px rgba(0,0,0,.25));}
   .wordmark{font-family:'Fraunces',serif; font-weight:600; font-size:1.35rem; letter-spacing:.06em; color:#fff;}
+  .brand-am{font-family:'Noto Sans Ethiopic',sans-serif; font-weight:700; font-size:1.1rem; color:#fff;}
   .tagline{font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; opacity:.75; margin-top:2px;}
   .header-text{text-align:center; margin-top:22px;}
   .eyebrow{font-family:'Fraunces',serif; font-style:italic; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; opacity:.8; margin-bottom:10px;}
@@ -102,18 +103,253 @@
   .privacy-link{text-align:center; font-size:.75rem; margin-top:10px; padding-bottom:24px;}
   .privacy-link a{color:var(--muted); text-decoration:none; font-weight:500;}
   .privacy-link a:hover{color:var(--accent-dark); text-decoration:underline;}
+  .lang-toggle {
+    position: absolute; top: 18px; right: 16px; z-index: 5;
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 0.78rem;
+    color: #fff; cursor: pointer; font-family: inherit;
+    backdrop-filter: blur(4px);
+  }
+  .lang-toggle:hover { background: rgba(255,255,255,0.28); }
+  [data-lang-en] { display: none; }
+  html[lang="en"] [data-lang-am] { display: none !important; }
+  html[lang="en"] [data-lang-en] { display: inline !important; }
+  html[lang="am"] [data-lang-am] { display: inline !important; }
+  html[lang="am"] [data-lang-en] { display: none !important; }
   @media (max-width:380px){
     .header{padding:24px 18px 80px;} .headline{font-size:1.2rem;} .card{padding:28px 18px 36px;}
     .days-grid{grid-template-columns:repeat(3, 1fr);}
   }
 </style>
 </head>
-<body>
+<body data-page="register">
   <div class="phone">
     <div class="header">
+      <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()" aria-label="Language">
+        <span id="langLabel">EN</span>
+      </button>
       <a href="/login" class="back-link" aria-label="ተመለስ">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </a>
       <div class="brand">
-        <img class="logo-img" src="/static/images/logo.png" onerror="this.style.display='none'" alt="Melkegna Logo">
-        <div class="wordmark eng">Melkegna</div>
+        <img class="logo-img" src="/static/logo.png" onerror="this.style.display='none'" alt="Melkegna">
+        <div class="wordmark">Melkegna</div>
+        <div class="brand-am">መልከኛ</div>
+        <div class="tagline">Beauty · Built on Trust</div>
+      </div>
+      <div class="header-text">
+        <p class="eyebrow">
+          <span data-lang-am>ለከፍተኛ አፈጻጸም ባለሙያዎች</span>
+          <span data-lang-en>for high-performing entrepreneurs</span>
+        </p>
+        <h1 class="headline">
+          <span data-lang-am>ጫናዎን እናቃልል፣<br>አፈጻጸምዎን <span class="eng">እንደግፍ</span></span>
+          <span data-lang-en>We lighten the load —<br>and <span class="eng">support</span> your performance</span>
+        </h1>
+        <p class="sub">
+          <span data-lang-am>መልከኛ ስራዎን ፈጣን፣ ትክክለኛ እና ከፍተኛ ጥራት ባለው መንገድ እንዲመሩ ያግዝዎታል፤ ቀጠሮ፣ ደንበኛ እና ገቢ ሁሉም በአንድ ቦታ፣ በቅጽበት ላይ።</span>
+          <span data-lang-en>Melkegna helps you run faster and cleaner — appointments, clients, and revenue in one place, in real time.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      {% if error == 'phone_taken' %}
+      <div class="alert">
+        <span data-lang-am>ይህ ስልክ ቁጥር አስቀድሞ ተመዝግቧል።</span>
+        <span data-lang-en>This phone number is already registered.</span>
+      </div>
+      {% endif %}
+
+      <form action="/register" method="post" novalidate id="registerForm">
+        <div class="field">
+          <label>
+            <span data-lang-am>የንግድ ስም</span>
+            <span data-lang-en>Business name</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+            <input type="text" name="name" required placeholder="Salon / Spa name" autocomplete="organization">
+          </div>
+        </div>
+        <div class="field">
+          <label>
+            <span data-lang-am>የባለቤት ስም</span>
+            <span data-lang-en>Owner name</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" name="owner_name" required placeholder="Your full name" autocomplete="name">
+          </div>
+        </div>
+        <div class="field">
+          <label>
+            <span data-lang-am>ስልክ ቁጥር</span>
+            <span data-lang-en>Phone number</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <input type="tel" name="phone" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
+          </div>
+        </div>
+        <div class="field tight">
+          <label>
+            <span data-lang-am>የይለፍ ቃል</span>
+            <span data-lang-en>Password</span>
+          </label>
+          <div class="input-wrap" id="pwWrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <input type="password" name="password" id="password" required minlength="8" placeholder="Min 8 characters" autocomplete="new-password">
+            <button type="button" class="eye-toggle" data-target="password" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>
+            <span data-lang-am>የይለፍ ቃል ድጋሚ ያስገቡ</span>
+            <span data-lang-en>Confirm password</span>
+          </label>
+          <div class="input-wrap" id="confirmWrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <input type="password" name="confirm_password" id="confirmPassword" required minlength="8" placeholder="Repeat password" autocomplete="new-password">
+            <button type="button" class="eye-toggle" data-target="confirmPassword" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <p class="pw-hint" id="pwHint"></p>
+        </div>
+
+        <div class="field">
+          <label>
+            <span data-lang-am>የስራ ሰዓት</span>
+            <span data-lang-en>Working hours</span>
+          </label>
+          <div class="hours-row">
+            <div class="input-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <input type="time" name="opening_time" value="08:00" required aria-label="Opening time">
+            </div>
+            <div class="input-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <input type="time" name="closing_time" value="20:00" required aria-label="Closing time">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>
+            <span data-lang-am>የስራ ቀናት <span style="font-weight:400;color:var(--muted)">(ቢያንስ አንድ)</span></span>
+            <span data-lang-en>Working days <span style="font-weight:400;color:var(--muted)">(at least one)</span></span>
+          </label>
+          <div class="days-grid">
+            <label class="day-chip"><input type="checkbox" name="working_days" value="0" checked><span><span data-lang-am>ሰኞ</span><span data-lang-en>Mon</span></span></label>
+            <label class="day-chip"><input type="checkbox" name="working_days" value="1" checked><span><span data-lang-am>ማክሰ</span><span data-lang-en>Tue</span></span></label>
+            <label class="day-chip"><input type="checkbox" name="working_days" value="2" checked><span><span data-lang-am>ረቡዕ</span><span data-lang-en>Wed</span></span></label>
+            <label class="day-chip"><input type="checkbox" name="working_days" value="3" checked><span><span data-lang-am>ሐሙስ</span><span data-lang-en>Thu</span></span></label>
+            <label class="day-chip"><input type="checkbox" name="working_days" value="4" checked><span><span data-lang-am>ዓርብ</span><span data-lang-en>Fri</span></span></label>
+            <label class="day-chip"><input type="checkbox" name="working_days" value="5" checked><span><span data-lang-am>ቅዳሜ</span><span data-lang-en>Sat</span></span></label>
+            <label class="day-chip"><input type="checkbox" name="working_days" value="6"><span><span data-lang-am>እሁድ</span><span data-lang-en>Sun</span></span></label>
+          </div>
+        </div>
+
+        <div class="security-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <p>
+            <span data-lang-am>እርስዎ ስራ ላይ ያተኩሩ፤ አያያዙን ለመልከኛ ይተዉት። ምዝገባዎ ከተጠናቀቀ በኋላ አስተዳዳሪ እስኪያጸድቅ ድረስ በመጠበቅ ላይ ይሆናል።</span>
+            <span data-lang-en>You focus on the work — leave the ops to Melkegna. After you register, your account stays pending until an admin approves it.</span>
+          </p>
+        </div>
+        <button type="submit" class="btn-primary" id="submitBtn">
+          <span data-lang-am>ይመዝገቡ</span>
+          <span data-lang-en>Register</span>
+        </button>
+      </form>
+
+      <p class="alt-link">
+        <span data-lang-am>አካውንት አለዎት? <a href="/login">ይግቡ</a></span>
+        <span data-lang-en>Already have an account? <a href="/login">Log in</a></span>
+      </p>
+      <p class="support-line">
+        <span data-lang-am>የደንበኛ ድጋፍ /</span>
+        <span data-lang-en>Support /</span>
+        <a href="tel:0946332194">0946332194</a>
+        <span data-lang-am>ወይም</span>
+        <span data-lang-en>or</span>
+        <a href="tel:0955157398">0955157398</a>
+      </p>
+      <p class="privacy-link">
+        <a href="/privacy"><span data-lang-am>ግላዊነት</span><span data-lang-en>Privacy</span> · Privacy</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.eye-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.dataset.target);
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    });
+    (function () {
+      const pw = document.getElementById('password');
+      const confirm = document.getElementById('confirmPassword');
+      const pwWrap = document.getElementById('pwWrap');
+      const confirmWrap = document.getElementById('confirmWrap');
+      const hint = document.getElementById('pwHint');
+      const form = document.getElementById('registerForm');
+      function check() {
+        if (!confirm.value) {
+          hint.textContent = ''; hint.className = 'pw-hint'; confirmWrap.className = 'input-wrap'; return true;
+        }
+        if (pw.value !== confirm.value) {
+          hint.textContent = document.documentElement.lang==='en'?'Passwords do not match.':'የይለፍ ቃሎቹ አንድ አይነት አይደሉም';
+          hint.className = 'pw-hint bad'; confirmWrap.className = 'input-wrap pw-bad'; return false;
+        }
+        hint.textContent = document.documentElement.lang==='en'?'Match ✓':'ተመሳሳይ ነው ✓';
+        hint.className = 'pw-hint ok'; confirmWrap.className = 'input-wrap pw-ok'; return true;
+      }
+      pw.addEventListener('input', check);
+      confirm.addEventListener('input', check);
+      form.addEventListener('submit', function (e) {
+        if (pw.value.length < 8) {
+          e.preventDefault();
+          hint.textContent = document.documentElement.lang==='en'?'At least 8 characters required.':'ቢያንስ 8 ፊደላት/ቁጥሮች ያስፈልጋል';
+          hint.className = 'pw-hint bad';
+          pwWrap.className = 'input-wrap pw-bad'; pw.focus(); return;
+        }
+        if (!check()) { e.preventDefault(); confirm.focus(); return; }
+        var days = form.querySelectorAll('input[name="working_days"]:checked');
+        if (days.length === 0) {
+          e.preventDefault();
+          alert(document.documentElement.lang==='en'?'Select at least one working day.':'ቢያንስ አንድ የስራ ቀን ይምረጡ።');
+          return;
+        }
+        var open = form.querySelector('input[name="opening_time"]').value;
+        var close = form.querySelector('input[name="closing_time"]').value;
+        if (open && close && close <= open) {
+          e.preventDefault();
+          alert(document.documentElement.lang==='en'?'Closing time must be after opening time.':'መዝጊያ ሰዓት ከመክፈቻ ሰዓት በኋላ መሆን አለበት።');
+          return;
+        }
+      });
+    })();
+    function toggleLang() {
+      var html = document.documentElement;
+      var next = html.lang === 'am' ? 'en' : 'am';
+      html.lang = next;
+      localStorage.setItem('melkegna_lang', next);
+      var label = document.getElementById('langLabel');
+      if (label) label.textContent = next === 'am' ? 'EN' : 'አማ';
+      document.title = next === 'en' ? 'Register - Melkegna / መልከኛ' : 'ይመዝገቡ - መልከኛ';
+    }
+    (function () {
+      var saved = localStorage.getItem('melkegna_lang') || 'am';
+      document.documentElement.lang = saved;
+      var label = document.getElementById('langLabel');
+      if (label) label.textContent = saved === 'am' ? 'EN' : 'አማ';
+    })();
+  </script>
+</body>
+</html>

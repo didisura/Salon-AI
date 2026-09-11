@@ -72,8 +72,6 @@
   .privacy-link{text-align:center; font-size:.75rem; margin-top:10px; padding-bottom:24px;}
   .privacy-link a{color:var(--muted); text-decoration:none; font-weight:500;}
   .privacy-link a:hover{color:var(--accent-dark); text-decoration:underline;}
-  
-  /* Language toggle — same pattern as dashboard / public booking */
   .lang-toggle {
     position: absolute; top: 18px; right: 16px; z-index: 5;
     display: flex; align-items: center; gap: 6px;
@@ -88,13 +86,11 @@
   html[lang="en"] [data-lang-en] { display: inline !important; }
   html[lang="am"] [data-lang-am] { display: inline !important; }
   html[lang="am"] [data-lang-en] { display: none !important; }
-  /* Block-level bilingual */
   .i18n-block-en { display: none; }
   html[lang="en"] .i18n-block-am { display: none !important; }
   html[lang="en"] .i18n-block-en { display: block !important; }
   html[lang="am"] .i18n-block-am { display: block !important; }
   html[lang="am"] .i18n-block-en { display: none !important; }
-
   @media (max-width:380px){
     .header{padding:28px 18px 90px;} .headline{font-size:1.28rem;} .card{padding:28px 18px 40px;}
   }
@@ -107,5 +103,113 @@
         <span id="langLabel">EN</span>
       </button>
       <div class="brand">
-        <img class="logo-img" src="/static/images/logo.png" alt="Melkegna Logo">
-        <div class="wordmark eng">Melkegna</div>
+        <img class="logo-img" src="/static/logo.png" onerror="this.style.display='none'" alt="Melkegna">
+        <div class="wordmark">Melkegna</div>
+        <div class="brand-am">መልከኛ</div>
+        <div class="tagline">Beauty · Built on Trust</div>
+      </div>
+      <div class="header-text">
+        <h1 class="headline">
+          <span data-lang-am>ፍጥነትዎን አያቋርጡ፣<br><span class="eng">አፈጻጸምዎን</span> ይቀጥሉ</span>
+          <span data-lang-en>Don’t slow down —<br><span class="eng">keep performing</span></span>
+        </h1>
+        <p class="sub">
+          <span data-lang-am>ወደ ዳሽቦርድዎ ተመልሰው ቀጠሮዎችን፣ ደንበኞችዎን እና ገቢዎን በከፍተኛ ፍጥነትና ትክክለኛነት ይቆጣጠሩ።</span>
+          <span data-lang-en>Return to your dashboard and manage appointments, clients, and revenue with speed and accuracy.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      {% if error == 'invalid' %}
+      <div class="alert alert-bad">
+        <span data-lang-am>ስልክ ቁጥር ወይም የይለፍ ቃል ትክክል አይደለም።</span>
+        <span data-lang-en>Phone number or password is incorrect.</span>
+      </div>
+      {% endif %}
+      {% if error == 'rate_limited' %}
+      <div class="alert alert-bad">
+        <span data-lang-am>በጣም ብዙ ሙከራ። ትንሽ ቆይተው እንደገና ይሞክሩ።</span>
+        <span data-lang-en>Too many attempts. Please wait a moment and try again.</span>
+      </div>
+      {% endif %}
+      {% if registered or request.query_params.get('registered') %}
+      <div class="alert alert-ok">
+        <span data-lang-am>ተመዝግበዋል! አሁን ይግቡ።</span>
+        <span data-lang-en>Registered! You can log in now.</span>
+      </div>
+      {% endif %}
+
+      <form action="/login" method="post" novalidate>
+        <div class="field">
+          <label>
+            <span data-lang-am>ስልክ ቁጥር</span>
+            <span data-lang-en>Phone number</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <input type="tel" name="phone" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
+          </div>
+        </div>
+        <div class="field">
+          <label>
+            <span data-lang-am>የይለፍ ቃል</span>
+            <span data-lang-en>Password</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <input type="password" name="password" id="loginPassword" required placeholder="••••••••" autocomplete="current-password">
+            <button type="button" class="eye-toggle" data-target="loginPassword" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">
+          <span data-lang-am>ግባ</span>
+          <span data-lang-en>Log in</span>
+        </button>
+      </form>
+
+      <p class="alt-link">
+        <span data-lang-am>አካውንት የለዎትም? <a href="/register">ይመዝገቡ</a></span>
+        <span data-lang-en>No account? <a href="/register">Register</a></span>
+      </p>
+      <p class="support-line">
+        <span data-lang-am>የደንበኛ ድጋፍ /</span>
+        <span data-lang-en>Support /</span>
+        <a href="tel:0946332194">0946332194</a>
+        <span data-lang-am>ወይም</span>
+        <span data-lang-en>or</span>
+        <a href="tel:0955157398">0955157398</a>
+      </p>
+      <p class="privacy-link">
+        <a href="/privacy"><span data-lang-am>ግላዊነት</span><span data-lang-en>Privacy</span> · Privacy</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.eye-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.dataset.target);
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    });
+    function toggleLang() {
+      var html = document.documentElement;
+      var next = html.lang === 'am' ? 'en' : 'am';
+      html.lang = next;
+      localStorage.setItem('melkegna_lang', next);
+      var label = document.getElementById('langLabel');
+      if (label) label.textContent = next === 'am' ? 'EN' : 'አማ';
+      document.title = next === 'en' ? 'Login - Melkegna / መልከኛ' : 'ግባ - መልከኛ';
+    }
+    (function () {
+      var saved = localStorage.getItem('melkegna_lang') || 'am';
+      document.documentElement.lang = saved;
+      var label = document.getElementById('langLabel');
+      if (label) label.textContent = saved === 'am' ? 'EN' : 'አማ';
+    })();
+  </script>
+</body>
+</html>
