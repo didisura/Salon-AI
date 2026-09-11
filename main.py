@@ -2199,6 +2199,61 @@ async def public_booking_submit(
     )
 
 
+
+@app.get("/book/{salon_ref}/my-bookings")
+def public_my_bookings(
+    salon_ref: str,
+    phone: str = "",
+    db: Session = Depends(get_db),
+):
+    """Customer lookup: list appointments for a phone number at this salon."""
+    salon = _resolve_salon(db, salon_ref)
+    if not salon:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+
+    phone = (phone or "").strip()
+    # Normalize: keep digits only for matching flexibility
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if len(digits) < 9:
+        return JSONResponse({"ok": False, "error": "phone_short", "results": []})
+
+    # Match phone containing the last 9 digits (handles +251 / 0 prefix variants)
+    tail = digits[-9:]
+    rows = (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.customer_phone.isnot(None),
+        )
+        .order_by(Appointment.appointment_datetime.desc())
+        .limit(80)
+        .all()
+    )
+    results = []
+    now = datetime.now()
+    for a in rows:
+        ap_digits = "".join(ch for ch in (a.customer_phone or "") if ch.isdigit())
+        if not ap_digits or tail not in ap_digits:
+            continue
+        st = getattr(a.status, "value", str(a.status))
+        is_upcoming = a.appointment_datetime >= now - timedelta(hours=2)
+        results.append({
+            "id": a.id,
+            "customer_name": a.customer_name,
+            "date": a.appointment_datetime.strftime("%Y-%m-%d"),
+            "time_label": a.appointment_time,
+            "service_name": a.service_name,
+            "staff_name": a.staff_name,
+            "status": st,
+            "party_size": a.party_size or 1,
+            "upcoming": bool(is_upcoming and st not in ("Cancelled", "No-Show", "Completed")),
+        })
+        if len(results) >= 20:
+            break
+
+    return JSONResponse({"ok": True, "results": results, "count": len(results)})
+
+
 @app.get("/book/{salon_ref}/status/{appointment_id}")
 def public_booking_status(salon_ref: str, appointment_id: int, db: Session = Depends(get_db)):
     salon = _resolve_salon(db, salon_ref)

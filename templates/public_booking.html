@@ -444,6 +444,59 @@
         body.success-view .sticky-cta { display: none; }
 
         /* Success */
+
+        /* My bookings lookup */
+        .mybook-card {
+            background: #fff; border: 1px solid var(--border); border-radius: 16px;
+            padding: 16px; margin-bottom: 16px;
+        }
+        .mybook-card h3 {
+            font-size: 0.95rem; font-weight: 800; margin: 0 0 10px; color: var(--text);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .mybook-card h3 i { color: var(--accent); }
+        .mybook-row {
+            display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px;
+        }
+        .mybook-row input {
+            flex: 1; border: 1px solid var(--border); border-radius: 12px;
+            padding: 11px 13px; font-size: 0.95rem; background: #FAFAF8;
+        }
+        .mybook-row input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
+        }
+        .mybook-row button {
+            border: none; background: var(--accent); color: #fff; font-weight: 700;
+            border-radius: 12px; padding: 0 16px; white-space: nowrap; cursor: pointer;
+        }
+        .mybook-row button:active { background: var(--accent-hover); }
+        .mybook-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .mybook-item {
+            border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+            background: #FAFAF8;
+        }
+        .mybook-item.upcoming {
+            border-color: var(--accent); background: var(--cream);
+        }
+        .mybook-item .mb-top {
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+            margin-bottom: 6px;
+        }
+        .mybook-item .mb-date { font-weight: 800; font-size: 0.92rem; color: var(--text); }
+        .mybook-item .mb-time { font-size: 0.82rem; color: var(--accent); font-weight: 700; }
+        .mybook-item .mb-svc { font-size: 0.85rem; font-weight: 600; color: #5A4936; }
+        .mybook-item .mb-meta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+        .mybook-item .mb-status {
+            font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 999px;
+            background: #FFF3E0; color: #E65100; white-space: nowrap;
+        }
+        .mybook-item .mb-status.ok { background: #E8F5E9; color: #2E7D32; }
+        .mybook-item .mb-status.bad { background: #FFEBEE; color: #C62828; }
+        .mybook-empty, .mybook-hint {
+            font-size: 0.82rem; color: var(--muted); text-align: center; padding: 8px 0;
+        }
+
         .confirm-card {
             text-align: center; padding: 32px 20px;
             border-radius: 20px; border: 1px solid #C8E6C9;
@@ -548,7 +601,31 @@
         </span>
     </div>
 
-    <div class="section">
+    
+    <!-- MY BOOKINGS LOOKUP -->
+    <div class="mybook-card" id="myBookingsCard">
+        <h3>
+            <i class="fa-solid fa-calendar-check"></i>
+            <span data-lang-am>የእኔ ቀጠሮዎች</span>
+            <span data-lang-en>My bookings</span>
+        </h3>
+        <p class="small text-muted mb-2" style="margin-top:-4px;">
+            <span data-lang-am>ስልክዎን ያስገቡ — ቀጠሮዎችዎን ይመልከቱ</span>
+            <span data-lang-en>Enter your phone to see your appointments</span>
+        </p>
+        <div class="mybook-row">
+            <input type="tel" id="myBookPhone" inputmode="tel" autocomplete="tel"
+                   placeholder="09xxxxxxxx" aria-label="Phone">
+            <button type="button" id="myBookBtn" onclick="lookupMyBookings()">
+                <span data-lang-am>ፈልግ</span>
+                <span data-lang-en>Find</span>
+            </button>
+        </div>
+        <div id="myBookResults" class="mybook-list" style="display:none;"></div>
+        <p id="myBookHint" class="mybook-hint" style="display:none;"></p>
+    </div>
+
+<div class="section">
         <h2 class="section-title">
             <span data-lang-am>የስራ ናሙናዎች</span>
             <span data-lang-en>Our work</span>
@@ -1658,6 +1735,72 @@ document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
                 : 'እባክዎ የክፍያ screenshot ይስቀሉ።');
         }
     }
+});
+
+
+/* My bookings lookup */
+function lookupMyBookings() {
+    const phone = (document.getElementById('myBookPhone')?.value || '').trim();
+    const results = document.getElementById('myBookResults');
+    const hint = document.getElementById('myBookHint');
+    const en = document.documentElement.lang === 'en';
+    if (!results || !hint) return;
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 9) {
+        results.style.display = 'none';
+        results.innerHTML = '';
+        hint.style.display = 'block';
+        hint.textContent = en ? 'Enter a valid phone number (at least 9 digits).' : 'እባክዎ ትክክለኛ ስልክ ያስገቡ (ቢያንስ 9 አሃዝ)።';
+        return;
+    }
+    hint.style.display = 'block';
+    hint.textContent = en ? 'Searching…' : 'በመፈለግ ላይ…';
+    results.style.display = 'none';
+    const ref = {{ (salon_ref or salon.slug or salon.id)|tojson }};
+    fetch('/book/' + encodeURIComponent(ref) + '/my-bookings?phone=' + encodeURIComponent(phone))
+        .then(r => r.json())
+        .then(data => {
+            if (!data || !data.ok) {
+                hint.textContent = en ? 'Could not load bookings.' : 'ቀጠሮዎችን ማምጣት አልተቻለም።';
+                return;
+            }
+            const rows = data.results || [];
+            if (!rows.length) {
+                results.style.display = 'none';
+                results.innerHTML = '';
+                hint.style.display = 'block';
+                hint.textContent = en ? 'No bookings found for this phone.' : 'በዚህ ስልክ ቀጠሮ አልተገኘም።';
+                return;
+            }
+            hint.style.display = 'none';
+            results.style.display = 'flex';
+            results.innerHTML = rows.map(a => {
+                let stClass = '';
+                if (a.status === 'Confirmed' || a.status === 'Completed') stClass = 'ok';
+                else if (a.status === 'Cancelled' || a.status === 'No-Show') stClass = 'bad';
+                const up = a.upcoming ? ' upcoming' : '';
+                const party = (a.party_size && a.party_size > 1)
+                    ? (en ? ` · ${a.party_size} people` : ` · ${a.party_size} ሰዎች`) : '';
+                return `<div class="mybook-item${up}">
+                    <div class="mb-top">
+                        <div>
+                            <div class="mb-date">${a.date}</div>
+                            <div class="mb-time">${a.time_label || ''}</div>
+                        </div>
+                        <span class="mb-status ${stClass}">${a.status || ''}</span>
+                    </div>
+                    <div class="mb-svc">${a.service_name || ''}${party}</div>
+                    <div class="mb-meta">${a.staff_name || ''} · ${a.customer_name || ''}</div>
+                </div>`;
+            }).join('');
+        })
+        .catch(() => {
+            hint.style.display = 'block';
+            hint.textContent = en ? 'Network error. Try again.' : 'የኔትወርክ ችግር። እንደገና ይሞክሩ።';
+        });
+}
+document.getElementById('myBookPhone')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); lookupMyBookings(); }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
