@@ -517,13 +517,49 @@
         .modal-backdrop {
             z-index: 1055;
         }
+        /* Scrollable modals — works on phone AND desktop */
         .modal-dialog-scrollable {
             max-height: calc(100vh - 1rem);
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-dialog-scrollable .modal-content {
+            max-height: calc(100vh - 1rem);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-dialog-scrollable .modal-header,
+        .modal-dialog-scrollable .modal-footer {
+            flex-shrink: 0;
         }
         .modal-dialog-scrollable .modal-body {
-            overflow-y: auto;
+            overflow-y: auto !important;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+            flex: 1 1 auto;
+            min-height: 0; /* critical for flex child scroll */
+        }
+        @media (min-width: 768px) {
+            .modal-dialog-scrollable {
+                max-height: calc(100vh - 3.5rem);
+                margin-top: 1.75rem;
+                margin-bottom: 1.75rem;
+            }
+            .modal-dialog-scrollable .modal-content {
+                max-height: calc(100vh - 3.5rem);
+            }
+            /* Tall schedule modals: top-align so full height is usable */
+            .modal-dialog.staff-schedule-dialog {
+                margin-top: 1rem;
+                margin-bottom: 1rem;
+                max-height: calc(100vh - 2rem);
+            }
+            .modal-dialog.staff-schedule-dialog .modal-content {
+                max-height: calc(100vh - 2rem);
+            }
         }
         /* Wheels must receive vertical touch scroll on phones */
         .wheel-col {
@@ -1369,6 +1405,13 @@
 
         <!-- ==================== SERVICES ==================== -->
         {% if active_tab == 'services' %}
+        {% if error == 'service_in_use' %}
+        <div class="alert alert-warning border-0 shadow-sm mb-3" style="border-radius:12px;">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            <span data-lang-am>ይህ አገልግሎት በቀጠሮ ተይዟል — ማጥፋት አይቻልም። ቀጠሮዎቹን ከጨረሱ በኋላ ይሞክሩ።</span>
+            <span data-lang-en>This service is used by existing appointments — it can’t be deleted. Finish or cancel those bookings first.</span>
+        </div>
+        {% endif %}
         <section class="card-soft">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">
@@ -1553,6 +1596,13 @@
 
         <!-- ==================== STAFF ==================== -->
         {% if active_tab == 'staff' %}
+        {% if error == 'staff_in_use' %}
+        <div class="alert alert-warning border-0 shadow-sm mb-3" style="border-radius:12px;">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            <span data-lang-am>ይህ ሰራተኛ በቀጠሮ ተይዟል — ማጥፋት አይቻልም።</span>
+            <span data-lang-en>This staff member has appointments — they can’t be deleted yet.</span>
+        </div>
+        {% endif %}
         <section class="card-soft">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">
@@ -1665,9 +1715,12 @@
                     {% endif %}
                 </div>
 
+                <form id="staffPhotoForm-{{ st.id }}" action="/update-staff-photo" method="post" enctype="multipart/form-data" class="d-none">
+                    <input type="hidden" name="staff_id" value="{{ st.id }}">
+                </form>
                 <!-- Edit staff schedule modal -->
                 <div class="modal fade" id="editStaffModal-{{ st.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+                    <div class="modal-dialog modal-dialog-scrollable modal-lg modal-fullscreen-sm-down staff-schedule-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="fw-bold m-0">{{ st.name }} —
@@ -1675,21 +1728,23 @@
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="px-3 pt-3">
-                                <form action="/update-staff-photo" method="post" enctype="multipart/form-data"
-                                      class="d-flex align-items-center gap-3 flex-wrap pb-3 mb-1" style="border-bottom:1px dashed var(--border);">
-                                    <img src="{{ st.photo_url or ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}"
-                                         alt="{{ st.name }}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
-                                    <input type="hidden" name="staff_id" value="{{ st.id }}">
-                                    <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="max-width:190px;" required>
-                                    <button type="submit" class="btn btn-outline-soft btn-sm text-nowrap">
-                                        <i class="fa-solid fa-upload me-1"></i>
-                                        <span data-lang-am>ፎቶ ቀይር</span><span data-lang-en>Change photo</span>
-                                    </button>
-                                </form>
-                            </div>
-                            <form action="/update-staff-schedule" method="post" class="staff-schedule-form" data-staff-id="{{ st.id }}">
+                            <form action="/update-staff-schedule" method="post" class="staff-schedule-form d-flex flex-column flex-grow-1 min-h-0" data-staff-id="{{ st.id }}" style="min-height:0;flex:1 1 auto;overflow:hidden;display:flex;flex-direction:column;">
                                 <div class="modal-body">
+                                    <!-- Photo change (scrolls with body) -->
+                                    <div class="d-flex align-items-center gap-3 flex-wrap pb-3 mb-3" style="border-bottom:1px dashed var(--border);">
+                                        <img src="{{ st.photo_url or ('https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ (st.name | urlencode)) }}"
+                                             alt="{{ st.name }}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
+                                        <div class="flex-grow-1" style="min-width:140px;">
+                                            <label class="form-label small text-muted mb-1">
+                                                <span data-lang-am>ፎቶ ቀይር</span><span data-lang-en>Change photo</span>
+                                            </label>
+                                            <input type="file" form="staffPhotoForm-{{ st.id }}" name="photo" accept="image/*" class="form-control form-control-sm">
+                                            <button type="submit" form="staffPhotoForm-{{ st.id }}" class="btn btn-outline-soft btn-sm text-nowrap mt-1">
+                                                <i class="fa-solid fa-upload me-1"></i>
+                                                <span data-lang-am>አስቀምጥ ፎቶ</span><span data-lang-en>Save photo</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                     <input type="hidden" name="staff_id" value="{{ st.id }}">
                                     <div class="form-check mb-2">
                                         <input class="form-check-input staff-custom-hours-toggle" type="checkbox" name="use_custom_hours" value="1"
@@ -2637,7 +2692,7 @@
 
 <!-- Add Staff -->
 <div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <form action="/add-staff" method="post" enctype="multipart/form-data">
                 <div class="modal-header">

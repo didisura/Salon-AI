@@ -1210,8 +1210,55 @@ def delete_service(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).delete()
-    db.commit()
+    """Delete a service safely.
+    Blocks if appointments still reference it (keeps history/revenue intact).
+    Clears waitlist rows and removes the id from staff.service_ids.
+    """
+    svc = (
+        db.query(Service)
+        .filter(Service.id == service_id, Service.salon_id == salon.id)
+        .first()
+    )
+    if not svc:
+        return RedirectResponse(url="/dashboard?tab=services", status_code=303)
+
+    appt_count = (
+        db.query(func.count(Appointment.id))
+        .filter(Appointment.service_id == service_id, Appointment.salon_id == salon.id)
+        .scalar()
+    ) or 0
+    if appt_count > 0:
+        # Cannot hard-delete: FK + history
+        return RedirectResponse(
+            url="/dashboard?tab=services&error=service_in_use",
+            status_code=303,
+        )
+
+    # Free waitlist rows that point at this service
+    db.query(Waitlist).filter(
+        Waitlist.service_id == service_id, Waitlist.salon_id == salon.id
+    ).delete(synchronize_session=False)
+
+    # Strip this service from staff.service_ids lists
+    for st in db.query(Staff).filter(Staff.salon_id == salon.id).all():
+        ids = st.service_ids
+        if not ids:
+            continue
+        try:
+            cleaned = [int(x) for x in ids if int(x) != int(service_id)]
+        except (TypeError, ValueError):
+            continue
+        st.service_ids = cleaned if cleaned else None
+
+    try:
+        db.delete(svc)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return RedirectResponse(
+            url="/dashboard?tab=services&error=service_in_use",
+            status_code=303,
+        )
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
 
@@ -1267,8 +1314,45 @@ def delete_staff(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).delete()
-    db.commit()
+    """Delete staff safely. Blocks if appointments reference them."""
+    staff = (
+        db.query(Staff)
+        .filter(Staff.id == staff_id, Staff.salon_id == salon.id)
+        .first()
+    )
+    if not staff:
+        return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
+
+    appt_count = (
+        db.query(func.count(Appointment.id))
+        .filter(Appointment.staff_id == staff_id, Appointment.salon_id == salon.id)
+        .scalar()
+    ) or 0
+    if appt_count > 0:
+        return RedirectResponse(
+            url="/dashboard?tab=staff&error=staff_in_use",
+            status_code=303,
+        )
+
+    # Clear waitlist preferred staff
+    db.query(Waitlist).filter(
+        Waitlist.staff_id == staff_id, Waitlist.salon_id == salon.id
+    ).update({Waitlist.staff_id: None}, synchronize_session=False)
+
+    # Day offs cascade via relationship if configured; explicit cleanup for safety
+    db.query(StaffDayOff).filter(StaffDayOff.staff_id == staff_id).delete(
+        synchronize_session=False
+    )
+
+    try:
+        db.delete(staff)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return RedirectResponse(
+            url="/dashboard?tab=staff&error=staff_in_use",
+            status_code=303,
+        )
     return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
 
