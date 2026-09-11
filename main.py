@@ -708,21 +708,22 @@ def _build_conflict_context(
 
 
 def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime) -> float:
-    total = (
-        db.query(func.coalesce(func.sum(Service.price), 0))
-        .join(Appointment, Appointment.service_id == Service.id)
+    """Revenue counts ONLY completed appointments (not confirmed / pending)."""
+    rows = (
+        db.query(Appointment)
         .filter(
             Appointment.salon_id == salon_id,
             Appointment.status.in_([
-                AppointmentStatus.completed, AppointmentStatus.confirmed,
-                "Completed", "Confirmed",
+                AppointmentStatus.completed,
+                "Completed",
             ]),
             Appointment.appointment_datetime >= start_dt,
             Appointment.appointment_datetime < end_dt,
         )
-        .scalar()
+        .all()
     )
-    return float(total or 0)
+    # Prefer snapshot / package-aware service_price property
+    return float(sum(float(a.service_price or 0) for a in rows))
 
 
 # ---------------------------------------------------------------------------
@@ -735,8 +736,10 @@ def root():
 
 
 @app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, error: Optional[str] = None):
-    return templates.TemplateResponse(request, "login.html", {"error": error})
+def login_page(request: Request, error: Optional[str] = None, registered: Optional[str] = None):
+    return templates.TemplateResponse(
+        request, "login.html", {"error": error, "registered": registered}
+    )
 
 
 @app.post("/login")
@@ -946,8 +949,8 @@ def dashboard(
             Appointment.appointment_datetime >= month_start_dt,
             Appointment.appointment_datetime < month_end_dt,
             Appointment.status.in_([
-                AppointmentStatus.completed, AppointmentStatus.confirmed,
-                "Completed", "Confirmed",
+                AppointmentStatus.completed,
+                "Completed",
             ]),
         )
         .all()
@@ -985,8 +988,8 @@ def dashboard(
             Appointment.appointment_datetime >= datetime.combine(sd, datetime.min.time()),
             Appointment.appointment_datetime < datetime.combine(ed + timedelta(days=1), datetime.min.time()),
             Appointment.status.in_([
-                AppointmentStatus.completed, AppointmentStatus.confirmed,
-                "Completed", "Confirmed",
+                AppointmentStatus.completed,
+                "Completed",
             ]),
         )
         .order_by(Appointment.appointment_datetime)
@@ -1175,6 +1178,78 @@ async def book_appointment(
     except Exception:
         pass
     return RedirectResponse(url="/dashboard?tab=home", status_code=303)
+
+
+
+@app.post("/reschedule-appointment")
+async def reschedule_appointment(
+    appointment_id: int = Form(...),
+    appointment_time: str = Form(...),
+    staff_id: Optional[int] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Move an existing appointment to a new date/time (and optional staff)."""
+    appt = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
+        .first()
+    )
+    if not appt:
+        return RedirectResponse(url="/dashboard?tab=home&error=not_found", status_code=303)
+
+    st = getattr(appt.status, "value", str(appt.status))
+    if st in ("Cancelled", "No-Show", "Completed"):
+        return RedirectResponse(url="/dashboard?tab=home&error=cannot_reschedule", status_code=303)
+
+    try:
+        appt_dt = _parse_appt_datetime(appointment_time)
+    except ValueError:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_time", status_code=303)
+
+    new_staff_id = int(staff_id) if staff_id else appt.staff_id
+    staff_obj = db.query(Staff).filter(Staff.id == new_staff_id, Staff.salon_id == salon.id).first()
+    if not staff_obj:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_staff", status_code=303)
+
+    duration = _service_duration(db, appt.service_id) if appt.service_id else 30
+    end_dt = appt_dt + timedelta(minutes=duration)
+
+    svc = None
+    if appt.service_id:
+        svc = db.query(Service).filter(Service.id == appt.service_id).first()
+        if not staff_obj.offers_service(appt.service_id):
+            return RedirectResponse(url="/dashboard?tab=home&error=staff_service", status_code=303)
+
+    allow_outside = bool(svc and getattr(svc, "allow_outside_hours", 0))
+    if not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+        return RedirectResponse(url="/dashboard?tab=home&error=outside_hours", status_code=303)
+
+    # Overlap excluding this appointment itself
+    rows = (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.staff_id == new_staff_id,
+            Appointment.id != appt.id,
+            Appointment.status.in_([
+                AppointmentStatus.confirmed, AppointmentStatus.pending_payment,
+                "Confirmed", "Pending Payment",
+            ]),
+        )
+        .all()
+    )
+    for a in rows:
+        a_start = a.appointment_datetime
+        dur = _service_duration(db, a.service_id) if a.service_id else 30
+        a_end = a_start + timedelta(minutes=dur)
+        if appt_dt < a_end and end_dt > a_start:
+            return RedirectResponse(url="/dashboard?tab=home&error=conflict", status_code=303)
+
+    appt.appointment_datetime = appt_dt
+    appt.staff_id = new_staff_id
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=home&rescheduled=1", status_code=303)
 
 
 @app.post("/update-appointment-status")
@@ -1735,8 +1810,8 @@ def export_revenue(
             Appointment.appointment_datetime >= datetime.combine(sd, datetime.min.time()),
             Appointment.appointment_datetime < datetime.combine(ed + timedelta(days=1), datetime.min.time()),
             Appointment.status.in_([
-                AppointmentStatus.completed, AppointmentStatus.confirmed,
-                "Completed", "Confirmed",
+                AppointmentStatus.completed,
+                "Completed",
             ]),
         )
         .order_by(Appointment.appointment_datetime)

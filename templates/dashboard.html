@@ -1158,6 +1158,13 @@
                                                     <option value="Cancelled" {% if appt.status.value=='Cancelled' %}selected{% endif %}>ተሰርዟል / Cancelled</option>
                                                 </select>
                                             </form>
+                                                <button type="button" class="btn btn-sm btn-outline-soft mt-1"
+                                                        onclick="openReschedule({{ appt.id }}, '{{ appt.customer_name|e }}', '{{ appt.appointment_datetime.strftime('%Y-%m-%d') }}', '{{ appt.appointment_datetime.strftime('%H:%M') }}', {{ appt.staff_id }})"
+                                                        style="font-size:0.78rem;">
+                                                    <i class="fa-solid fa-calendar-day me-1"></i>
+                                                    <span data-lang-am>ቀን ቀይር</span>
+                                                    <span data-lang-en>Reschedule</span>
+                                                </button>
                                         </div>
                                     </div>
                                 </div>
@@ -3355,5 +3362,99 @@ function confirmDeleteService(id, name) {
     document.getElementById('forceDeleteServiceForm').submit();
 }
 </script>
+
+<!-- Reschedule modal -->
+<div class="modal fade" id="rescheduleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="/reschedule-appointment" method="post" id="rescheduleForm">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <span data-lang-am>ቀጠሮ ቀን/ሰዓት ቀይር</span>
+            <span data-lang-en>Reschedule appointment</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="appointment_id" id="rescheduleApptId" value="">
+          <p class="small text-muted mb-2" id="rescheduleCustomerLabel"></p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              <span data-lang-am>አዲስ ቀን</span>
+              <span data-lang-en>New date</span>
+            </label>
+            <input type="date" class="form-control" id="rescheduleDate" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              <span data-lang-am>አዲስ ሰዓት</span>
+              <span data-lang-en>New time</span>
+            </label>
+            <div class="eth-time-picker compact">
+              <div class="eth-wheel-shell">
+                <div class="eth-wheel-highlight"></div>
+                <div class="wheel-col wheel-eth" id="wheelEthReschedule"></div>
+              </div>
+              <div class="eth-preview" id="rescheduleEthPreview">—</div>
+            </div>
+            <input type="hidden" name="appointment_time" id="rescheduleAppointmentTime" value="">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">
+              <span data-lang-am>ሰራተኛ</span>
+              <span data-lang-en>Staff</span>
+            </label>
+            <select class="form-select" name="staff_id" id="rescheduleStaffSelect">
+              {% for st in staff_members %}
+              <option value="{{ st.id }}">{{ st.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-soft" data-bs-dismiss="modal">
+            <span data-lang-am>ሰርዝ</span>
+            <span data-lang-en>Cancel</span>
+          </button>
+          <button type="submit" class="btn btn-accent">
+            <span data-lang-am>አስቀምጥ</span>
+            <span data-lang-en>Save</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function openReschedule(id, name, dateStr, timeHM, staffId) {
+  document.getElementById('rescheduleApptId').value = id;
+  document.getElementById('rescheduleCustomerLabel').textContent = name || '';
+  document.getElementById('rescheduleDate').value = dateStr || '';
+  const staffSel = document.getElementById('rescheduleStaffSelect');
+  if (staffSel && staffId) staffSel.value = String(staffId);
+  const col = document.getElementById('wheelEthReschedule');
+  const hidden = document.getElementById('rescheduleAppointmentTime');
+  const prev = document.getElementById('rescheduleEthPreview');
+  const t = timeHM || '09:00';
+  if (col && typeof fillWheel === 'function') {
+    fillWheel(col, t, (w, label) => {
+      const d = document.getElementById('rescheduleDate')?.value || '';
+      if (hidden) hidden.value = d + 'T' + w + ':00';
+      if (prev) prev.textContent = label + ' ሰዓት';
+    });
+  } else if (hidden) {
+    hidden.value = (dateStr || '') + 'T' + t + ':00';
+  }
+  document.getElementById('rescheduleDate')?.addEventListener('change', function() {
+    const w = (hidden?.value || '').split('T')[1]?.slice(0,5) || t;
+    if (hidden) hidden.value = this.value + 'T' + w + ':00';
+  }, { once: true });
+  const modalEl = document.getElementById('rescheduleModal');
+  if (window.bootstrap && modalEl) {
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+}
+</script>
+
 </body>
 </html>
