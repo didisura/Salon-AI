@@ -1074,6 +1074,7 @@ def dashboard(
     services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
+    # ---- Home metrics ----
     daily_rev = _revenue_between(db, salon.id, day_start, day_end)
     week_start = day_start - timedelta(days=day_start.weekday())
     week_end = week_start + timedelta(days=7)
@@ -1086,6 +1087,54 @@ def dashboard(
     monthly_rev = _revenue_between(db, salon.id, month_start_dt, month_end_dt)
     today_bookings_rev = _booking_count_between(db, salon.id, day_start, day_end)
     avg_booking_today = (daily_rev / today_bookings_rev) if today_bookings_rev else 0.0
+
+    # Total appointments today (any status) — home metric card
+    today_appt_count = int(
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime < day_end,
+        )
+        .scalar() or 0
+    )
+
+    # No-shows today
+    no_show_count_today = int(
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime < day_end,
+            Appointment.status.in_([AppointmentStatus.no_show, "No-Show"]),
+        )
+        .scalar() or 0
+    )
+
+    # Total distinct customers (by phone) + how many are new this month
+    total_customers = int(
+        db.query(func.count(func.distinct(Appointment.customer_phone)))
+        .filter(Appointment.salon_id == salon.id)
+        .scalar() or 0
+    )
+    first_appt_subq = (
+        db.query(
+            Appointment.customer_phone.label("phone"),
+            func.min(Appointment.appointment_datetime).label("first_dt"),
+        )
+        .filter(Appointment.salon_id == salon.id)
+        .group_by(Appointment.customer_phone)
+        .subquery()
+    )
+    new_customers_month = int(
+        db.query(func.count())
+        .select_from(first_appt_subq)
+        .filter(
+            first_appt_subq.c.first_dt >= month_start_dt,
+            first_appt_subq.c.first_dt < month_end_dt,
+        )
+        .scalar() or 0
+    )
 
     # Appointments for selected day (default today)
     view_date = _parse_date(selected_date) or today
@@ -1102,23 +1151,88 @@ def dashboard(
         .all()
     )
 
-    # Waitlist
-    waitlist = (
+    # Waitlist — template loop variable is "waitlist_entries"
+    waitlist_entries = (
         db.query(Waitlist)
         .filter(Waitlist.salon_id == salon.id)
         .order_by(Waitlist.preferred_date, Waitlist.id)
         .all()
     )
 
-    # Revenue tab range
-    rev_start = _parse_date(start_date) or (today - timedelta(days=30))
-    rev_end = _parse_date(end_date) or today
-    if rev_end < rev_start:
-        rev_start, rev_end = rev_end, rev_start
-    rev_start_dt = datetime.combine(rev_start, datetime.min.time())
-    rev_end_dt = datetime.combine(rev_end + timedelta(days=1), datetime.min.time())
-    revenue_rows = _revenue_details_between(db, salon.id, rev_start_dt, rev_end_dt)
-    revenue_total = _revenue_between(db, salon.id, rev_start_dt, rev_end_dt)
+    # ---- Revenue tab: 7-day trend, top services, top staff ----
+    revenue_trend = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        d_start = datetime.combine(d, datetime.min.time())
+        d_end = d_start + timedelta(days=1)
+        revenue_trend.append({
+            "amount": _revenue_between(db, salon.id, d_start, d_end),
+            "weekday": d.weekday(),
+        })
+
+    top_window_start = day_end - timedelta(days=30)
+    svc_rows = (
+        db.query(Service.name, func.coalesce(func.sum(Service.price), 0).label("rev"))
+        .join(Appointment, Appointment.service_id == Service.id)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status.in_([
+                AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed",
+            ]),
+            Appointment.appointment_datetime >= top_window_start,
+            Appointment.appointment_datetime < day_end,
+        )
+        .group_by(Service.name)
+        .order_by(func.sum(Service.price).desc())
+        .limit(5)
+        .all()
+    )
+    total_svc_rev = sum(float(r.rev) for r in svc_rows) or 1.0
+    top_services = [
+        {
+            "name": r.name,
+            "revenue": float(r.rev),
+            "pct": round(float(r.rev) / total_svc_rev * 100),
+        }
+        for r in svc_rows
+    ]
+
+    staff_rows = (
+        db.query(Staff.name, func.count(Appointment.id).label("cnt"))
+        .join(Appointment, Appointment.staff_id == Staff.id)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.status.in_([
+                AppointmentStatus.completed, AppointmentStatus.confirmed, "Completed", "Confirmed",
+            ]),
+            Appointment.appointment_datetime >= top_window_start,
+            Appointment.appointment_datetime < day_end,
+        )
+        .group_by(Staff.name)
+        .order_by(func.count(Appointment.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_staff = [{"name": r.name, "count": r.cnt} for r in staff_rows]
+
+    # ---- Revenue tab: explicit date-range lookup ----
+    # Only populated when the owner actually submitted the "Show" form
+    # (start_date/end_date present in the query string). Otherwise the
+    # template's "custom_rev is not none" block stays hidden.
+    range_start = _parse_date(start_date)
+    range_end = _parse_date(end_date)
+    custom_rev = None
+    custom_details: List[Appointment] = []
+    if range_start and range_end:
+        if range_end < range_start:
+            range_start, range_end = range_end, range_start
+        range_start_dt = datetime.combine(range_start, datetime.min.time())
+        range_end_dt = datetime.combine(range_end + timedelta(days=1), datetime.min.time())
+        custom_rev = _revenue_between(db, salon.id, range_start_dt, range_end_dt)
+        custom_details = _revenue_details_between(db, salon.id, range_start_dt, range_end_dt)
+
+    display_start = (range_start or (today - timedelta(days=30))).isoformat()
+    display_end = (range_end or today).isoformat()
 
     # Gallery + testimonials for settings
     gallery = (
@@ -1134,8 +1248,8 @@ def dashboard(
         .all()
     )
 
-    # Pending payment proofs on home
-    pending_payments = (
+    # Pending payment proofs on home — template variable is "pending_payment_appts"
+    pending_payment_appts = (
         db.query(Appointment)
         .filter(
             Appointment.salon_id == salon.id,
@@ -1146,11 +1260,10 @@ def dashboard(
         .limit(20)
         .all()
     )
-    pending_payment_count = len(pending_payments)
+    pending_payment_count = len(pending_payment_appts)
 
     day_am, day_en = _day_names(view_date)
 
-    # Conflict recovery context (same as public booking)
     context = {
         "request": request,
         "salon": salon,
@@ -1158,23 +1271,30 @@ def dashboard(
         "services": services,
         "staff_members": staff_members,
         "appointments": appointments,
-        "waitlist": waitlist,
+        "waitlist_entries": waitlist_entries,
         "current_date": current_date,
         "selected_date": view_date.isoformat(),
         "selected_day_am": day_am,
         "selected_day_en": day_en,
         "daily_rev": daily_rev,
+        "today_appt_count": today_appt_count,
+        "total_customers": total_customers,
+        "new_customers_month": new_customers_month,
+        "no_show_count_today": no_show_count_today,
         "weekly_rev": weekly_rev,
         "monthly_rev": monthly_rev,
-        "today_bookings": today_bookings_rev,
+        "today_bookings_rev": today_bookings_rev,
         "avg_booking_today": avg_booking_today,
-        "revenue_rows": revenue_rows,
-        "revenue_total": revenue_total,
-        "rev_start": rev_start.isoformat(),
-        "rev_end": rev_end.isoformat(),
+        "revenue_trend": revenue_trend,
+        "top_services": top_services,
+        "top_staff": top_staff,
+        "start_date": display_start,
+        "end_date": display_end,
+        "custom_rev": custom_rev,
+        "custom_details": custom_details,
         "gallery": gallery,
         "testimonials": testimonials,
-        "pending_payments": pending_payments,
+        "pending_payment_appts": pending_payment_appts,
         "pending_payment_count": pending_payment_count,
         "error": error,
         "hours_label": salon.hours_label,
@@ -1217,7 +1337,7 @@ def dashboard(
     return templates.TemplateResponse(request, "dashboard.html", context)
 
 
-@app.get("/dashboard/export-revenue")
+@app.get("/export-revenue")
 def export_revenue_csv(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -1260,7 +1380,7 @@ def export_revenue_csv(
     )
 
 
-@app.post("/update-salon-hours")
+@app.post("/update-hours")
 def update_salon_hours(
     opening_time: str = Form(...),
     closing_time: str = Form(...),
@@ -1272,11 +1392,11 @@ def update_salon_hours(
     open_t = _parse_time_hhmm(opening_time)
     close_t = _parse_time_hhmm(closing_time)
     if not open_t or not close_t or close_t <= open_t:
-        return RedirectResponse(url="/dashboard?tab=home&error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_hours", status_code=status.HTTP_303_SEE_OTHER)
 
     day_ints = sorted({int(d) for d in working_days if d.isdigit() and 0 <= int(d) <= 6})
     if not day_ints:
-        return RedirectResponse(url="/dashboard?tab=home&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_days", status_code=status.HTTP_303_SEE_OTHER)
 
     salon.opening_time = open_t
     salon.closing_time = close_t
@@ -1285,7 +1405,7 @@ def update_salon_hours(
         salon.address = address.strip() or None
     db.commit()
 
-    return RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/dashboard?tab=settings", status_code=status.HTTP_303_SEE_OTHER)
 
 
 # ---------------------------------------------------------------------------
