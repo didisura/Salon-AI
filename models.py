@@ -9,7 +9,6 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
-
 class AppointmentStatus(str, enum.Enum):
     confirmed = "Confirmed"
     completed = "Completed"
@@ -47,14 +46,11 @@ class AppointmentStatusType(TypeDecorator):
             return AppointmentStatus.confirmed
 
 
-
-
 class Salon(Base):
     __tablename__ = "salons"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
-    # Public booking URL path: /book/{slug}
     slug = Column(String(140), unique=True, nullable=True, index=True)
     owner_name = Column(String(120), nullable=False)
     phone = Column(String(30), unique=True, nullable=False, index=True)
@@ -71,10 +67,7 @@ class Salon(Base):
 
     cover_photo_url = Column(String(500), nullable=True)
 
-    # Optional deposit / advance payment
-    deposit_enabled = Column(Integer, nullable=False, default=0)  # 0/1
-    # JSON list of payment methods, e.g.
-    # [{"name":"Telebirr","account":"09...","instructions":"..."}, ...]
+    deposit_enabled = Column(Integer, nullable=False, default=0)
     payment_methods = Column(JSON, nullable=True)
 
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
@@ -168,10 +161,26 @@ class Service(Base):
     name = Column(String(120), nullable=False)
     price = Column(Numeric(10, 2), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
-    # Optional deposit amount for this service (ETB). NULL/0 = no deposit for this service
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
 
+    # --- Package / special offering (bridal, wedding party, etc.) ---
+    # Regular services keep is_package=0. Packages are still bookable
+    # like a service but can bundle multiple treatments, set party size,
+    # and optionally allow booking outside normal salon hours.
+    is_package = Column(Integer, nullable=False, default=0)  # 0/1
+    max_people = Column(Integer, nullable=True)  # e.g. bridal party of 6
+    includes_text = Column(String(600), nullable=True)  # free-text: "Hair, Makeup, Nails"
+    allow_outside_hours = Column(Integer, nullable=False, default=0)  # 0/1 — wedding early/late slots
+
     salon = relationship("Salon", back_populates="services")
+
+    @property
+    def is_pkg(self) -> bool:
+        return bool(self.is_package)
+
+    @property
+    def allows_outside(self) -> bool:
+        return bool(self.allow_outside_hours)
 
 
 class Staff(Base):
@@ -185,6 +194,9 @@ class Staff(Base):
     closing_time = Column(Time, nullable=True)
     working_days = Column(String(20), nullable=True)
     day_hours = Column(JSON, nullable=True)
+    # Which services this staff performs. NULL or [] = ALL services.
+    # Example: [1, 3, 7] means only those service IDs.
+    service_ids = Column(JSON, nullable=True)
 
     salon = relationship("Salon", back_populates="staff_members")
     day_offs = relationship(
@@ -201,6 +213,18 @@ class Staff(Base):
         if not self.working_days:
             return salon.working_days_set
         return {int(d) for d in self.working_days.split(",") if d.strip().isdigit()}
+
+    def offers_service(self, service_id: int) -> bool:
+        """True if this staff can perform the given service.
+        Empty/None service_ids means they do ALL services.
+        """
+        ids = self.service_ids
+        if not ids:
+            return True
+        try:
+            return int(service_id) in {int(x) for x in ids}
+        except (TypeError, ValueError):
+            return True
 
     @property
     def hours_label(self) -> str:
@@ -253,11 +277,13 @@ class Appointment(Base):
     source = Column(String(20), default="walk-in")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Deposit / payment proof
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
     payment_method = Column(String(80), nullable=True)
     payment_screenshot_url = Column(String(500), nullable=True)
-    payment_reviewed = Column(Integer, nullable=False, default=0)  # 0=show on Home, 1=dismissed
+    payment_reviewed = Column(Integer, nullable=False, default=0)
+
+    # Party size when booking a package (bridal party, etc.)
+    party_size = Column(Integer, nullable=True, default=1)
 
     salon = relationship("Salon", back_populates="appointments")
     service = relationship("Service")

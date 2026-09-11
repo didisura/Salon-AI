@@ -226,6 +226,38 @@
             font-size: 0.65rem; color: var(--muted); font-weight: 600; margin-top: 4px;
         }
 
+        /* Special packages (bridal / wedding party) */
+        .pkg-section { margin-bottom: 20px; }
+        .pkg-card {
+            background: #fff; border: 1.5px solid var(--border); border-radius: 16px;
+            padding: 16px; margin-bottom: 10px; cursor: pointer; transition: all .15s;
+            position: relative;
+        }
+        .pkg-card:hover, .pkg-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
+            background: var(--cream);
+        }
+        .pkg-card input { display: none; }
+        .pkg-badge {
+            display: inline-block; font-size: 0.65rem; font-weight: 800;
+            background: linear-gradient(135deg, #9C6B3F, #ED6C02); color: #fff;
+            padding: 3px 10px; border-radius: 999px; margin-bottom: 8px;
+        }
+        .pkg-name { font-weight: 800; font-size: 1.05rem; margin: 0 0 4px; color: var(--text); }
+        .pkg-includes { font-size: 0.8rem; color: #5A4936; margin: 0 0 6px; line-height: 1.4; }
+        .pkg-meta {
+            display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 0.78rem;
+            font-weight: 600; color: var(--muted); margin-bottom: 4px;
+        }
+        .pkg-meta i { color: var(--accent); }
+        .pkg-price { font-weight: 800; color: var(--accent); font-size: 1.05rem; }
+        .pkg-outside {
+            font-size: 0.72rem; font-weight: 700; color: #E65100;
+            background: #FFF8E1; border: 1px solid #FFE0B2; border-radius: 8px;
+            padding: 4px 8px; display: inline-block; margin-top: 6px;
+        }
+
         /* Booking card */
         .book-card {
             background: #fff; border: 1px solid var(--border); border-radius: 20px;
@@ -294,6 +326,7 @@
         }
         .staff-pick input:checked ~ .staff-check { display: flex; }
         .staff-pick .nm { font-size: 0.78rem; font-weight: 700; color: #5A4936; }
+        .staff-pick.staff-hidden { display: none !important; }
         .staff-any {
             border: 1.5px dashed var(--border); border-radius: 14px; padding: 12px;
             text-align: center; cursor: pointer; margin-top: 8px; font-weight: 600; font-size: 0.85rem; color: var(--muted);
@@ -493,6 +526,55 @@
             <span data-lang-en>Open today</span>
         </span>
     </div>
+
+    <!-- SPECIAL PACKAGES (bridal / wedding etc.) — only if salon has any -->
+    {% set packages = services | selectattr('is_package') | list if services is defined else [] %}
+    {% if packages %}
+    <div class="section pkg-section">
+        <h2 class="section-title">
+            <span data-lang-am>ልዩ ፓኬጆች</span>
+            <span data-lang-en>Special packages</span>
+        </h2>
+        <p class="small text-muted mb-2" style="margin-top:-6px;">
+            <span data-lang-am>የሰርግ፣ ብራይዳልና ሌሎች ቡድን ፓኬጆች — በፓኬጅ ሰዓት ውጪም ማስያዝ ይቻላል።</span>
+            <span data-lang-en>Wedding, bridal & group packages — some allow booking outside normal hours.</span>
+        </p>
+        {% for s in packages %}
+        <label class="pkg-card" onclick="pickPackage({{ s.id }}, this)">
+            <input type="radio" name="_pkg_visual" value="{{ s.id }}">
+            <span class="pkg-badge">
+                <i class="fa-solid fa-gift me-1"></i>
+                <span data-lang-am>ፓኬጅ</span><span data-lang-en>Package</span>
+            </span>
+            <div class="pkg-name">{{ s.name }}</div>
+            {% if s.includes_text %}
+            <p class="pkg-includes">{{ s.includes_text }}</p>
+            {% endif %}
+            <div class="pkg-meta">
+                {% if s.duration_minutes %}
+                <span><i class="fa-regular fa-clock"></i> {{ s.duration_minutes }}
+                    <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span></span>
+                {% endif %}
+                {% if s.max_people %}
+                <span><i class="fa-solid fa-users"></i>
+                    <span data-lang-am>እስከ</span><span data-lang-en>Up to</span>
+                    {{ s.max_people }}
+                    <span data-lang-am>ሰዎች</span><span data-lang-en>people</span>
+                </span>
+                {% endif %}
+            </div>
+            <div class="pkg-price">{{ s.price }} ETB</div>
+            {% if s.allow_outside_hours %}
+            <div class="pkg-outside">
+                <i class="fa-solid fa-moon me-1"></i>
+                <span data-lang-am>ከስራ ሰዓት ውጪም ይቻላል</span>
+                <span data-lang-en>Outside hours allowed</span>
+            </div>
+            {% endif %}
+        </label>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <!-- GALLERY -->
     <div class="section">
@@ -896,16 +978,29 @@
                 </h2>
                 <div class="svc-list">
                     {% for s in services %}
-                    <label class="svc-card {% if conflict_service and s.id == conflict_service %}selected{% elif not conflict_service and loop.first %}selected{% endif %}">
+                    <label class="svc-card {% if conflict_service and s.id == conflict_service %}selected{% elif not conflict_service and loop.first %}selected{% endif %}"
+                           data-service-id="{{ s.id }}">
                         <input type="radio" name="service_id" value="{{ s.id }}"
                             data-name="{{ s.name }}" data-price="{{ s.price }}" data-deposit="{{ s.deposit_amount or 0 }}"
+                            data-is-package="{{ 1 if s.is_package else 0 }}"
+                            data-max-people="{{ s.max_people or 0 }}"
+                            data-allow-outside="{{ 1 if s.allow_outside_hours else 0 }}"
                             {% if conflict_service and s.id == conflict_service %}checked{% elif not conflict_service and loop.first %}checked{% endif %}
                             required onchange="onServicePick(this)">
-                        <div class="svc-icon"><i class="fa-solid fa-spa"></i></div>
+                        <div class="svc-icon"><i class="fa-solid {% if s.is_package %}fa-gift{% else %}fa-spa{% endif %}"></i></div>
                         <div class="svc-body">
-                            <p class="svc-name">{{ s.name }}</p>
+                            <p class="svc-name">
+                                {{ s.name }}
+                                {% if s.is_package %}<span class="pkg-badge" style="margin-left:6px;font-size:0.6rem;vertical-align:middle;">ፓኬጅ / Pkg</span>{% endif %}
+                            </p>
                             <p class="svc-meta">
                                 {% if s.duration_minutes %}{{ s.duration_minutes }} <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>{% else %}—{% endif %}
+                                {% if s.is_package and s.max_people %}
+                                · <i class="fa-solid fa-users"></i> {{ s.max_people }}
+                                {% endif %}
+                                {% if s.is_package and s.includes_text %}
+                                <br><span style="font-size:0.72rem;">{{ s.includes_text }}</span>
+                                {% endif %}
                             </p>
                         </div>
                         <div class="svc-price">
@@ -919,6 +1014,17 @@
                         </div>
                     </label>
                     {% endfor %}
+
+                    <!-- Party size (shown only for packages) -->
+                    <div id="partySizeBlock" style="display:none;margin-top:12px;">
+                        <label class="form-label">
+                            <span data-lang-am>ስንት ሰዎች? (ፓኬጅ)</span>
+                            <span data-lang-en>How many people? (package)</span>
+                        </label>
+                        <input type="number" name="party_size" id="partySize" class="form-control"
+                               min="1" max="50" value="1" style="max-width:140px;">
+                        <p class="small text-muted mt-1 mb-0" id="partySizeHint"></p>
+                    </div>
                 </div>
                 <div class="step-nav">
                     <button type="button" class="btn-next" onclick="goStep(2)">
@@ -935,17 +1041,19 @@
                     <span data-lang-am>ባለሙያ ይምረጡ</span>
                     <span data-lang-en>Choose professional</span>
                 </h2>
-                <div class="staff-list">
+                <div class="staff-list" id="staffList">
                     {% for st in staff_members %}
                     {% set avatar_name = (st.name or 'S')|replace(' ', '+') %}
                     {% set avatar_url = 'https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ avatar_name %}
                     {% set photo_src = st.photo_url if (st.photo_url and st.photo_url|trim) else avatar_url %}
-                    <label class="staff-pick">
+                    {% set sid_list = st.service_ids if st.service_ids else [] %}
+                    <label class="staff-pick" data-services="{{ sid_list|join(',') if sid_list else 'all' }}">
                         <input type="radio" name="staff_id" value="{{ st.id }}"
                             data-name="{{ st.name }}"
                             data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
                             data-close="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}"
                             data-days="{{ st.working_days if st.working_days else salon.working_days }}"
+                            data-services="{{ sid_list|join(',') if sid_list else 'all' }}"
                             {% if conflict_staff and st.id == conflict_staff %}checked
                             {% elif not conflict_staff and loop.first %}checked{% endif %}
                             required onchange="onStaffPick()">
@@ -957,6 +1065,10 @@
                     </label>
                     {% endfor %}
                 </div>
+                <p class="small text-muted mt-2 mb-0" id="noStaffForService" style="display:none;">
+                    <span data-lang-am>ለዚህ አገልግሎት ባለሙያ አልተመደበም። ሌላ አገልግሎት ይምረጡ ወይም ሳሎኑን ይደውሉ።</span>
+                    <span data-lang-en>No professional is assigned to this service. Choose another or call the salon.</span>
+                </p>
                 <div class="step-nav">
                     <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
                     <button type="button" class="btn-next" onclick="goStep(3)">
@@ -1205,7 +1317,16 @@ function startBooking() {
 let currentStep = 1;
 function goStep(n) {
     if (n === 2 && !document.querySelector('input[name="service_id"]:checked')) return;
-    if (n === 3 && !document.querySelector('input[name="staff_id"]:checked')) return;
+    if (n === 2) filterStaffForService();
+    if (n === 3) {
+        filterStaffForService();
+        if (!document.querySelector('input[name="staff_id"]:checked')) {
+            alert(document.documentElement.lang === 'en'
+                ? 'Please choose a professional for this service.'
+                : 'እባክዎ ለዚህ አገልግሎት ባለሙያ ይምረጡ።');
+            return;
+        }
+    }
     if (n === 4) {
         updatePreviewAndHidden();
         if (!document.getElementById('appointmentTimeHidden').value) {
@@ -1238,6 +1359,20 @@ function goStep(n) {
     }, 50);
 }
 
+function pickPackage(id, card) {
+    document.querySelectorAll('.pkg-card').forEach(c => c.classList.remove('selected'));
+    if (card) card.classList.add('selected');
+    const radio = document.querySelector('input[name="service_id"][value="' + id + '"]');
+    if (radio) {
+        radio.checked = true;
+        onServicePick(radio);
+        startBooking();
+        goStep(1);
+        // scroll to selected service card
+        const svcCard = radio.closest('.svc-card');
+        if (svcCard) svcCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
 function onServicePick(el) {
     document.querySelectorAll('.svc-card').forEach(c => c.classList.remove('selected'));
     el.closest('.svc-card').classList.add('selected');
@@ -1248,6 +1383,63 @@ function onServicePick(el) {
         label.innerHTML = en
             ? `<span data-lang-en style="display:inline">From ${price} ETB</span>`
             : `<span data-lang-am style="display:inline">ከ ${price} ብር ጀምሮ</span>`;
+    }
+    // Party size for packages
+    const isPkg = el.dataset.isPackage === '1';
+    const maxP = parseInt(el.dataset.maxPeople || '0', 10) || 0;
+    const block = document.getElementById('partySizeBlock');
+    const input = document.getElementById('partySize');
+    const hint = document.getElementById('partySizeHint');
+    if (block && input) {
+        if (isPkg) {
+            block.style.display = 'block';
+            if (maxP > 0) {
+                input.max = maxP;
+                hint.textContent = (document.documentElement.lang === 'en'
+                    ? `Maximum ${maxP} people for this package`
+                    : `ለዚህ ፓኬጅ ከፍተኛው ${maxP} ሰዎች`);
+            } else {
+                input.removeAttribute('max');
+                hint.textContent = '';
+            }
+        } else {
+            block.style.display = 'none';
+            input.value = '1';
+        }
+    }
+    filterStaffForService();
+}
+function filterStaffForService() {
+    const svc = document.querySelector('input[name="service_id"]:checked');
+    const svcId = svc ? String(svc.value) : '';
+    const picks = document.querySelectorAll('.staff-pick');
+    let visible = 0;
+    let firstVisible = null;
+    picks.forEach(pick => {
+        const raw = pick.dataset.services || 'all';
+        let ok = true;
+        if (raw !== 'all' && svcId) {
+            const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
+            ok = ids.includes(svcId);
+        }
+        pick.classList.toggle('staff-hidden', !ok);
+        const radio = pick.querySelector('input[name="staff_id"]');
+        if (!ok && radio) {
+            radio.checked = false;
+            radio.removeAttribute('required');
+        } else if (radio) {
+            radio.required = true;
+            if (!firstVisible) firstVisible = radio;
+            visible += 1;
+        }
+    });
+    const none = document.getElementById('noStaffForService');
+    if (none) none.style.display = visible === 0 ? 'block' : 'none';
+    // Auto-select first visible if none selected
+    const checked = document.querySelector('input[name="staff_id"]:checked');
+    if ((!checked || checked.closest('.staff-pick')?.classList.contains('staff-hidden')) && firstVisible) {
+        firstVisible.checked = true;
+        onStaffPick();
     }
 }
 function onStaffPick() { updateStaffHint(); }
@@ -1440,6 +1632,7 @@ document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    filterStaffForService();
     updateStaffHint();
     updatePreviewAndHidden();
     const conflictTime = "{{ conflict_time or '' }}";
