@@ -983,50 +983,178 @@
             <span data-lang-en>That time is outside the staff member’s working hours.</span>
         </div>
         {% endif %}
-        {% if error == 'conflict' %}
-        <div class="alert alert-danger">
-            <div class="mb-2">
-                <span data-lang-am>ይህ ሰዓት ተይዟል። አማራጭ ይምረጡ፦</span>
-                <span data-lang-en>This time is taken. Choose an option:</span>
-            </div>
-            {% if next_slot %}
-            <form action="/book/{{ salon.slug or salon.id }}" method="post" class="d-inline-block me-1 mb-1">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                <input type="hidden" name="appointment_time" value="{{ next_slot }}">
-                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                    <span data-lang-am>በ{{ next_slot_display }} ያዙ</span>
-                    <span data-lang-en>Book at {{ next_slot_display }}</span>
-                </button>
-            </form>
-            {% endif %}
-            {% for alt in alt_staff %}
-            <form action="/book/{{ salon.slug or salon.id }}" method="post" class="d-inline-block me-1 mb-1">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ alt.id }}">
-                <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
-                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                    {{ alt.name }}
-                </button>
-            </form>
-            {% endfor %}
-            <form action="/book/{{ salon.slug or salon.id }}/waitlist" method="post" class="d-inline-block mb-1">
-                <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-                <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-                <input type="hidden" name="service_id" value="{{ conflict_service }}">
-                <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-                <input type="hidden" name="preferred_date" value="{{ conflict_date }}">
-                <button type="submit" class="btn btn-sm" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                    <span data-lang-am>ተጠባባቂ ዝርዝር</span>
-                    <span data-lang-en>Waitlist</span>
-                </button>
-            </form>
-        </div>
-        {% endif %}
+        {#
+  Public booking conflict panel — paste near the top of the booking card
+  (after trust bar / before step 1), when error == 'conflict'.
+
+  Expects context from _build_conflict_context:
+    conflict_name, conflict_phone, conflict_service, conflict_staff,
+    conflict_staff_name, conflict_time, conflict_date,
+    alt_staff, next_slot, next_slot_display
+  And salon_ref for form actions.
+#}
+
+{% if error == 'conflict' %}
+<style>
+  .conflict-panel {
+    border: 1.5px solid #f5c2c7;
+    background: linear-gradient(180deg, #fff5f5 0%, #fff 60%);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .conflict-panel .cp-title {
+    font-weight: 800;
+    color: #842029;
+    margin: 0 0 6px;
+    font-size: 0.98rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .conflict-panel .cp-sub {
+    font-size: 0.82rem;
+    color: #7A6E6E;
+    margin: 0 0 12px;
+  }
+  .conflict-panel .cp-section-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #5A4936;
+    margin: 0 0 8px;
+  }
+  .conflict-panel .cp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .conflict-panel .btn-alt {
+    background: var(--accent, #9C6B3F);
+    color: #fff;
+    border: none;
+    font-weight: 700;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    min-height: 42px;
+  }
+  .conflict-panel .btn-next-slot {
+    background: #fff;
+    color: #5A4936;
+    border: 1.5px solid var(--border, #E3D3C0);
+    font-weight: 700;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    min-height: 42px;
+  }
+  .conflict-panel .btn-wait {
+    background: #fff;
+    color: #7A6E6E;
+    border: 1px dashed var(--border, #E3D3C0);
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    min-height: 42px;
+  }
+</style>
+
+<div class="conflict-panel" role="alert">
+  <p class="cp-title">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>
+      <span data-lang-am>ይህ ሰዓት ተይዟል</span>
+      <span data-lang-en>This time is taken</span>
+      {% if conflict_staff_name %} — {{ conflict_staff_name }}{% endif %}
+    </span>
+  </p>
+  <p class="cp-sub">
+    <span data-lang-am>ከታች ካሉት አማራጮች አንዱን ይምረጡ — በፍጥነት ቀጠሮ ይያዙ።</span>
+    <span data-lang-en>Pick one option below to finish booking quickly.</span>
+  </p>
+
+  {# 1) Same slot — other staff who offer this service #}
+  {% if alt_staff %}
+  <p class="cp-section-label">
+    <i class="fa-solid fa-user-check me-1" style="color:var(--accent,#9C6B3F);"></i>
+    <span data-lang-am>በተመሳሳይ ሰዓት የሚገኙ (ለዚህ አገልግሎት)</span>
+    <span data-lang-en>Available at the same time (for this service)</span>
+  </p>
+  <div class="cp-actions">
+    {% for alt in alt_staff %}
+    <form method="post" action="/book/{{ salon_ref }}" enctype="multipart/form-data">
+      <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+      <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+      <input type="hidden" name="service_id" value="{{ conflict_service }}">
+      <input type="hidden" name="staff_id" value="{{ alt.id }}">
+      <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
+      <input type="hidden" name="party_size" value="1">
+      <button type="submit" class="btn-alt">
+        <i class="fa-solid fa-user me-1"></i>{{ alt.name }}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# 2) Same preferred staff — next free slot #}
+  {% if next_slot and conflict_staff %}
+  <p class="cp-section-label">
+    <i class="fa-solid fa-clock me-1" style="color:var(--accent,#9C6B3F);"></i>
+    <span data-lang-am>ተመራጭ ባለሙያ — ቀጣይ ነፃ ሰዓት</span>
+    <span data-lang-en>Preferred pro — next free slot</span>
+  </p>
+  <div class="cp-actions">
+    <form method="post" action="/book/{{ salon_ref }}" enctype="multipart/form-data">
+      <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+      <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+      <input type="hidden" name="service_id" value="{{ conflict_service }}">
+      <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+      <input type="hidden" name="appointment_time" value="{{ next_slot }}">
+      <input type="hidden" name="party_size" value="1">
+      <button type="submit" class="btn-next-slot">
+        {% if conflict_staff_name %}{{ conflict_staff_name }} · {% endif %}
+        {{ next_slot_display or next_slot }}
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  {# 3) Waitlist #}
+  <p class="cp-section-label">
+    <i class="fa-solid fa-list-check me-1"></i>
+    <span data-lang-am>ወይም ተጠባባቂ ላይ ይግቡ</span>
+    <span data-lang-en>Or join the waitlist</span>
+  </p>
+  <div class="cp-actions">
+    <form method="post" action="/book/{{ salon_ref }}/waitlist">
+      <input type="hidden" name="customer_name" value="{{ conflict_name }}">
+      <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
+      <input type="hidden" name="service_id" value="{{ conflict_service }}">
+      {% if conflict_staff %}
+      <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+      {% endif %}
+      <input type="hidden" name="preferred_date" value="{{ conflict_date or current_date }}">
+      <button type="submit" class="btn-wait">
+        <i class="fa-solid fa-list-check me-1"></i>
+        <span data-lang-am>ተጠባባቂ ላይ ጨምር</span>
+        <span data-lang-en>Join waitlist</span>
+      </button>
+    </form>
+  </div>
+
+  {% if not alt_staff and not next_slot %}
+  <p class="small text-muted mb-0">
+    <span data-lang-am>በአሁኑ ጊዜ ሌላ ነፃ ባለሙያ ወይም ሰዓት አልተገኘም — ተጠባባቂ ይመከራል።</span>
+    <span data-lang-en>No other free pro or slot found right now — waitlist is recommended.</span>
+  </p>
+  {% endif %}
+</div>
+{% endif %}
+
+        
 
         <!-- Progress -->
         <div class="steps-bar" id="stepsBar">

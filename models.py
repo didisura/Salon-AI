@@ -164,20 +164,14 @@ class Service(Base):
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
 
     # --- Package / special offering (bridal, wedding party, etc.) ---
-    # Regular services keep is_package=0. Packages are still bookable
-    # like a service but can bundle multiple treatments, set party size,
-    # and optionally allow booking outside normal salon hours.
     is_package = Column(Integer, nullable=False, default=0)  # 0/1
-    min_people = Column(Integer, nullable=True, default=1)  # least party size (e.g. 1 bride)
-    max_people = Column(Integer, nullable=True)  # upper limit (e.g. 10)
-    includes_text = Column(String(600), nullable=True)  # free-text: "Hair, Makeup, Nails"
-    allow_outside_hours = Column(Integer, nullable=False, default=0)  # 0/1 — wedding early/late slots
-    photo_url = Column(String(500), nullable=True)  # package marketing image
-    # Pricing: base `price` = primary person (bride / main guest).
-    # If extra_person_price is set: total = price + (party_size - 1) * extra_person_price
-    # If extra_person_price is null/0: flat package price regardless of party size.
+    min_people = Column(Integer, nullable=True, default=1)
+    max_people = Column(Integer, nullable=True)
+    includes_text = Column(String(600), nullable=True)
+    allow_outside_hours = Column(Integer, nullable=False, default=0)
+    photo_url = Column(String(500), nullable=True)
     extra_person_price = Column(Numeric(10, 2), nullable=True)
-    is_active = Column(Integer, nullable=False, default=1)  # 0 = archived/hidden from booking
+    is_active = Column(Integer, nullable=False, default=1)
 
     salon = relationship("Salon", back_populates="services")
 
@@ -190,9 +184,6 @@ class Service(Base):
         return bool(self.allow_outside_hours)
 
     def package_total(self, party_size: int = 1) -> float:
-        """Total package price for a given party size.
-        primary (price) + (n-1)*extra_person_price when extra is set; else flat price.
-        """
         base = float(self.price or 0)
         n = max(1, int(party_size or 1))
         mn = int(self.min_people or 1)
@@ -218,8 +209,6 @@ class Staff(Base):
     closing_time = Column(Time, nullable=True)
     working_days = Column(String(20), nullable=True)
     day_hours = Column(JSON, nullable=True)
-    # Which services this staff performs. NULL or [] = ALL services.
-    # Example: [1, 3, 7] means only those service IDs.
     service_ids = Column(JSON, nullable=True)
 
     salon = relationship("Salon", back_populates="staff_members")
@@ -239,9 +228,6 @@ class Staff(Base):
         return {int(d) for d in self.working_days.split(",") if d.strip().isdigit()}
 
     def offers_service(self, service_id: int) -> bool:
-        """True if this staff can perform the given service.
-        Empty/None service_ids means they do ALL services.
-        """
         ids = self.service_ids
         if not ids:
             return True
@@ -296,7 +282,6 @@ class Appointment(Base):
     customer_phone = Column(String(30), nullable=False, index=True)
     service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
-    # Snapshots so service/staff can be deleted without losing history
     service_name_snap = Column(String(120), nullable=True)
     service_price_snap = Column(Numeric(10, 2), nullable=True)
     appointment_datetime = Column(DateTime, nullable=False, index=True)
@@ -309,7 +294,6 @@ class Appointment(Base):
     payment_screenshot_url = Column(String(500), nullable=True)
     payment_reviewed = Column(Integer, nullable=False, default=0)
 
-    # Party size when booking a package (bridal party, etc.)
     party_size = Column(Integer, nullable=True, default=1)
 
     salon = relationship("Salon", back_populates="appointments")
