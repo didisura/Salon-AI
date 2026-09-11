@@ -3162,25 +3162,66 @@ function copyBookingLink() {
     });
 }
 
-/* Status AJAX */
+/* Status AJAX — Complete / No-Show / Cancel without full page reload */
 function submitStatusAjax(form, apptId) {
     const fd = new FormData(form);
-    fetch(form.action, { method: 'POST', body: fd })
-        .then(r => r.ok ? r.json().catch(() => ({})) : Promise.reject())
-        .then(() => {
+    // Ensure status is present (select name="status")
+    if (!fd.get('status') && !fd.get('status_value')) {
+        const sel = document.getElementById('status-select-' + apptId);
+        if (sel) fd.set('status', sel.value);
+    }
+    fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+    })
+        .then(async (r) => {
+            let data = null;
+            try { data = await r.json(); } catch (e) { data = null; }
+            if (!r.ok || (data && data.ok === false)) {
+                throw new Error((data && data.error) || ('HTTP ' + r.status));
+            }
+            return data || {};
+        })
+        .then((data) => {
             const sel = document.getElementById('status-select-' + apptId);
             const badge = document.querySelector('.status-badge-' + apptId);
-            if (badge && sel) {
-                const v = sel.value;
+            const v = (data && data.status) || (sel && sel.value) || '';
+            if (sel && data && data.status) {
+                // sync select to server value
+                for (const opt of sel.options) {
+                    if (opt.value === data.status) { sel.value = data.status; break; }
+                }
+            }
+            if (badge) {
                 badge.dataset.status = v;
                 badge.className = 'badge ms-2 status-badge-' + apptId +
                     (v === 'Completed' ? ' bg-success' :
                      v === 'Cancelled' ? ' bg-danger' :
-                     v === 'No-Show' ? ' bg-dark' : ' bg-warning text-dark');
-                // keep bilingual text roughly
+                     v === 'No-Show' ? ' bg-dark' :
+                     v === 'Pending Payment' ? ' bg-warning text-dark' : ' bg-warning text-dark');
+                // bilingual label
+                const labels = {
+                    'Completed': { am: 'ተሰርቷል', en: 'Completed' },
+                    'Cancelled': { am: 'ተሰርዟል', en: 'Cancelled' },
+                    'No-Show': { am: 'አልመጣም', en: 'No-Show' },
+                    'Confirmed': { am: 'ተረጋግጧል', en: 'Confirmed' },
+                    'Pending Payment': { am: 'ክፍያ በመጠባበቅ', en: 'Pending' },
+                };
+                const L = labels[v];
+                if (L) {
+                    badge.innerHTML = '<span class="status-label-am">' + L.am + '</span><span class="status-label-en">' + L.en + '</span>';
+                }
             }
         })
-        .catch(() => form.submit());
+        .catch((err) => {
+            console.warn('status update failed, falling back to full submit', err);
+            form.submit();
+        });
 }
 
 /* Swipe complete / no-show */

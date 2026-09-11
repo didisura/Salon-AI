@@ -602,28 +602,6 @@
     </div>
 
     
-    <!-- MY BOOKINGS LOOKUP -->
-    <div class="mybook-card" id="myBookingsCard">
-        <h3>
-            <i class="fa-solid fa-calendar-check"></i>
-            <span data-lang-am>የእኔ ቀጠሮዎች</span>
-            <span data-lang-en>My bookings</span>
-        </h3>
-        <p class="small text-muted mb-2" style="margin-top:-4px;">
-            <span data-lang-am>ስልክዎን ያስገቡ — ቀጠሮዎችዎን ይመልከቱ</span>
-            <span data-lang-en>Enter your phone to see your appointments</span>
-        </p>
-        <div class="mybook-row">
-            <input type="tel" id="myBookPhone" inputmode="tel" autocomplete="tel"
-                   placeholder="09xxxxxxxx" aria-label="Phone">
-            <button type="button" id="myBookBtn" onclick="lookupMyBookings()">
-                <span data-lang-am>ፈልግ</span>
-                <span data-lang-en>Find</span>
-            </button>
-        </div>
-        <div id="myBookResults" class="mybook-list" style="display:none;"></div>
-        <p id="myBookHint" class="mybook-hint" style="display:none;"></p>
-    </div>
 
 <div class="section">
         <h2 class="section-title">
@@ -799,6 +777,30 @@
         </div>
     </div>
     {% endif %}
+
+    
+    <!-- MY BOOKINGS LOOKUP -->
+    <div class="mybook-card" id="myBookingsCard">
+        <h3>
+            <i class="fa-solid fa-calendar-check"></i>
+            <span data-lang-am>የእኔ ቀጠሮዎች</span>
+            <span data-lang-en>My bookings</span>
+        </h3>
+        <p class="small text-muted mb-2" style="margin-top:-4px;">
+            <span data-lang-am>ስልክዎን ያስገቡ — ቀጠሮዎችዎን ይመልከቱ</span>
+            <span data-lang-en>Enter your phone to see your appointments</span>
+        </p>
+        <div class="mybook-row">
+            <input type="tel" id="myBookPhone" inputmode="tel" autocomplete="tel"
+                   placeholder="09xxxxxxxx" aria-label="Phone">
+            <button type="button" id="myBookBtn" onclick="lookupMyBookings()">
+                <span data-lang-am>ፈልግ</span>
+                <span data-lang-en>Find</span>
+            </button>
+        </div>
+        <div id="myBookResults" class="mybook-list" style="display:none;"></div>
+        <p id="myBookHint" class="mybook-hint" style="display:none;"></p>
+    </div>
 
     {% if salon.phone %}
     <div class="location-strip">

@@ -1179,22 +1179,80 @@ async def book_appointment(
 
 @app.post("/update-appointment-status")
 async def update_appointment_status(
+    request: Request,
     appointment_id: int = Form(...),
-    status_value: str = Form(...),
+    # Dashboard forms post name="status"; accept both for compatibility
+    status: Optional[str] = Form(None),
+    status_value: Optional[str] = Form(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    """Mark appointment Confirmed / Completed / No-Show / Cancelled / Pending Payment.
+
+    AJAX (fetch from dashboard) gets JSON. Normal form posts get a redirect.
+    """
+    raw = (status or status_value or "").strip()
+    if not raw:
+        wants_json = (
+            "application/json" in (request.headers.get("accept") or "").lower()
+            or (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest"
+        )
+        if wants_json:
+            return JSONResponse({"ok": False, "error": "missing_status"}, status_code=422)
+        return RedirectResponse(url="/dashboard?tab=home&error=missing_status", status_code=303)
+
     appt = db.query(Appointment).filter(
         Appointment.id == appointment_id, Appointment.salon_id == salon.id
     ).first()
-    if appt:
-        for e in AppointmentStatus:
-            if status_value == e.value or status_value == e.name:
-                appt.status = e
-                break
-        else:
-            appt.status = status_value
-        db.commit()
+    if not appt:
+        wants_json = (
+            "application/json" in (request.headers.get("accept") or "").lower()
+            or (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest"
+        )
+        if wants_json:
+            return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+        return RedirectResponse(url="/dashboard?tab=home", status_code=303)
+
+    resolved = None
+    for e in AppointmentStatus:
+        if raw == e.value or raw == e.name or raw.lower() == e.name.lower():
+            resolved = e
+            break
+    # Common aliases
+    if resolved is None:
+        aliases = {
+            "complete": AppointmentStatus.completed,
+            "completed": AppointmentStatus.completed,
+            "no show": AppointmentStatus.no_show,
+            "no-show": AppointmentStatus.no_show,
+            "noshow": AppointmentStatus.no_show,
+            "cancel": AppointmentStatus.cancelled,
+            "cancelled": AppointmentStatus.cancelled,
+            "canceled": AppointmentStatus.cancelled,
+            "confirm": AppointmentStatus.confirmed,
+            "confirmed": AppointmentStatus.confirmed,
+            "pending": AppointmentStatus.pending_payment,
+            "pending payment": AppointmentStatus.pending_payment,
+            "pending_payment": AppointmentStatus.pending_payment,
+        }
+        resolved = aliases.get(raw.lower())
+
+    if resolved is not None:
+        appt.status = resolved
+    else:
+        # Last resort: store as-is (AppointmentStatusType will coerce known values)
+        appt.status = raw
+
+    db.commit()
+    db.refresh(appt)
+    final = getattr(appt.status, "value", str(appt.status))
+
+    wants_json = (
+        "application/json" in (request.headers.get("accept") or "").lower()
+        or (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest"
+    )
+    if wants_json:
+        return JSONResponse({"ok": True, "id": appt.id, "status": final})
     return RedirectResponse(url="/dashboard?tab=home", status_code=303)
 
 
