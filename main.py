@@ -205,6 +205,45 @@ def _ensure_package_columns():
                 "ALTER TABLE appointments ADD COLUMN party_size INTEGER DEFAULT 1"
             ))
 
+    # Soft-delete flag on services
+    try:
+        svc_cols = [c["name"] for c in inspector.get_columns("services")]
+    except Exception:
+        svc_cols = []
+    if svc_cols and "is_active" not in svc_cols:
+        with engine.begin() as conn:
+            conn.execute(text(
+                f"ALTER TABLE services ADD COLUMN is_active {int_type} DEFAULT 1"
+            ))
+
+    # Appointment snapshots + nullable service_id for safe service delete
+    try:
+        appt_cols = [c["name"] for c in inspector.get_columns("appointments")]
+    except Exception:
+        appt_cols = []
+    str120 = "VARCHAR(120)" if dialect == "postgresql" else "TEXT"
+    ntype = "NUMERIC(10,2)" if dialect == "postgresql" else "REAL"
+    for col, coltype in [
+        ("service_name_snap", str120),
+        ("service_price_snap", ntype),
+    ]:
+        if appt_cols and col not in appt_cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col} {coltype}"))
+    # Make service_id nullable (best-effort; ignore if already nullable / fails on some DBs)
+    if appt_cols and "service_id" in appt_cols:
+        try:
+            with engine.begin() as conn:
+                if dialect == "postgresql":
+                    conn.execute(text(
+                        "ALTER TABLE appointments ALTER COLUMN service_id DROP NOT NULL"
+                    ))
+                else:
+                    # SQLite cannot easily drop NOT NULL; snapshots + soft-delete still help
+                    pass
+        except Exception:
+            pass
+
 
 _ensure_package_columns()
 
@@ -731,6 +770,21 @@ def dashboard(
         .all()
     )
 
+    # All bookings list (upcoming + recent) for one-tap overview
+    all_from = datetime.combine(today - timedelta(days=7), datetime.min.time())
+    all_to = datetime.combine(today + timedelta(days=60), datetime.min.time())
+    all_appointments = (
+        db.query(Appointment)
+        .filter(
+            Appointment.salon_id == salon.id,
+            Appointment.appointment_datetime >= all_from,
+            Appointment.appointment_datetime < all_to,
+        )
+        .order_by(Appointment.appointment_datetime.asc())
+        .limit(300)
+        .all()
+    )
+
     waitlist = (
         db.query(Waitlist)
         .filter(Waitlist.salon_id == salon.id)
@@ -902,6 +956,7 @@ def dashboard(
         "services": services,
         "staff_members": staff_members,
         "appointments": appointments,
+        "all_appointments": all_appointments,
         "waitlist": waitlist,
         "current_date": today.isoformat(),
         "selected_date": sel.isoformat(),
@@ -1207,12 +1262,16 @@ def update_service_deposit(
 @app.post("/delete-service")
 def delete_service(
     service_id: int = Form(...),
+    force: Optional[str] = Form(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    """Delete a service safely.
-    Blocks if appointments still reference it (keeps history/revenue intact).
-    Clears waitlist rows and removes the id from staff.service_ids.
+    """Delete a service.
+
+    - Always allowed when the owner confirms (force=1).
+    - Appointment history is kept: name/price are snapshotted, service_id cleared when possible.
+    - Waitlist rows for this service are removed.
+    - Staff service_ids lists are cleaned.
     """
     svc = (
         db.query(Service)
@@ -1222,24 +1281,26 @@ def delete_service(
     if not svc:
         return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
-    appt_count = (
-        db.query(func.count(Appointment.id))
+    # Snapshot + detach appointments so history survives
+    appts = (
+        db.query(Appointment)
         .filter(Appointment.service_id == service_id, Appointment.salon_id == salon.id)
-        .scalar()
-    ) or 0
-    if appt_count > 0:
-        # Cannot hard-delete: FK + history
-        return RedirectResponse(
-            url="/dashboard?tab=services&error=service_in_use",
-            status_code=303,
-        )
+        .all()
+    )
+    for a in appts:
+        if not a.service_name_snap:
+            a.service_name_snap = svc.name
+        if a.service_price_snap is None:
+            a.service_price_snap = svc.price
+        try:
+            a.service_id = None
+        except Exception:
+            pass
 
-    # Free waitlist rows that point at this service
     db.query(Waitlist).filter(
         Waitlist.service_id == service_id, Waitlist.salon_id == salon.id
     ).delete(synchronize_session=False)
 
-    # Strip this service from staff.service_ids lists
     for st in db.query(Staff).filter(Staff.salon_id == salon.id).all():
         ids = st.service_ids
         if not ids:
@@ -1251,14 +1312,65 @@ def delete_service(
         st.service_ids = cleaned if cleaned else None
 
     try:
+        db.flush()
         db.delete(svc)
         db.commit()
     except IntegrityError:
         db.rollback()
+        # Fallback: soft-delete (archive) if DB still blocks hard delete
+        try:
+            svc = (
+                db.query(Service)
+                .filter(Service.id == service_id, Service.salon_id == salon.id)
+                .first()
+            )
+            if svc:
+                svc.is_active = 0
+                db.commit()
+                return RedirectResponse(
+                    url="/dashboard?tab=services&error=service_archived",
+                    status_code=303,
+                )
+        except Exception:
+            db.rollback()
         return RedirectResponse(
             url="/dashboard?tab=services&error=service_in_use",
             status_code=303,
         )
+    return RedirectResponse(url="/dashboard?tab=services", status_code=303)
+
+
+@app.post("/update-service")
+async def update_service(
+    service_id: int = Form(...),
+    name: str = Form(...),
+    price: float = Form(...),
+    duration_minutes: int = Form(...),
+    deposit_amount: float = Form(0),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Edit core service fields (name, price, duration, deposit)."""
+    svc = (
+        db.query(Service)
+        .filter(Service.id == service_id, Service.salon_id == salon.id)
+        .first()
+    )
+    if svc:
+        svc.name = (name or "").strip() or svc.name
+        try:
+            svc.price = max(0.0, float(price))
+        except (TypeError, ValueError):
+            pass
+        try:
+            svc.duration_minutes = max(5, int(duration_minutes))
+        except (TypeError, ValueError):
+            pass
+        try:
+            svc.deposit_amount = max(0.0, float(deposit_amount or 0))
+        except (TypeError, ValueError):
+            pass
+        db.commit()
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
 
@@ -1891,6 +2003,7 @@ def public_booking_page(
         return HTMLResponse("Salon not found", status_code=404)
     public_path = (salon.slug or "").strip() or str(salon.id)
     services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
+    services = [s for s in services if getattr(s, "is_active", 1) != 0]
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
     testimonials = (
         db.query(Testimonial)

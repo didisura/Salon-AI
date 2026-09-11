@@ -642,6 +642,12 @@
                         {% endif %}
                     </a>
                 </li>
+                <li class="{% if active_tab == 'bookings' %}active{% endif %}">
+                    <a href="/dashboard?tab=bookings">
+                        <i class="fa-solid fa-calendar-check"></i>
+                        <span data-lang-am>ሁሉም ቀጠሮዎች</span><span data-lang-en>All bookings</span>
+                    </a>
+                </li>
                 <li class="{% if active_tab == 'reserve' %}active{% endif %}">
                     <a href="/dashboard?tab=reserve">
                         <i class="fa-solid fa-clock-rotate-left"></i>
@@ -988,6 +994,11 @@
                                class="form-control form-control-sm" style="width:auto;" onchange="this.form.submit()">
                     </form>
                 </div>
+            <a href="/dashboard?tab=bookings" class="btn btn-outline-soft btn-sm ms-2">
+                <i class="fa-solid fa-list me-1"></i>
+                <span data-lang-am>ሁሉም ቀጠሮዎች</span>
+                <span data-lang-en>All bookings</span>
+            </a>
             </div>
 
             <div class="table-stack">
@@ -1404,6 +1415,67 @@
         {% endif %}
 
         <!-- ==================== SERVICES ==================== -->
+
+        {% if active_tab == 'bookings' %}
+        <section class="card-soft">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h5 class="fw-bold mb-0">
+                    <i class="fa-solid fa-calendar-check me-2" style="color:var(--accent);"></i>
+                    <span data-lang-am>ሁሉም ቀጠሮዎች</span>
+                    <span data-lang-en>All bookings</span>
+                </h5>
+                <span class="small text-muted">
+                    <span data-lang-am>ባለፉት 7 ቀናት + ቀጣይ 60 ቀናት</span>
+                    <span data-lang-en>Last 7 days + next 60 days</span>
+                </span>
+            </div>
+            <div class="table-stack">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr class="text-muted small">
+                            <th><span data-lang-am>ቀን</span><span data-lang-en>Date</span></th>
+                            <th><span data-lang-am>ሰዓት</span><span data-lang-en>Time</span></th>
+                            <th><span data-lang-am>ደንበኛ</span><span data-lang-en>Customer</span></th>
+                            <th><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></th>
+                            <th><span data-lang-am>ባለሙያ</span><span data-lang-en>Staff</span></th>
+                            <th><span data-lang-am>ሁኔታ</span><span data-lang-en>Status</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in all_appointments %}
+                        <tr>
+                            <td data-label="ቀን / Date">
+                                <a href="/dashboard?tab=home&selected_date={{ a.appointment_datetime.strftime('%Y-%m-%d') }}" class="fw-semibold" style="color:var(--accent);text-decoration:none;">
+                                    {{ a.appointment_datetime.strftime('%Y-%m-%d') }}
+                                </a>
+                            </td>
+                            <td data-label="ሰዓት / Time">{{ a.appointment_time }}</td>
+                            <td data-label="ደንበኛ / Customer">
+                                <div class="fw-bold">{{ a.customer_name }}</div>
+                                <div class="small text-muted">{{ a.customer_phone }}</div>
+                            </td>
+                            <td data-label="አገልግሎት / Service">{{ a.service_name }}{% if a.party_size and a.party_size > 1 %} · {{ a.party_size }} ppl{% endif %}</td>
+                            <td data-label="ባለሙያ / Staff">{{ a.staff_name }}</td>
+                            <td data-label="ሁኔታ / Status">
+                                <span class="badge {% if a.status.value == 'Completed' or a.status == 'Completed' %}bg-success{% elif a.status.value == 'Cancelled' or a.status == 'Cancelled' %}bg-danger{% elif a.status.value == 'No-Show' or a.status == 'No-Show' %}bg-dark{% else %}bg-warning text-dark{% endif %}">
+                                    {{ a.status.value if a.status.value is defined else a.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <span data-lang-am>ምንም ቀጠሮ የለም</span>
+                                <span data-lang-en>No bookings in this range</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+
         {% if active_tab == 'services' %}
         {% if error == 'service_in_use' %}
         <div class="alert alert-warning border-0 shadow-sm mb-3" style="border-radius:12px;">
@@ -1435,55 +1507,56 @@
                     </thead>
                     <tbody>
                         {% for s in services %}
-                        <tr>
-                            <td data-label="ስም / Name">
-                                <div class="fw-bold">{{ s.name }}
+                        <tr {% if s.is_active is defined and s.is_active == 0 %}style="opacity:0.55;"{% endif %}>
+                            <td colspan="5" class="p-0 border-0">
+                                <div class="p-3">
+                                    <form action="/update-service" method="post" class="row g-2 align-items-end">
+                                        <input type="hidden" name="service_id" value="{{ s.id }}">
+                                        <div class="col-12 col-md-4">
+                                            <label class="form-label small text-muted mb-0">
+                                                <span data-lang-am>ስም</span><span data-lang-en>Name</span>
+                                                {% if s.is_package %}
+                                                <span class="badge ms-1" style="background:var(--accent);font-size:0.65rem;">ፓኬጅ / Pkg</span>
+                                                {% endif %}
+                                                {% if s.is_active is defined and s.is_active == 0 %}
+                                                <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Archived</span>
+                                                {% endif %}
+                                            </label>
+                                            <input type="text" name="name" class="form-control form-control-sm" value="{{ s.name }}" required>
+                                        </div>
+                                        <div class="col-4 col-md-2">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></label>
+                                            <input type="number" name="price" class="form-control form-control-sm" min="0" step="0.01" value="{{ s.price }}" required>
+                                        </div>
+                                        <div class="col-4 col-md-2">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ደቂቃ</span><span data-lang-en>Min</span></label>
+                                            <input type="number" name="duration_minutes" class="form-control form-control-sm" min="5" step="5" value="{{ s.duration_minutes }}" required>
+                                        </div>
+                                        <div class="col-4 col-md-2">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span></label>
+                                            <input type="number" name="deposit_amount" class="form-control form-control-sm" min="0" step="1" value="{{ s.deposit_amount or 0 }}">
+                                        </div>
+                                        <div class="col-12 col-md-2 d-flex gap-1 flex-wrap">
+                                            <button type="submit" class="btn btn-sm btn-accent">
+                                                <i class="fa-solid fa-save"></i>
+                                                <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-soft" data-bs-toggle="collapse" data-bs-target="#pkgEdit-{{ s.id }}">
+                                                <i class="fa-solid fa-gift"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDeleteService({{ s.id }}, {{ s.name|tojson }})">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </form>
                                     {% if s.is_package %}
-                                    <span class="badge ms-1" style="background:var(--accent);font-size:0.65rem;">
-                                        <i class="fa-solid fa-gift me-1"></i>ፓኬጅ / Pkg
-                                    </span>
+                                    <div class="small text-muted mt-1">
+                                        {% if s.includes_text %}{{ s.includes_text }} · {% endif %}
+                                        <i class="fa-solid fa-users"></i> {{ s.min_people or 1 }}–{{ s.max_people or '∞' }}
+                                        {% if s.extra_person_price %} · {{ s.price }} + {{ s.extra_person_price }}/extra{% endif %}
+                                    </div>
                                     {% endif %}
                                 </div>
-                                {% if s.is_package %}
-                                <div class="small text-muted mt-1">
-                                    {% if s.includes_text %}{{ s.includes_text }} · {% endif %}
-                                    <i class="fa-solid fa-users"></i>
-                                    {{ s.min_people or 1 }}–{{ s.max_people or '∞' }}
-                                    {% if s.extra_person_price %}
-                                    · <span data-lang-am>ዋና</span><span data-lang-en>Primary</span> {{ s.price }} +
-                                    <span data-lang-am>ተጨማሪ</span><span data-lang-en>extra</span> {{ s.extra_person_price }}
-                                    {% endif %}
-                                    {% if s.allow_outside_hours %} · <span style="color:#E65100;font-weight:700;">outside hours</span>{% endif %}
-                                </div>
-                                {% endif %}
-                            </td>
-                            <td data-label="ዋጋ / Price">{{ s.price }} ETB</td>
-                            <td data-label="ርዝመት / Duration">{{ s.duration_minutes }}
-                                <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>
-                            </td>
-                            <td data-label="ቅድሚያ / Deposit">
-                                <form action="/update-service-deposit" method="post" class="d-flex align-items-center gap-1">
-                                    <input type="hidden" name="service_id" value="{{ s.id }}">
-                                    <input type="number" name="deposit_amount" min="0" step="1"
-                                           value="{{ s.deposit_amount or 0 }}"
-                                           class="form-control form-control-sm" style="width:88px;">
-                                    <button type="submit" class="btn btn-sm btn-outline-soft py-0 px-2" title="Save deposit">
-                                        <i class="fa-solid fa-check"></i>
-                                    </button>
-                                </form>
-                            </td>
-                            <td class="text-end">
-                                <button type="button" class="btn btn-sm btn-outline-soft me-1"
-                                        data-bs-toggle="collapse" data-bs-target="#pkgEdit-{{ s.id }}" title="Package settings">
-                                    <i class="fa-solid fa-gift"></i>
-                                </button>
-                                <form action="/delete-service" method="post" class="d-inline"
-                                      onsubmit="return confirm(document.documentElement.lang==='en'?'Delete service?':'አገልግሎቱን ማጥፋት እርግጠኛ ነዎት?')">
-                                    <input type="hidden" name="service_id" value="{{ s.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                </form>
                             </td>
                         </tr>
                         <tr class="collapse" id="pkgEdit-{{ s.id }}">
@@ -1499,91 +1572,48 @@
                                     <div class="row g-2 align-items-end">
                                         <div class="col-12 col-md-auto">
                                             <label class="form-check m-0">
-                                                <input type="checkbox" name="is_package" value="1" class="form-check-input"
-                                                       {% if s.is_package %}checked{% endif %}>
+                                                <input type="checkbox" name="is_package" value="1" class="form-check-input" {% if s.is_package %}checked{% endif %}>
                                                 <span class="form-check-label small fw-semibold">
-                                                    <span data-lang-am>ፓኬጅ ነው</span>
-                                                    <span data-lang-en>Is package</span>
+                                                    <span data-lang-am>ፓኬጅ ነው</span><span data-lang-en>Is package</span>
                                                 </span>
                                             </label>
                                         </div>
-                                        <div class="col-12 col-md-4">
-                                            <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ምን ያካትታል</span>
-                                                <span data-lang-en>Includes</span>
-                                            </label>
-                                            <input type="text" name="includes_text" class="form-control form-control-sm"
-                                                   value="{{ s.includes_text or '' }}"
-                                                   placeholder="Hair, Makeup, Nails">
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ምን ያካትታል</span><span data-lang-en>Includes</span></label>
+                                            <input type="text" name="includes_text" class="form-control form-control-sm" value="{{ s.includes_text or '' }}">
+                                        </div>
+                                        <div class="col-4 col-md-1">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ዝቅተኛ</span><span data-lang-en>Min</span></label>
+                                            <input type="number" name="min_people" class="form-control form-control-sm" min="1" value="{{ s.min_people or 1 }}">
+                                        </div>
+                                        <div class="col-4 col-md-1">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ከፍተኛ</span><span data-lang-en>Max</span></label>
+                                            <input type="number" name="max_people" class="form-control form-control-sm" min="1" value="{{ s.max_people or '' }}">
                                         </div>
                                         <div class="col-4 col-md-2">
-                                            <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ዝቅተኛ</span>
-                                                <span data-lang-en>Min ppl</span>
-                                            </label>
-                                            <input type="number" name="min_people" class="form-control form-control-sm"
-                                                   min="1" max="50" value="{{ s.min_people or 1 }}">
-                                        </div>
-                                        <div class="col-4 col-md-2">
-                                            <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ከፍተኛ</span>
-                                                <span data-lang-en>Max ppl</span>
-                                            </label>
-                                            <input type="number" name="max_people" class="form-control form-control-sm"
-                                                   min="1" max="50" value="{{ s.max_people or '' }}" placeholder="10">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ዋና ዋጋ</span><span data-lang-en>Primary</span></label>
+                                            <input type="number" name="primary_price" class="form-control form-control-sm" min="0" step="0.01" value="{{ s.price }}">
                                         </div>
                                         <div class="col-6 col-md-2">
-                                            <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ዋና ሰው ዋጋ</span>
-                                                <span data-lang-en>Primary price</span>
-                                            </label>
-                                            <input type="number" name="primary_price" class="form-control form-control-sm"
-                                                   min="0" step="0.01" value="{{ s.price }}">
-                                        </div>
-                                        <div class="col-6 col-md-2">
-                                            <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ተጨማሪ ሰው</span>
-                                                <span data-lang-en>Extra / person</span>
-                                            </label>
-                                            <input type="number" name="extra_person_price" class="form-control form-control-sm"
-                                                   min="0" step="0.01" value="{{ s.extra_person_price if s.extra_person_price is not none else '' }}"
-                                                   placeholder="0 = flat">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ተጨማሪ</span><span data-lang-en>Extra/ppl</span></label>
+                                            <input type="number" name="extra_person_price" class="form-control form-control-sm" min="0" step="0.01" value="{{ s.extra_person_price if s.extra_person_price is not none else '' }}">
                                         </div>
                                         <div class="col-12 col-md-auto">
                                             <label class="form-check m-0">
-                                                <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input"
-                                                       {% if s.allow_outside_hours %}checked{% endif %}>
-                                                <span class="form-check-label small">
-                                                    <span data-lang-am>ከሰዓት ውጪ</span>
-                                                    <span data-lang-en>Outside hours</span>
-                                                </span>
+                                                <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input" {% if s.allow_outside_hours %}checked{% endif %}>
+                                                <span class="form-check-label small"><span data-lang-am>ከሰዓት ውጪ</span><span data-lang-en>Outside hrs</span></span>
                                             </label>
                                         </div>
-                                        <div class="col-12 col-md-4">
-                                            <label class="form-label small text-muted mb-0">
-                                                <span data-lang-am>ፓኬጅ ፎቶ</span>
-                                                <span data-lang-en>Package photo</span>
-                                            </label>
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ፎቶ</span><span data-lang-en>Photo</span></label>
                                             <input type="file" name="photo" accept="image/*" class="form-control form-control-sm">
-                                            {% if s.photo_url %}
-                                            <div class="mt-1"><img src="{{ s.photo_url }}" alt="" style="height:40px;border-radius:8px;object-fit:cover;"></div>
-                                            {% endif %}
+                                            {% if s.photo_url %}<img src="{{ s.photo_url }}" alt="" style="height:36px;border-radius:8px;margin-top:4px;">{% endif %}
                                         </div>
                                         <div class="col-12 col-md-auto">
                                             <input type="hidden" name="service_id" value="{{ s.id }}">
-                                            <button type="submit" class="btn btn-accent btn-sm">
-                                                <i class="fa-solid fa-save me-1"></i>
-                                                <span data-lang-am>አስቀምጥ</span>
-                                                <span data-lang-en>Save</span>
-                                            </button>
+                                            <button type="submit" class="btn btn-accent btn-sm"><i class="fa-solid fa-save me-1"></i><span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span></button>
                                         </div>
                                     </div>
-                                    {% if s.is_package and s.extra_person_price %}
-                                    <p class="small text-muted mb-0 mt-2">
-                                        <span data-lang-am>ምሳሌ 6 ሰው፡ {{ s.price }} + 5×{{ s.extra_person_price }} = {{ (s.price|float) + 5*(s.extra_person_price|float) }} ETB</span>
-                                        <span data-lang-en>Example 6 people: {{ s.price }} + 5×{{ s.extra_person_price }} = {{ (s.price|float) + 5*(s.extra_person_price|float) }} ETB</span>
-                                    </p>
-                                    {% endif %}
                                 </form>
                             </td>
                         </tr>
@@ -3219,6 +3249,22 @@ document.getElementById('bookModal')?.addEventListener('shown.bs.modal', filterB
     }, { passive: true });
     area.addEventListener('touchend', () => { ind.style.top = '-48px'; });
 })();
+</script>
+
+<form id="forceDeleteServiceForm" action="/delete-service" method="post" class="d-none">
+    <input type="hidden" name="service_id" id="forceDeleteServiceId" value="">
+    <input type="hidden" name="force" value="1">
+</form>
+<script>
+function confirmDeleteService(id, name) {
+    const en = document.documentElement.lang === 'en';
+    const msg = en
+        ? 'Delete "' + name + '"?\n\nPast appointments keep their name & price. This cannot be undone.'
+        : '"' + name + '" ማጥፋት?\n\nየድሮ ቀጠሮዎች ስምና ዋጋ ይቀራሉ። መመለስ አይቻልም።';
+    if (!confirm(msg)) return;
+    document.getElementById('forceDeleteServiceId').value = id;
+    document.getElementById('forceDeleteServiceForm').submit();
+}
 </script>
 </body>
 </html>

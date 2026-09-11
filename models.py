@@ -177,6 +177,7 @@ class Service(Base):
     # If extra_person_price is set: total = price + (party_size - 1) * extra_person_price
     # If extra_person_price is null/0: flat package price regardless of party size.
     extra_person_price = Column(Numeric(10, 2), nullable=True)
+    is_active = Column(Integer, nullable=False, default=1)  # 0 = archived/hidden from booking
 
     salon = relationship("Salon", back_populates="services")
 
@@ -293,8 +294,11 @@ class Appointment(Base):
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     customer_name = Column(String(120), nullable=False)
     customer_phone = Column(String(30), nullable=False, index=True)
-    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    # Snapshots so service/staff can be deleted without losing history
+    service_name_snap = Column(String(120), nullable=True)
+    service_price_snap = Column(Numeric(10, 2), nullable=True)
     appointment_datetime = Column(DateTime, nullable=False, index=True)
     status = Column(AppointmentStatusType(), default=AppointmentStatus.confirmed, nullable=False)
     source = Column(String(20), default="walk-in")
@@ -329,11 +333,15 @@ class Appointment(Base):
 
     @property
     def service_name(self):
-        return self.service.name if self.service else ""
+        if self.service:
+            return self.service.name
+        return self.service_name_snap or ""
 
     @property
     def service_price(self):
-        return float(self.service.price) if self.service else 0.0
+        if self.service:
+            return float(self.service.price or 0)
+        return float(self.service_price_snap or 0)
 
     @property
     def staff_name(self):
