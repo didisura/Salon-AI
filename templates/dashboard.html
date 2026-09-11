@@ -1811,8 +1811,8 @@
                     <span data-lang-en>Work samples / salon interior photos</span>
                 </label>
                 <p class="small text-muted mb-2">
-                    <span data-lang-am>ምድብ ይምረጡ (ጥፍር፣ ማኒኪር፣ ፔዲኪር፣ ማሳጅ፣ ፊት…) — ደንበኞች በቀጠሮ ገጽ ላይ በምድብ ማጣራት ይችላሉ።</span>
-                    <span data-lang-en>Pick a category (nails, manicure, pedicure, massage, facial…) so clients can filter work samples on the booking page.</span>
+                    <span data-lang-am>ምድብ ይምረጡ (ፀጉር፣ ጥፍር፣ ሜካፕ፣ ፊት፣ ስፓ፣ ባርበር) — ደንበኞች በቀጠሮ ገጽ ላይ በምድብ ማጣራት ይችላሉ።</span>
+                    <span data-lang-en>Pick a category (hair, nails, makeup, facial, spa, barber) so clients can filter work samples on the booking page.</span>
                 </p>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     {% for img in salon.gallery_images %}
@@ -1822,12 +1822,12 @@
                         </div>
                         <div style="padding:6px 8px;font-size:0.68rem;font-weight:700;color:var(--accent);text-align:center;border-top:1px solid var(--border);">
                             {% set cat = (img.category or 'other')|lower %}
-                            {% if cat == 'nails' %}ጥፍር / Nails
-                            {% elif cat == 'manicure' %}ማኒኪር
-                            {% elif cat == 'pedicure' %}ፔዲኪር
-                            {% elif cat == 'massage' %}ማሳጅ
+                            {% if cat == 'hair' %}ፀጉር / Hair
+                            {% elif cat == 'nails' or cat == 'pedicure' %}ጥፍር / Nails
+                            {% elif cat == 'manicure' %}ሜካፕ / Makeup
                             {% elif cat == 'facial' %}ፊት / Facial
-                            {% elif cat == 'hair' %}ፀጉር / Hair
+                            {% elif cat == 'massage' %}ስፓ / Spa
+                            {% elif cat == 'other' %}ባርበር / Barber
                             {% else %}ሌላ / Other{% endif %}
                         </div>
                         {% if img.caption %}
@@ -1860,13 +1860,12 @@
                             <span data-lang-am>ምድብ</span><span data-lang-en>Category</span>
                         </label>
                         <select name="category" class="form-select form-select-sm" style="min-width:140px;">
-                            <option value="nails">ጥፍር / Nails</option>
-                            <option value="manicure">ማኒኪር / Manicure</option>
-                            <option value="pedicure">ፔዲኪር / Pedicure</option>
-                            <option value="massage">ማሳጅ / Massage</option>
-                            <option value="facial">ፊት / Facial</option>
                             <option value="hair">ፀጉር / Hair</option>
-                            <option value="other" selected>ሌላ / Other</option>
+                            <option value="nails">ጥፍር / Nails</option>
+                            <option value="manicure">ሜካፕ / Makeup</option>
+                            <option value="facial">ፊት / Facial</option>
+                            <option value="massage">ስፓ / Spa</option>
+                            <option value="other" selected>ባርበር / Barber</option>
                         </select>
                     </div>
                     <div class="col-6 col-sm-auto">
