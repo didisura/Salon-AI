@@ -909,18 +909,26 @@ async def add_location(
     address: Optional[str] = Form(None),
     copy_services: Optional[str] = Form(None),
     inherit_payments: Optional[str] = Form(None),
+    hq_location_name: Optional[str] = Form(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    """Create a branch. If HQ has no place name yet, set it from hq_location_name."""
     root = salon.root_salon() if hasattr(salon, "root_salon") else salon
     name = (location_name or "").strip()
     if not name:
         return RedirectResponse(url="/dashboard?tab=settings&error=location_name", status_code=303)
 
+    # Ensure HQ also has a place label (Bole / CMC / …) in the switcher
+    if not (root.location_name or "").strip():
+        hq_place = (hq_location_name or "").strip() or "HQ"
+        root.location_name = hq_place
+
     # Synthetic unique phone — branches do not log in with real numbers
     branch_phone = f"branch-{root.id}-{uuid.uuid4().hex[:10]}"
+    brand = (root.name or "").split(" — ")[0].strip() or root.name
     branch = Salon(
-        name=f"{root.name} — {name}",
+        name=f"{brand} — {name}",
         location_name=name,
         owner_name=root.owner_name,
         phone=branch_phone,
@@ -931,7 +939,7 @@ async def add_location(
         opening_time=root.opening_time,
         closing_time=root.closing_time,
         working_days=root.working_days,
-        slug=_unique_slug(db, f"{root.name}-{name}"),
+        slug=_unique_slug(db, f"{brand}-{name}"),
         deposit_enabled=int(root.deposit_enabled or 0) if inherit_payments else 0,
         payment_methods=(list(root.payment_methods or []) if inherit_payments else None),
     )
@@ -939,9 +947,7 @@ async def add_location(
     db.flush()
 
     if copy_services in ("1", "on", "true", "yes"):
-        for s in db.query(Service).filter(
-            Service.salon_id == root.id,
-        ).all():
+        for s in db.query(Service).filter(Service.salon_id == root.id).all():
             if getattr(s, "is_active", 1) == 0:
                 continue
             db.add(Service(
@@ -964,6 +970,114 @@ async def add_location(
         url=f"/dashboard?tab=settings&location_added={branch.id}",
         status_code=303,
     )
+
+
+@app.post("/update-location")
+async def update_location(
+    location_id: int = Form(...),
+    location_name: str = Form(...),
+    address: Optional[str] = Form(None),
+    brand_name: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Edit HQ or any branch: place name, address; HQ can also rename the brand."""
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+    allowed = get_salon_tree_ids(db, root.id)
+    if int(location_id) not in allowed:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_location", status_code=303)
+
+    loc = db.query(Salon).filter(Salon.id == location_id).first()
+    if not loc:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_location", status_code=303)
+
+    place = (location_name or "").strip()
+    if not place:
+        return RedirectResponse(url="/dashboard?tab=settings&error=location_name", status_code=303)
+
+    loc.location_name = place
+    loc.address = (address or "").strip() or None
+
+    if loc.parent_id is None:
+        # HQ: optional brand rename
+        brand = (brand_name or "").strip() or loc.name
+        # Strip previous " — place" if any
+        if " — " in brand:
+            brand = brand.split(" — ")[0].strip()
+        loc.name = brand
+        # Keep branch display names in sync: "Brand — Place"
+        for b in db.query(Salon).filter(Salon.parent_id == loc.id).all():
+            b_place = (b.location_name or b.name or "").strip()
+            b.name = f"{brand} — {b_place}"
+    else:
+        brand = (root.name or "").split(" — ")[0].strip() or root.name
+        loc.name = f"{brand} — {place}"
+
+    # Refresh slug for this location
+    try:
+        loc.slug = _unique_slug(db, loc.name, loc.id)
+    except Exception:
+        pass
+
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings&location_updated=1", status_code=303)
+
+
+@app.post("/delete-location")
+async def delete_location(
+    location_id: int = Form(...),
+    force: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Delete a branch only (never HQ). Blocks if appointments exist unless force=1."""
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+    allowed = get_salon_tree_ids(db, root.id)
+    if int(location_id) not in allowed:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_location", status_code=303)
+
+    loc = db.query(Salon).filter(Salon.id == location_id).first()
+    if not loc:
+        return RedirectResponse(url="/dashboard?tab=settings&error=invalid_location", status_code=303)
+    if loc.parent_id is None or loc.id == root.id:
+        return RedirectResponse(url="/dashboard?tab=settings&error=cannot_delete_hq", status_code=303)
+
+    appt_count = (
+        db.query(func.count(Appointment.id))
+        .filter(Appointment.salon_id == loc.id)
+        .scalar()
+    ) or 0
+    if appt_count > 0 and force not in ("1", "on", "true", "yes"):
+        return RedirectResponse(
+            url="/dashboard?tab=settings&error=location_has_bookings",
+            status_code=303,
+        )
+
+    # Clean dependent rows for this branch only
+    staff_ids = [r[0] for r in db.query(Staff.id).filter(Staff.salon_id == loc.id).all()]
+    if staff_ids:
+        db.query(StaffDayOff).filter(StaffDayOff.staff_id.in_(staff_ids)).delete(synchronize_session=False)
+    db.query(Waitlist).filter(Waitlist.salon_id == loc.id).delete(synchronize_session=False)
+    db.query(GalleryImage).filter(GalleryImage.salon_id == loc.id).delete(synchronize_session=False)
+    db.query(Testimonial).filter(Testimonial.salon_id == loc.id).delete(synchronize_session=False)
+    if appt_count > 0:
+        # Soft-clear FKs then delete appointments
+        db.query(Appointment).filter(Appointment.salon_id == loc.id).delete(synchronize_session=False)
+    db.query(Service).filter(Service.salon_id == loc.id).delete(synchronize_session=False)
+    db.query(Staff).filter(Staff.salon_id == loc.id).delete(synchronize_session=False)
+
+    was_active = salon.id == loc.id
+    db.delete(loc)
+    db.commit()
+
+    # If user was viewing the deleted branch, switch cookie to HQ
+    if was_active:
+        token = create_access_token({"sub": str(root.id), "active_salon_id": str(root.id)})
+        resp = RedirectResponse(url="/dashboard?tab=settings&location_deleted=1", status_code=303)
+        resp.set_cookie("access_token", token, httponly=True, samesite="lax")
+        return resp
+
+    return RedirectResponse(url="/dashboard?tab=settings&location_deleted=1", status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -989,6 +1103,8 @@ def dashboard(
     unavailable_staff_name: Optional[str] = None,
     unavailable_time: Optional[str] = None,
     location_added: Optional[int] = None,
+    location_updated: Optional[str] = None,
+    location_deleted: Optional[str] = None,
 ):
     today = date.today()
     sel = _parse_date(selected_date) or today
@@ -1210,6 +1326,8 @@ def dashboard(
         "new_customers_month": new_customers_month,
         "error": error,
         "location_added": location_added,
+        "location_updated": location_updated,
+        "location_deleted": location_deleted,
         # Multi-branch
         "locations": locations,
         "active_location_id": salon.id,

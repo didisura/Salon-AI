@@ -836,7 +836,7 @@
               {% else %}
                 <i class="fa-solid fa-store me-1"></i>
               {% endif %}
-              {{ loc.location_name or loc.name }}
+              {{ loc.location_name or ('HQ' if loc.parent_id is none else loc.name) }}
             </button>
             {% endfor %}
           </form>
@@ -2109,38 +2109,144 @@
         <!-- ==================== SETTINGS (hours + address) ==================== -->
         {% if active_tab == 'settings' %}
 
-        <!-- Multi-location: Add branch -->
+        <!-- Multi-location: manage locations -->
         <div class="card-soft mb-4" id="addLocationCard">
           <h3 class="h6 fw-bold mb-3">
-            <i class="fa-solid fa-plus-circle me-1" style="color: var(--accent)"></i>
-            <span data-lang-am>አዲስ ቦታ / ቅርንጫፍ</span>
-            <span data-lang-en>Add location / branch</span>
+            <i class="fa-solid fa-map-location-dot me-1" style="color: var(--accent)"></i>
+            <span data-lang-am>ቦታዎች / ቅርንጫፎች</span>
+            <span data-lang-en>Locations / branches</span>
           </h3>
           <p class="small text-muted mb-3">
             <span data-lang-am>
-              እያንዳንዱ ቅርንጫፍ የራሱ ቀጠሮ፣ ሰራተኛ፣ አገልግሎትና ፎቶ ይኖረዋል። አንድ መግቢያ — ቦታ ቀይር።
+              እያንዳንዱ ቅርንጫፍ የራሱ ቀጠሮ፣ ሰራተኛ፣ አገልግሎትና ፎቶ ይኖረዋል። HQንም የቦታ ስም (Bole፣ CMC…) ይስጡት።
             </span>
             <span data-lang-en>
               Each branch has its own bookings, staff, services, and photos.
-              One login — switch location.
+              Give HQ a place name too (Bole, CMC, Summit…).
             </span>
           </p>
 
           {% if location_added %}
           <div class="alert alert-success py-2 small">
-            <span data-lang-am>ቅርንጫፍ ተጨምሯል። ከላይ ባለው ቦታ መቀየሪያ ይምረጡት።</span>
-            <span data-lang-en>Branch added. Select it from the location switcher above.</span>
+            <span data-lang-am>ቅርንጫፍ ተጨምሯል።</span>
+            <span data-lang-en>Branch added.</span>
+          </div>
+          {% endif %}
+          {% if location_updated %}
+          <div class="alert alert-success py-2 small">
+            <span data-lang-am>ቦታ ተዘምኗል።</span>
+            <span data-lang-en>Location updated.</span>
+          </div>
+          {% endif %}
+          {% if location_deleted %}
+          <div class="alert alert-success py-2 small">
+            <span data-lang-am>ቅርንጫፍ ተሰርዟል።</span>
+            <span data-lang-en>Branch deleted.</span>
+          </div>
+          {% endif %}
+          {% if error == 'cannot_delete_hq' %}
+          <div class="alert alert-warning py-2 small">
+            <span data-lang-am>HQ መሰረዝ አይቻልም።</span>
+            <span data-lang-en>Cannot delete HQ.</span>
+          </div>
+          {% endif %}
+          {% if error == 'location_has_bookings' %}
+          <div class="alert alert-warning py-2 small">
+            <span data-lang-am>ይህ ቅርንጫፍ ቀጠሮዎች አሉት — ለማስገደድ ሰርዝ ላይ Force ይጠቀሙ።</span>
+            <span data-lang-en>This branch has bookings — use Force delete to remove them too.</span>
           </div>
           {% endif %}
 
+          {% if locations and locations|length >= 1 %}
+          <p class="small fw-semibold mb-2">
+            <span data-lang-am>የእርስዎ ቦታዎች</span>
+            <span data-lang-en>Your locations</span>
+          </p>
+          <ul class="list-unstyled small mb-3">
+            {% for loc in locations %}
+            <li class="border rounded-3 p-3 mb-2" style="background:#FAFAF8;border-color:var(--border)!important;">
+              <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <div>
+                  {% if loc.parent_id is none %}
+                    <strong>{{ loc.location_name or 'HQ' }}</strong>
+                    <span class="badge rounded-pill" style="background:#ECECEC;color:#555;font-size:0.65rem">HQ</span>
+                    <div class="text-muted" style="font-size:0.75rem">{{ loc.name }}</div>
+                  {% else %}
+                    <strong>{{ loc.location_name or loc.name }}</strong>
+                    <div class="text-muted" style="font-size:0.75rem">{{ loc.name }}</div>
+                  {% endif %}
+                  {% if loc.address %}
+                    <div class="text-muted" style="font-size:0.75rem"><i class="fa-solid fa-location-dot me-1"></i>{{ loc.address }}</div>
+                  {% endif %}
+                  {% if loc.id == active_location_id %}
+                    <span class="badge rounded-pill mt-1" style="background:var(--accent);color:#fff;font-size:0.65rem">
+                      <span data-lang-am>አሁን</span><span data-lang-en>Active</span>
+                    </span>
+                  {% endif %}
+                </div>
+                <div class="d-flex gap-1 flex-wrap">
+                  <a href="/book/{{ loc.slug or loc.id }}" target="_blank" rel="noopener"
+                     class="btn btn-outline-soft btn-sm" style="min-height:36px;padding:6px 10px;font-size:0.75rem">
+                    <i class="fa-solid fa-link"></i>
+                  </a>
+                  <button type="button" class="btn btn-outline-soft btn-sm"
+                          style="min-height:36px;padding:6px 10px;font-size:0.75rem"
+                          onclick="openEditLocation({{ loc.id }}, {{ (loc.location_name or '')|tojson }}, {{ (loc.address or '')|tojson }}, {{ (loc.name if loc.parent_id is none else '')|tojson }}, {{ 'true' if loc.parent_id is none else 'false' }})">
+                    <i class="fa-solid fa-pen"></i>
+                    <span data-lang-am>አርትዕ</span><span data-lang-en>Edit</span>
+                  </button>
+                  {% if loc.parent_id is not none %}
+                  <form action="/delete-location" method="post" class="d-inline"
+                        onsubmit="return confirmDeleteLocation(this, {{ (loc.location_name or loc.name)|tojson }});">
+                    <input type="hidden" name="location_id" value="{{ loc.id }}">
+                    <input type="hidden" name="force" value="0" class="force-flag">
+                    <button type="submit" class="btn btn-sm"
+                            style="min-height:36px;padding:6px 10px;font-size:0.75rem;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:11px;font-weight:600">
+                      <i class="fa-solid fa-trash"></i>
+                      <span data-lang-am>ሰርዝ</span><span data-lang-en>Delete</span>
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+
+          <hr class="my-3">
+          <h4 class="h6 fw-bold mb-2">
+            <i class="fa-solid fa-plus me-1" style="color:var(--accent)"></i>
+            <span data-lang-am>አዲስ ቅርንጫፍ</span>
+            <span data-lang-en>Add branch</span>
+          </h4>
           <form action="/add-location" method="post" class="row g-2">
+            {% set ns = namespace(hq=none) %}
+            {% for loc in locations %}
+              {% if loc.parent_id is none %}{% set ns.hq = loc %}{% endif %}
+            {% endfor %}
+            {% set hq = ns.hq %}
+            {% if hq and not hq.location_name %}
+            <div class="col-12">
+              <label class="form-label small fw-semibold">
+                <span data-lang-am>የ HQ የቦታ ስም (ምሳሌ፡ Bole)</span>
+                <span data-lang-en>HQ place name (e.g. Bole)</span>
+              </label>
+              <input type="text" name="hq_location_name" class="form-control" required
+                     placeholder="Bole" maxlength="80">
+              <div class="form-text small">
+                <span data-lang-am>HQ በመቀየሪያው ላይ ይህን ስም ያሳያል።</span>
+                <span data-lang-en>HQ will show this name in the switcher.</span>
+              </div>
+            </div>
+            {% endif %}
             <div class="col-12 col-md-4">
               <label class="form-label small fw-semibold">
-                <span data-lang-am>የቦታ ስም</span>
-                <span data-lang-en>Location name</span>
+                <span data-lang-am>የቅርንጫፍ ስም</span>
+                <span data-lang-en>Branch place name</span>
               </label>
               <input type="text" name="location_name" class="form-control" required
-                     placeholder="Bole / CMC / Summit" maxlength="80">
+                     placeholder="CMC / Summit" maxlength="80">
             </div>
             <div class="col-12 col-md-5">
               <label class="form-label small fw-semibold">
@@ -2173,45 +2279,94 @@
               </div>
             </div>
           </form>
-
-          {% if locations and locations|length >= 1 %}
-          <hr class="my-3">
-          <p class="small fw-semibold mb-2">
-            <span data-lang-am>የእርስዎ ቦታዎች</span>
-            <span data-lang-en>Your locations</span>
-          </p>
-          <ul class="list-unstyled small mb-0">
-            {% for loc in locations %}
-            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-              <span>
-                {% if loc.parent_id is none %}
-                  <strong>{{ loc.name }}</strong>
-                  <span class="badge rounded-pill" style="background:#ECECEC;color:#555;font-size:0.65rem">HQ</span>
-                {% else %}
-                  {{ loc.location_name or loc.name }}
-                {% endif %}
-                {% if loc.address %}
-                  <span class="text-muted"> · {{ loc.address }}</span>
-                {% endif %}
-                {% if loc.id == active_location_id %}
-                  <span class="badge rounded-pill ms-1" style="background:var(--accent);color:#fff;font-size:0.65rem">
-                    <span data-lang-am>አሁን</span><span data-lang-en>Active</span>
-                  </span>
-                {% endif %}
-              </span>
-              <a href="/book/{{ loc.slug or loc.id }}" target="_blank" rel="noopener"
-                 class="text-decoration-none small" style="color: var(--accent)">
-                <i class="fa-solid fa-link me-1"></i>
-                <span data-lang-am>ቀጠሮ ሊንክ</span>
-                <span data-lang-en>Booking link</span>
-              </a>
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
         </div>
 
-        <section class="card-soft">
+        <!-- Edit location modal -->
+        <div class="modal fade" id="editLocationModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <form action="/update-location" method="post">
+                <div class="modal-header">
+                  <h5 class="modal-title">
+                    <span data-lang-am>ቦታ አርትዕ</span>
+                    <span data-lang-en>Edit location</span>
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <input type="hidden" name="location_id" id="editLocId" value="">
+                  <div class="mb-3" id="editBrandWrap" style="display:none">
+                    <label class="form-label small fw-semibold">
+                      <span data-lang-am>የብራንድ ስም (HQ)</span>
+                      <span data-lang-en>Brand name (HQ)</span>
+                    </label>
+                    <input type="text" class="form-control" name="brand_name" id="editBrandName" maxlength="120">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label small fw-semibold">
+                      <span data-lang-am>የቦታ ስም</span>
+                      <span data-lang-en>Place name</span>
+                    </label>
+                    <input type="text" class="form-control" name="location_name" id="editLocName" required maxlength="80" placeholder="Bole / CMC / Summit">
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold">
+                      <span data-lang-am>አድራሻ</span>
+                      <span data-lang-en>Address</span>
+                    </label>
+                    <input type="text" class="form-control" name="address" id="editLocAddress">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-soft" data-bs-dismiss="modal">
+                    <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+                  </button>
+                  <button type="submit" class="btn btn-accent">
+                    <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <script>
+        function openEditLocation(id, placeName, address, brandName, isHq) {
+          document.getElementById('editLocId').value = id;
+          document.getElementById('editLocName').value = placeName || '';
+          document.getElementById('editLocAddress').value = address || '';
+          const wrap = document.getElementById('editBrandWrap');
+          const brand = document.getElementById('editBrandName');
+          if (isHq === true || isHq === 'true') {
+            wrap.style.display = 'block';
+            let b = brandName || '';
+            if (b.indexOf(' — ') >= 0) b = b.split(' — ')[0].trim();
+            brand.value = b;
+          } else {
+            wrap.style.display = 'none';
+            brand.value = '';
+          }
+          const el = document.getElementById('editLocationModal');
+          if (window.bootstrap && el) bootstrap.Modal.getOrCreateInstance(el).show();
+        }
+        function confirmDeleteLocation(form, name) {
+          const en = document.documentElement.lang === 'en';
+          const msg = en
+            ? ('Delete branch "' + name + '"?\n\nStaff, services, and media for this branch will be removed.')
+            : ('"' + name + '" ቅርንጫፍ ይሰረዝ?\n\nየዚህ ቅርንጫፍ ሰራተኛ፣ አገልግሎትና ሚዲያ ይጠፋሉ።');
+          if (!confirm(msg)) return false;
+          // If server returned location_has_bookings before, user can force
+          if (window.__forceDeleteLocation) {
+            form.querySelector('.force-flag').value = '1';
+          }
+          return true;
+        }
+        {% if error == 'location_has_bookings' %}
+        window.__forceDeleteLocation = true;
+        {% endif %}
+        </script>
+
+        <section
+<section class="card-soft">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <i class="fa-solid fa-clock" style="color:var(--accent);"></i>
                 <h5 class="fw-bold mb-0">
