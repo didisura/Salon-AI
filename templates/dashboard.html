@@ -2572,7 +2572,7 @@
                                 <div class="eth-wheel-highlight"></div>
                                 <div class="wheel-col wheel-eth" id="wheelEthBook"></div>
                             </div>
-                            <div class="eth-preview" id="bookEthPreview">ጧት 9:00 ሰዓት</div>
+                            <div class="eth-preview" id="bookEthPreview">ጧት 3:00 ሰዓት</div>
                         </div>
                         <input type="hidden" name="appointment_time" id="bookAppointmentTime" value="">
                         <p class="small text-muted mt-2 mb-0" id="bookSalonHoursHint">{{ salon.hours_label }} · {{ salon.working_days_label }}</p>
@@ -2867,9 +2867,22 @@ function toggleLang() {
     document.querySelectorAll('#langLabelSidebar').forEach(el => el.textContent = saved === 'am' ? 'EN' : 'አማ');
 })();
 
-/* ========== Ethiopian time (15-min steps) ==========
-   Ethiopian clock: 12h periods ጧት/ማታ style labels used in previews.
-   Internal storage remains Western 24h HH:MM for the backend. */
+/* ========== Ethiopian time (15-min steps) — same as public booking ==========
+   Ethiopian clock (shifted −6h from Western): ጧት 12 = 06:00, ቀን 1 = 07:00, …
+   Internal storage remains Western 24h HH:MM for the backend.
+   Display is Amharic-only (no AM/PM under). */
+function ethLabel(h, m) {
+    // Match public_booking westernToEth: total minutes − 360
+    const total = ((h * 60 + (m || 0) - 360) % 1440 + 1440) % 1440;
+    const eh = Math.floor(total / 60);
+    const em = total % 60;
+    let period, displayH;
+    if (eh < 6) { period = 'ጧት'; displayH = eh === 0 ? 12 : eh; }
+    else if (eh < 12) { period = 'ቀን'; displayH = eh; }
+    else if (eh < 18) { period = 'ማታ'; displayH = eh === 12 ? 12 : eh - 12; }
+    else { period = 'ለሊት'; displayH = eh - 12; }
+    return `${period} ${displayH}:${String(em).padStart(2,'0')}`;
+}
 const ETH_SLOTS = [];
 (function buildSlots() {
     for (let h = 0; h < 24; h++) {
@@ -2880,19 +2893,7 @@ const ETH_SLOTS = [];
         }
     }
 })();
-function ethLabel(h, m) {
-    // Simple Ethiopian-style display: period + 1-12 hour
-    let period, displayH;
-    if (h >= 0 && h < 6) { period = 'ሌሊት'; displayH = h === 0 ? 12 : h; }
-    else if (h >= 6 && h < 12) { period = 'ጧት'; displayH = h; }
-    else if (h >= 12 && h < 18) { period = 'ከሰዓት'; displayH = h === 12 ? 12 : h - 12; }
-    else { period = 'ማታ'; displayH = h - 12; }
-    const mm = String(m).padStart(2, '0');
-    return `${period} ${displayH}:${mm}`;
-}
 
-
-/* Time mode eth | dual | intl */
 function westernLabelHM(hhmm) {
   if (!hhmm) return '';
   const [h, m] = hhmm.split(':').map(Number);
@@ -2907,14 +2908,13 @@ function ethLabelHM(hhmm) {
   }
   return hhmm || '';
 }
-function getTimeMode() { return 'dual'; }
+function getTimeMode() { return 'eth'; }
 function setTimeModeLabel() {
-  const mode = 'dual';
-  document.documentElement.setAttribute('data-time', mode);
+  document.documentElement.setAttribute('data-time', 'eth');
+  // Amharic-only: show Ethiopian label, hide Western under
   document.querySelectorAll('.js-time-dual').forEach(el => {
     const eth = el.getAttribute('data-eth') || '';
-    const west = el.getAttribute('data-west') || '';
-    el.innerHTML = eth + ' <span class="time-dual-sub">(' + west + ')</span>';
+    el.innerHTML = eth || el.textContent.split('·')[0].trim();
   });
 }
 document.addEventListener('DOMContentLoaded', setTimeModeLabel);
@@ -3161,12 +3161,7 @@ function showNotAvail(alertBox, okBox, alertMsg, okMsg, submitBtn, text) {
     fillWheel(col, '09:00', (w, label) => {
         hidden.value = (document.getElementById('bookDate')?.value || '') + 'T' + w + ':00';
         if (prev) {
-          const mode = getTimeMode();
-          const west = westernLabelHM(w);
-          const eth = label + ' ሰዓት';
-          if (mode === 'intl') prev.innerHTML = '<span class="time-dual-main">' + west + '</span>';
-          else if (mode === 'eth') prev.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
-          else prev.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+          prev.innerHTML = '<span class="time-dual-main">' + label + ' ሰዓት</span>';
         }
         checkStaffAvailability();
     });
@@ -3187,14 +3182,7 @@ document.querySelectorAll('.wl-wheel-eth').forEach(col => {
     fillWheel(col, '09:00', (w, label) => {
         const d = dateInp?.value || '';
         if (hidden) hidden.value = d + 'T' + w + ':00';
-        if (prev) prev.innerHTML = (function(){
-            const mode = (typeof getTimeMode==='function'?getTimeMode():'dual');
-            const west = (typeof westernLabelHM==='function'?westernLabelHM(w):'');
-            const eth = label + ' ሰዓት';
-            if (mode === 'intl') return '<span class="time-dual-main">'+west+'</span>';
-            if (mode === 'eth') return '<span class="time-dual-main">'+eth+'</span>';
-            return '<span class="time-dual-main">'+eth+'</span><div class="time-dual-sub">'+west+'</div>';
-          })();
+        if (prev) prev.innerHTML = '<span class="time-dual-main">' + label + ' ሰዓት</span>';
     });
     dateInp?.addEventListener('change', () => {
         const w = (hidden?.value || '').split('T')[1]?.slice(0,5) || '09:00';
@@ -3488,12 +3476,7 @@ function openReschedule(id, name, dateStr, timeHM, staffId) {
       const d = document.getElementById('rescheduleDate')?.value || '';
       if (hidden) hidden.value = d + 'T' + w + ':00';
       if (prev) {
-        const mode = getTimeMode();
-        const west = westernLabelHM(w);
-        const eth = label + ' ሰዓት';
-        if (mode === 'intl') prev.innerHTML = '<span class="time-dual-main">' + west + '</span>';
-        else if (mode === 'eth') prev.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
-        else prev.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+        prev.innerHTML = '<span class="time-dual-main">' + label + ' ሰዓት</span>';
       }
     });
   } else if (hidden) {
