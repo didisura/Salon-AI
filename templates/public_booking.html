@@ -31,7 +31,7 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-.lang-toggle {
+        .lang-toggle {
             position: fixed; top: 12px; right: 12px; z-index: 2000;
             display: flex; align-items: center; gap: 6px;
             background: rgba(255,255,255,0.94); border: 1px solid var(--border);
@@ -169,7 +169,7 @@
             padding: 2px 7px; border-radius: 999px; margin-left: 4px; vertical-align: middle;
         }
 
-        /* Featured / celebrity strip — photo + name first (marketing focus) */
+        /* Featured / celebrity strip */
         .featured-wrap { margin-bottom: 14px; }
         .featured-label {
             font-size: 0.78rem; font-weight: 800; color: var(--accent);
@@ -226,57 +226,128 @@
             font-size: 0.65rem; color: var(--muted); font-weight: 600; margin-top: 4px;
         }
 
-        /* Special packages (bridal / wedding party) — photo-first */
-        .pkg-section { margin-bottom: 20px; }
+        /* ============================================================
+           PACKAGES — Fresha / Booksy style (owner-customizable)
+           Photo, name, includes, price, duration, party size, CTA
+           All driven by Service fields the owner already controls.
+           ============================================================ */
+        .pkg-section { margin-bottom: 24px; }
+        .pkg-section .section-title {
+            margin-bottom: 6px;
+        }
+        .pkg-section .section-sub {
+            font-size: 0.8rem; color: var(--muted); font-weight: 500;
+            margin: 0 0 14px;
+        }
         .pkg-scroll {
-            display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch; padding-bottom: 6px;
+            display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch; padding: 4px 2px 12px;
         }
         .pkg-scroll::-webkit-scrollbar { height: 4px; }
+        .pkg-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
         .pkg-card {
-            flex: 0 0 260px; scroll-snap-align: start;
-            background: #fff; border: 1.5px solid var(--border); border-radius: 18px;
-            overflow: hidden; cursor: pointer; transition: all .15s;
-            position: relative; padding: 0; display: flex; flex-direction: column;
+            flex: 0 0 280px; scroll-snap-align: start;
+            background: #fff;
+            border: 1.5px solid var(--border);
+            border-radius: 18px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: border-color .18s, box-shadow .18s, transform .18s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
         }
-        .pkg-card:hover, .pkg-card.selected {
+        .pkg-card:hover {
+            border-color: rgba(156,107,63,0.45);
+            box-shadow: 0 8px 24px rgba(156,107,63,0.14);
+            transform: translateY(-2px);
+        }
+        .pkg-card.selected {
             border-color: var(--accent);
-            box-shadow: 0 8px 22px rgba(156,107,63,0.18);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.18), 0 10px 28px rgba(156,107,63,0.16);
             transform: translateY(-2px);
         }
         .pkg-card input { display: none; }
+
         .pkg-photo {
-            width: 100%; height: 160px; background: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%);
+            width: 100%; height: 168px;
+            background: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%);
             position: relative; overflow: hidden;
         }
-        .pkg-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pkg-photo img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
         .pkg-photo .pkg-photo-ph {
             width: 100%; height: 100%; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; color: rgba(255,255,255,0.9);
-            gap: 6px; font-weight: 700; font-size: 0.85rem;
+            align-items: center; justify-content: center; color: rgba(255,255,255,0.92);
+            gap: 8px; font-weight: 700; font-size: 0.88rem;
         }
-        .pkg-photo .pkg-photo-ph i { font-size: 2rem; opacity: 0.85; }
-        .pkg-body { padding: 12px 14px 14px; }
+        .pkg-photo .pkg-photo-ph i { font-size: 2.2rem; opacity: 0.9; }
+
         .pkg-badge {
-            position: absolute; top: 10px; left: 10px; z-index: 2;
-            font-size: 0.65rem; font-weight: 800;
+            position: absolute; top: 12px; left: 12px; z-index: 2;
+            font-size: 0.68rem; font-weight: 800;
+            background: rgba(255,255,255,0.95); color: var(--accent);
+            padding: 4px 11px; border-radius: 999px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            letter-spacing: 0.02em;
+        }
+        .pkg-badge.special {
             background: linear-gradient(135deg, #9C6B3F, #ED6C02); color: #fff;
-            padding: 3px 10px; border-radius: 999px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
-        .pkg-name { font-weight: 800; font-size: 1.02rem; margin: 0 0 4px; color: var(--text); }
-        .pkg-includes { font-size: 0.78rem; color: #5A4936; margin: 0 0 6px; line-height: 1.35;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        .pkg-body {
+            padding: 14px 16px 16px;
+            display: flex; flex-direction: column; flex: 1;
+        }
+        .pkg-name {
+            font-weight: 800; font-size: 1.05rem; margin: 0 0 6px;
+            color: var(--text); line-height: 1.3;
+        }
+        .pkg-includes {
+            font-size: 0.8rem; color: #5A4936; margin: 0 0 10px; line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden; flex: 1;
+        }
         .pkg-meta {
-            display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.74rem;
-            font-weight: 600; color: var(--muted); margin-bottom: 6px;
+            display: flex; flex-wrap: wrap; gap: 8px 14px;
+            font-size: 0.76rem; font-weight: 600; color: var(--muted);
+            margin-bottom: 12px;
         }
-        .pkg-meta i { color: var(--accent); }
-        .pkg-price { font-weight: 800; color: var(--accent); font-size: 1.05rem; }
+        .pkg-meta span { display: inline-flex; align-items: center; gap: 5px; }
+        .pkg-meta i { color: var(--accent); font-size: 0.78rem; }
+
+        .pkg-footer {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            margin-top: auto; padding-top: 4px;
+        }
+        .pkg-price {
+            font-weight: 800; color: var(--accent); font-size: 1.12rem;
+            line-height: 1.2;
+        }
+        .pkg-price .from {
+            font-size: 0.7rem; font-weight: 600; color: var(--muted); display: block;
+        }
+        .pkg-select-btn {
+            flex-shrink: 0;
+            background: var(--accent); color: #fff; border: none;
+            font-weight: 700; font-size: 0.8rem;
+            padding: 9px 14px; border-radius: 12px;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: background .15s;
+        }
+        .pkg-card.selected .pkg-select-btn {
+            background: var(--green);
+        }
+        .pkg-card.selected .pkg-select-btn::after {
+            content: " ✓";
+        }
         .pkg-outside {
             font-size: 0.68rem; font-weight: 700; color: #E65100;
             background: #FFF8E1; border: 1px solid #FFE0B2; border-radius: 8px;
-            padding: 3px 8px; display: inline-block; margin-top: 6px;
+            padding: 3px 8px; display: inline-block; margin-top: 8px;
         }
 
         /* Booking card */
@@ -330,8 +401,7 @@
         .staff-pick {
             position: relative; text-align: center; cursor: pointer;
         }
-        .staff-pick input { position: absolute; opacity: 0; pointer-events: none !important;
-            z-index: 1;}
+        .staff-pick input { position: absolute; opacity: 0; pointer-events: none !important; z-index: 1; }
         .staff-ring {
             width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 6px;
             border: 2.5px solid var(--border); padding: 3px; background: var(--cream);
@@ -355,7 +425,7 @@
         }
         .staff-any.selected { border-color: var(--accent); border-style: solid; background: var(--cream); color: var(--accent); }
 
-        /* Time wheel — native touch scrolling with CSS scroll-snap (reliable on mobile) */
+        /* Time wheel */
         .eth-time-picker {
             background: var(--cream); border: 1px solid var(--border); border-radius: 14px; padding: 12px;
         }
@@ -471,8 +541,6 @@
         body.booking-open .sticky-cta { display: none; }
         body.success-view .sticky-cta { display: none; }
 
-        /* Success */
-
         /* My bookings lookup */
         .mybook-card {
             background: #fff; border: 1px solid var(--border); border-radius: 16px;
@@ -580,7 +648,7 @@
 
         .alert { border-radius: 12px; font-size: 0.88rem; }
 
-        /* Dual time: Ethiopian primary + Western secondary */
+        /* Dual time */
         .time-dual-main { font-weight: 800; color: var(--accent); font-size: 1rem; }
         .time-dual-sub { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
         html[data-time="intl"] .time-eth-only { display: none !important; }
@@ -591,903 +659,545 @@
         .eth-preview .time-dual-sub { display: block; font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
         .mb-time { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
 
-</style>
+        /* Party size block (packages) */
+        #partySizeBlock {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            margin-top: 12px;
+        }
+        #packageTotalLine {
+            font-weight: 800;
+            color: var(--accent);
+            font-size: 1.05rem;
+            margin-top: 8px;
+        }
+    </style>
 </head>
 <body class="{% if success or waitlisted %}success-view{% endif %}">
 
 <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
-    <i class="fa-solid fa-language"></i>
+    <i class="fa-solid fa-globe"></i>
     <span id="langLabel">EN</span>
 </button>
 
-<!-- HERO -->
-<div class="hero {{ 'no-photo' if not salon.cover_photo_url else '' }}"
-     {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}');"{% endif %}>
+{% if success %}
+<div class="wrap" style="padding-top: 40px;">
+    <div class="confirm-card">
+        <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
+        <h3><span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span><span data-lang-en>Booking confirmed!</span></h3>
+        <p class="thanks"><span data-lang-am>እናመሰግናለን</span><span data-lang-en>Thank you</span></p>
+        <p class="sub"><span data-lang-am>በቅርብ ጊዜ እንደሰማዎት እንረዳዎታለን።</span><span data-lang-en>We'll see you soon.</span></p>
+        <a href="/book/{{ salon_ref }}" class="btn btn-accent" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;">
+            <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
+        </a>
+    </div>
+</div>
+{% elif waitlisted %}
+<div class="wrap" style="padding-top: 40px;">
+    <div class="waitlist-card">
+        <div class="waitlist-icon"><i class="fa-solid fa-clock"></i></div>
+        <h3 style="font-weight:800;font-size:1.2rem;margin:0 0 8px;"><span data-lang-am>በመጠባበቂያ ዝርዝር ላይ</span><span data-lang-en>You're on the waitlist</span></h3>
+        <p style="color:var(--muted);font-size:0.9rem;"><span data-lang-am>ክፍት ቦታ ሲገኝ እናሳውቅዎታለን።</span><span data-lang-en>We'll notify you when a slot opens.</span></p>
+        <a href="/book/{{ salon_ref }}" class="btn" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;margin-top:12px;">
+            <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
+        </a>
+    </div>
+</div>
+{% else %}
+
+<!-- Hero -->
+<div class="hero {% if not salon.cover_photo_url %}no-photo{% endif %}"
+     {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}')"{% endif %}>
     <div class="hero-overlay">
-        <h1>{{ salon.name }}</h1>
+        <h1>{{ brand_name or salon.name }}</h1>
         <p class="tagline">
-            <span data-lang-am>ቀጠሮዎን በቀላሉ ይያዙ</span>
-            <span data-lang-en>Book your appointment easily</span>
+            <span data-lang-am>ቀጠሮ ይያዙ · ቀላልና ፈጣን</span>
+            <span data-lang-en>Book online · Easy & fast</span>
         </p>
     </div>
 </div>
 
 <div class="wrap">
-
-    <!-- TRUST BAR -->
-    {% set review_count = (testimonials|length) if testimonials is defined and testimonials else 0 %}
-    {% set rating_sum = namespace(value=0) %}
-    {% if testimonials is defined and testimonials %}
-        {% for t in testimonials %}{% set rating_sum.value = rating_sum.value + (t.rating or 5) %}{% endfor %}
-    {% endif %}
-    {% set avg_rating = (rating_sum.value / review_count) if review_count > 0 else 0 %}
+    <!-- Trust bar -->
     <div class="trust-bar">
-        {% if review_count > 0 %}
-        <span><span class="star">★</span> {{ '%.1f'|format(avg_rating) }}</span>
+        <span><i class="fa-solid fa-clock"></i> {{ hours_label or '—' }}</span>
         <span class="sep">·</span>
-        <span>{{ review_count }} <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span></span>
+        <span><i class="fa-solid fa-calendar-days"></i> {{ days_label or '—' }}</span>
+        {% if testimonials and testimonials|length > 0 %}
         <span class="sep">·</span>
+        <span class="star">★</span>
+        <span>{{ (testimonials|sum(attribute='rating') / testimonials|length)|round(1) }}</span>
         {% endif %}
-        {% if salon.address %}
-        <span><i class="fa-solid fa-location-dot"></i>
-            {% set addr_short = salon.address.split(',')[0] if ',' in salon.address else salon.address %}
-            {{ addr_short[:28] }}{% if addr_short|length > 28 %}…{% endif %}
-        </span>
-        <span class="sep">·</span>
-        {% endif %}
-        <span><i class="fa-solid fa-clock"></i>
-            <span data-lang-am>ዛሬ ክፍት</span>
-            <span data-lang-en>Open today</span>
-        </span>
     </div>
 
-    
-
-<div class="section">
-        <h2 class="section-title">
-            <span data-lang-am>የስራ ናሙናዎች</span>
-            <span data-lang-en>Our work</span>
-        </h2>
-        <div class="cat-row" id="catFilters">
-            <button type="button" class="cat-chip active" data-cat="all"><span data-lang-am>ሁሉም</span><span data-lang-en>All</span></button>
-            <button type="button" class="cat-chip" data-cat="hair"><span data-lang-am>ፀጉር</span><span data-lang-en>Hair</span></button>
-            <button type="button" class="cat-chip" data-cat="nails"><span data-lang-am>ጥፍር</span><span data-lang-en>Nails</span></button>
-            <button type="button" class="cat-chip" data-cat="manicure"><span data-lang-am>ሜካፕ</span><span data-lang-en>Makeup</span></button>
-            <button type="button" class="cat-chip" data-cat="facial"><span data-lang-am>ፊት</span><span data-lang-en>Facial</span></button>
-            <button type="button" class="cat-chip" data-cat="massage"><span data-lang-am>ስፓ</span><span data-lang-en>Spa</span></button>
-            <button type="button" class="cat-chip" data-cat="other"><span data-lang-am>ባርበር</span><span data-lang-en>Barber</span></button>
-        </div>
-        <div class="gallery-row" id="galleryScroll">
-            {% if salon.gallery_images %}
-                {% for img in salon.gallery_images %}
-                {% set cat = (img.category or 'other')|lower %}
-                <div class="g-tile" data-cat="{{ cat }}" onclick="openLightbox('{{ img.image_url }}')">
-                    <img src="{{ img.image_url }}" alt="" loading="lazy">
-                    <span class="badge">
-                        {% if cat == 'nails' or cat == 'manicure' or cat == 'pedicure' %}<span data-lang-am>ጥፍር</span><span data-lang-en>Nails</span>
-                        {% elif cat == 'hair' %}<span data-lang-am>ፀጉር</span><span data-lang-en>Hair</span>
-                        {% elif cat == 'facial' %}<span data-lang-am>ፊት</span><span data-lang-en>Facial</span>
-                        {% elif cat == 'massage' %}<span data-lang-am>ስፓ</span><span data-lang-en>Spa</span>
-                        {% else %}<span data-lang-am>ሌላ</span><span data-lang-en>Other</span>{% endif %}
-                    </span>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="g-empty">
-                    <span data-lang-am>የስራ ናሙናዎች በቅርቡ</span>
-                    <span data-lang-en>Work samples coming soon</span>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- REVIEWS -->
-    <div class="section">
-        <h2 class="section-title">
-            <span data-lang-am>ደንበኞቻችን</span>
-            <span data-lang-en>Our clients</span>
-        </h2>
-        <div class="reviews-card">
-            {% set review_count = (testimonials|length) if testimonials is defined and testimonials else 0 %}
-            {% set rating_sum = namespace(value=0) %}
-            {% if testimonials is defined and testimonials %}
-                {% for t in testimonials %}{% set rating_sum.value = rating_sum.value + (t.rating or 5) %}{% endfor %}
-            {% endif %}
-            {% set avg_rating = (rating_sum.value / review_count) if review_count else 0 %}
-
-            {% if review_count %}
-            <div class="rev-top" style="margin-bottom: 12px;">
-                <div class="rev-score">
-                    <div class="big">{{ "%.1f"|format(avg_rating) }}</div>
-                    <div class="stars">{% for i in range(5) %}{% if i < (avg_rating|round|int) %}★{% else %}☆{% endif %}{% endfor %}</div>
-                    <div class="count">{{ review_count }}
-                        <span data-lang-am>ግምገማ</span><span data-lang-en>reviews</span>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {# Featured = celebrity + pinned — photo & name only (marketing focus) #}
-            {% set featured = [] %}
-            {% if testimonials is defined and testimonials %}
-            {% for t in testimonials %}
-                {% if t.is_celebrity or t.is_pinned %}
-                    {% if featured.append(t) %}{% endif %}
-                {% endif %}
-            {% endfor %}
-            {% endif %}
-            {% if featured %}
-            <div class="featured-wrap" style="margin-bottom:0;">
-                <div class="featured-label">
-                    <i class="fa-solid fa-star"></i>
-                    <span data-lang-am>ተለይተው የቀረቡ ደንበኞች</span>
-                    <span data-lang-en>Featured clients</span>
-                </div>
-                <div class="featured-scroll">
-                    {% for t in featured %}
-                    <div class="feat-card {% if t.is_celebrity %}is-celeb{% endif %}">
-                        <div class="feat-photo">
-                            {% if t.client_photo_url %}
-                            <img src="{{ t.client_photo_url }}" alt="{{ t.client_name }}" loading="lazy">
-                            {% else %}
-                            <div class="ph">{{ (t.client_name or '?')[:1]|upper }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="feat-name">{{ t.client_name }}</div>
-                        {% if t.is_celebrity %}
-                        <span class="feat-badge celeb"><span data-lang-am>ታዋቂ</span><span data-lang-en>Celebrity</span></span>
-                        {% elif t.is_pinned %}
-                        <span class="feat-badge pinned"><span data-lang-am>ተለይቶ</span><span data-lang-en>Featured</span></span>
-                        {% endif %}
-                        {% if t.service_label %}
-                        <div class="feat-svc">{{ t.service_label }}</div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% elif not review_count %}
-            <p class="text-muted small mb-0 text-center">
-                <span data-lang-am>ግምገማዎች በቅርቡ ይታያሉ</span>
-                <span data-lang-en>Reviews coming soon</span>
-            </p>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- SPECIAL PACKAGES under clients — photo-first, only if salon has any -->
-    {% set packages = services | selectattr('is_package') | list if services is defined else [] %}
-    {% if packages %}
-    <div class="section pkg-section">
-        <h2 class="section-title">
-            <span data-lang-am>ልዩ ፓኬጆች</span>
-            <span data-lang-en>Special packages</span>
-        </h2>
-        <p class="small text-muted mb-2" style="margin-top:-6px;">
-            <span data-lang-am>የሰርግ፣ ብራይዳልና ሌሎች ቡድን ፓኬጆች</span>
-            <span data-lang-en>Wedding, bridal & group packages</span>
-        </p>
-        <div class="pkg-scroll">
-            {% for s in packages %}
-            <label class="pkg-card" onclick="pickPackage({{ s.id }}, this)">
-                <input type="radio" name="_pkg_visual" value="{{ s.id }}">
-                <span class="pkg-badge">
-                    <i class="fa-solid fa-gift me-1"></i>
-                    <span data-lang-am>ፓኬጅ</span><span data-lang-en>Package</span>
-                </span>
-                <div class="pkg-photo">
-                    {% if s.photo_url %}
-                    <img src="{{ s.photo_url }}" alt="{{ s.name }}" loading="lazy">
-                    {% else %}
-                    <div class="pkg-photo-ph">
-                        <i class="fa-solid fa-rings-wedding"></i>
-                        <span>{{ s.name }}</span>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="pkg-body">
-                    <div class="pkg-name">{{ s.name }}</div>
-                    {% if s.includes_text %}
-                    <p class="pkg-includes">{{ s.includes_text }}</p>
-                    {% endif %}
-                    <div class="pkg-meta">
-                        {% if s.duration_minutes %}
-                        <span><i class="fa-regular fa-clock"></i> {{ s.duration_minutes }}
-                            <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span></span>
-                        {% endif %}
-                        {% if s.max_people %}
-                        <span><i class="fa-solid fa-users"></i>
-                            <span data-lang-am>እስከ</span><span data-lang-en>Up to</span>
-                            {{ s.max_people }}
-                            <span data-lang-am>ሰዎች</span><span data-lang-en>people</span>
-                        </span>
-                        {% endif %}
-                    </div>
-                    <div class="pkg-price">{{ s.price }} ETB</div>
-                    {% if s.allow_outside_hours %}
-                    <div class="pkg-outside">
-                        <i class="fa-solid fa-moon me-1"></i>
-                        <span data-lang-am>ከስራ ሰዓት ውጪም ይቻላል</span>
-                        <span data-lang-en>Outside hours OK</span>
-                    </div>
-                    {% endif %}
-                </div>
-            </label>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    
-    {% if salon.phone %}
-    <div class="location-strip">
-        <i class="fa-solid fa-phone"></i>
-        <div>
-            <div class="fw-semibold"><span data-lang-am>ስልክ</span><span data-lang-en>Call us</span></div>
-            <a href="tel:{{ salon.phone }}" style="font-weight:700;font-size:1.05rem;">{{ salon.phone }}</a>
-        </div>
-    </div>
-    {% endif %}
-
+    <!-- Hours + location -->
     <div class="hours-strip">
         <i class="fa-solid fa-clock"></i>
-        <span><span class="js-hours-dual">{{ hours_label }}</span> · {{ days_label }}</span>
+        <div>
+            <strong><span data-lang-am>የስራ ሰዓት</span><span data-lang-en>Opening hours</span></strong><br>
+            {{ hours_label or '—' }} · {{ days_label or '—' }}
+        </div>
     </div>
-
     {% if salon.address %}
     <div class="location-strip">
         <i class="fa-solid fa-location-dot"></i>
-        <div style="flex:1;">
-            <div class="fw-semibold"><span data-lang-am>አድራሻ</span><span data-lang-en>Location</span></div>
-            <div id="salonAddressText">{{ salon.address }}</div>
-            <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | replace(' ', '+') }}" target="_blank" rel="noopener">
-                <span data-lang-am>በGoogle Maps ክፈት</span>
-                <span data-lang-en>Open in Maps</span>
+        <div>
+            <strong id="salonAddressText">{{ salon.address }}</strong><br>
+            <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | urlencode }}" target="_blank" rel="noopener">
+                <span data-lang-am>ካርታ ላይ ይመልከቱ</span><span data-lang-en>View on map</span>
             </a>
-            <div id="mapLoading" class="map-loading"><i class="fa-solid fa-spinner fa-spin me-2"></i>...</div>
+            <div id="mapLoading" class="map-loading"><span data-lang-am>ካርታ በመጫን ላይ…</span><span data-lang-en>Loading map…</span></div>
             <div id="salonMap" style="display:none;"></div>
         </div>
     </div>
     {% endif %}
 
-    <!-- MY BOOKINGS LOOKUP -->
-    <div class="mybook-card" id="myBookingsCard">
+    <!-- Featured testimonials -->
+    {% set featured = testimonials|selectattr('is_pinned')|list or testimonials[:6] %}
+    {% if featured %}
+    <div class="featured-wrap section">
+        <div class="featured-label">
+            <i class="fa-solid fa-star"></i>
+            <span data-lang-am>ደንበኞቻችን ምን ይላሉ</span>
+            <span data-lang-en>What clients say</span>
+        </div>
+        <div class="featured-scroll">
+            {% for t in featured %}
+            <div class="feat-card {% if t.is_celebrity %}is-celeb{% endif %}">
+                <div class="feat-photo">
+                    {% if t.client_photo_url %}
+                    <img src="{{ t.client_photo_url }}" alt="" loading="lazy">
+                    {% else %}
+                    <div class="ph">{{ (t.client_name or '?')[0]|upper }}</div>
+                    {% endif %}
+                </div>
+                <div class="feat-name">{{ t.client_name }}</div>
+                {% if t.is_celebrity %}
+                <span class="feat-badge celeb">Celebrity</span>
+                {% elif t.is_pinned %}
+                <span class="feat-badge pinned">Featured</span>
+                {% endif %}
+                {% if t.comment %}
+                <p class="feat-quote">“{{ t.comment[:90] }}{% if t.comment|length > 90 %}…{% endif %}”</p>
+                {% endif %}
+                {% if t.service_label %}
+                <div class="feat-svc">{{ t.service_label }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Gallery -->
+    {% if gallery %}
+    <div class="section">
+        <div class="section-title">
+            <span data-lang-am>ስራዎቻችን</span>
+            <span data-lang-en>Our work</span>
+        </div>
+        <div class="cat-row" id="catFilters">
+            <button type="button" class="cat-chip active" data-cat="all">All</button>
+            <button type="button" class="cat-chip" data-cat="hair">Hair</button>
+            <button type="button" class="cat-chip" data-cat="nails">Nails</button>
+            <button type="button" class="cat-chip" data-cat="facial">Facial</button>
+            <button type="button" class="cat-chip" data-cat="massage">Massage</button>
+            <button type="button" class="cat-chip" data-cat="other">Other</button>
+        </div>
+        <div class="gallery-row" id="galleryScroll">
+            {% for g in gallery %}
+            <div class="g-tile" data-cat="{{ g.category or 'other' }}" onclick="openLightbox('{{ g.image_url }}')">
+                <img src="{{ g.image_url }}" alt="" loading="lazy">
+                {% if g.caption %}<span class="badge">{{ g.caption }}</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================
+         SPECIAL PACKAGES — Fresha/Booksy style
+         Owner customizes via: photo_url, name, includes_text, price,
+         duration_minutes, min_people, max_people, extra_person_price,
+         allow_outside_hours. Selecting a card checks the matching
+         service radio and opens the booking flow.
+         ============================================================ -->
+    {% set packages = services|selectattr('is_package')|list %}
+    {% if packages %}
+    <div class="pkg-section section">
+        <div class="section-title">
+            <i class="fa-solid fa-gift" style="color:var(--accent)"></i>
+            <span data-lang-am>ልዩ ጥቅሎች</span>
+            <span data-lang-en>Special packages</span>
+        </div>
+        <p class="section-sub">
+            <span data-lang-am>ብሪዳል፣ ቡድን እና ልዩ ቀናት — ፎቶና ዝርዝር በባለቤት ይቀመጣሉ</span>
+            <span data-lang-en>Bridal, group & special days — photo & details set by the salon owner</span>
+        </p>
+        <div class="pkg-scroll">
+            {% for p in packages %}
+            <div class="pkg-card"
+                 data-service-id="{{ p.id }}"
+                 onclick="pickPackage({{ p.id }}, this)">
+                <input type="radio" name="pkg_preview" value="{{ p.id }}">
+                <div class="pkg-photo">
+                    {% if p.photo_url %}
+                    <img src="{{ p.photo_url }}" alt="{{ p.name }}" loading="lazy">
+                    {% else %}
+                    <div class="pkg-photo-ph">
+                        <i class="fa-solid fa-spa"></i>
+                        <span>{{ p.name[:18] }}</span>
+                    </div>
+                    {% endif %}
+                    <span class="pkg-badge special">
+                        <span data-lang-am>ጥቅል</span>
+                        <span data-lang-en>Package</span>
+                    </span>
+                </div>
+                <div class="pkg-body">
+                    <h3 class="pkg-name">{{ p.name }}</h3>
+                    {% if p.includes_text %}
+                    <p class="pkg-includes">{{ p.includes_text }}</p>
+                    {% else %}
+                    <p class="pkg-includes" style="opacity:.6">
+                        <span data-lang-am>ዝርዝር በባለቤት ይጨመራል</span>
+                        <span data-lang-en>Details set by salon</span>
+                    </p>
+                    {% endif %}
+                    <div class="pkg-meta">
+                        <span><i class="fa-regular fa-clock"></i> {{ p.duration_minutes or 60 }} ደቂቃ</span>
+                        {% if p.min_people and p.min_people > 1 %}
+                        <span>
+                            <i class="fa-solid fa-users"></i>
+                            {% if p.max_people %}
+                            {{ p.min_people }}–{{ p.max_people }}
+                            {% else %}
+                            {{ p.min_people }}+
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="pkg-footer">
+                        <div class="pkg-price">
+                            {% if p.extra_person_price and p.extra_person_price > 0 %}
+                            <span class="from"><span data-lang-am>ከ</span><span data-lang-en>From</span></span>
+                            {% endif %}
+                            {{ "{:,.0f}".format(p.price or 0) }} ብር
+                        </div>
+                        <button type="button" class="pkg-select-btn" onclick="event.stopPropagation(); pickPackage({{ p.id }}, this.closest('.pkg-card'))">
+                            <span data-lang-am>ይምረጡ</span>
+                            <span data-lang-en>Select</span>
+                        </button>
+                    </div>
+                    {% if p.allow_outside_hours %}
+                    <div class="pkg-outside">
+                        <i class="fa-solid fa-moon"></i>
+                        <span data-lang-am>ከስራ ሰዓት ውጭም ይቻላል</span>
+                        <span data-lang-en>Outside hours OK</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- My bookings lookup -->
+    <div class="mybook-card">
         <h3>
             <i class="fa-solid fa-calendar-check"></i>
             <span data-lang-am>የእኔ ቀጠሮዎች</span>
             <span data-lang-en>My bookings</span>
         </h3>
-        <p class="small text-muted mb-2" style="margin-top:-4px;">
-            <span data-lang-am>ስልክዎን ያስገቡ — ቀጠሮዎችዎን ይመልከቱ</span>
-            <span data-lang-en>Enter your phone to see your appointments</span>
-        </p>
         <div class="mybook-row">
-            <input type="tel" id="myBookPhone" inputmode="tel" autocomplete="tel"
-                   placeholder="09xxxxxxxx" aria-label="Phone">
-            <button type="button" id="myBookBtn" onclick="lookupMyBookings()">
+            <input type="tel" id="myBookPhone" placeholder="09…" inputmode="tel" autocomplete="tel">
+            <button type="button" onclick="lookupMyBookings()">
                 <span data-lang-am>ፈልግ</span>
                 <span data-lang-en>Find</span>
             </button>
         </div>
-        <div id="myBookResults" class="mybook-list" style="display:none;"></div>
-        <p id="myBookHint" class="mybook-hint" style="display:none;"></p>
+        <p class="mybook-hint" id="myBookHint">
+            <span data-lang-am>ስልክዎን ያስገቡ ቀጠሮዎችዎን ለማየት</span>
+            <span data-lang-en>Enter your phone to see your bookings</span>
+        </p>
+        <div class="mybook-list" id="myBookResults" style="display:none;"></div>
     </div>
 
-    <!-- BOOKING -->
-    <div class="book-card" id="bookingSection">
-        {% if success == 'pending_payment' %}
-        <div id="pendingPaymentCard" class="confirm-card" style="border-color:#FFE0B2;background:linear-gradient(180deg,#FFF8E1 0%,#fff 50%);">
-            <div class="confirm-icon" style="background:#ED6C02;"><i class="fa-solid fa-hourglass-half"></i></div>
-            <h3 style="color:#E65100;">
-                <span data-lang-am>ክፍያዎ ተልኳል!</span>
-                <span data-lang-en>Payment proof received!</span>
-            </h3>
-            <p class="thanks">
-                <span data-lang-am>ሳሎኑ ክፍያዎን እያረጋገጠ ነው… ትንሽ ይ ይጠብቁ።</span>
-                <span data-lang-en>The salon is verifying your payment… please wait a moment.</span>
-            </p>
-            <p class="sub" id="pendingWaitHint">
-                <i class="fa-solid fa-spinner fa-spin me-1"></i>
-                <span data-lang-am>በመጠባበቅ ላይ</span>
-                <span data-lang-en>Waiting for confirmation</span>
-            </p>
-            <p class="sub">{{ salon.name }}</p>
-            {% if salon.phone %}
-            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
-            </a>
-            {% endif %}
+    <!-- Booking section -->
+    <div class="section" id="bookingSection">
+        <div class="section-title">
+            <span class="step-num">1</span>
+            <span data-lang-am>ቀጠሮ ያዙ</span>
+            <span data-lang-en>Book an appointment</span>
         </div>
 
-        <div id="confirmedAfterPayCard" class="confirm-card" style="display:none;border-color:#A5D6A7;box-shadow:0 0 0 0 rgba(46,125,50,0.45);animation:glowPulse 1.6s ease-in-out infinite;">
-            <div class="confirm-icon" style="background:var(--green);box-shadow:0 0 24px rgba(46,125,50,0.55);">
-                <i class="fa-solid fa-check"></i>
-            </div>
-            <h3 style="color:#1B5E20;">
-                <span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span>
-                <span data-lang-en>Your booking is confirmed!</span>
-            </h3>
-            <p class="thanks" style="font-size:1.05rem;">
-                <span data-lang-am>ስለመረጡን እናመሰግናለን</span>
-                <span data-lang-en>Thanks for choosing us</span>
-            </p>
-            <p class="sub" id="confirmedApptMeta">{{ salon.name }}</p>
-            {% if salon.phone %}
-            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--green);color:var(--green);border-radius:10px;font-weight:600;">
-                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
-            </a>
-            {% endif %}
-            <div>
-                <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
-                    <span data-lang-am>ተመለስ</span>
-                    <span data-lang-en>Back</span>
-                </a>
-            </div>
-        </div>
-        <style>
-            @keyframes glowPulse {
-                0%   { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); }
-                50%  { box-shadow: 0 0 28px 6px rgba(46,125,50,0.35); }
-                100% { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); }
-            }
-        </style>
-        <script>
-        (function pollPaymentConfirm() {
-            const apptId = {{ appt_id or 'null' }};
-            const salonId = '{{ salon.slug or salon.id }}';
-            if (!apptId) return;
-            const pending = document.getElementById('pendingPaymentCard');
-            const confirmed = document.getElementById('confirmedAfterPayCard');
-            const meta = document.getElementById('confirmedApptMeta');
-            let tries = 0;
-            function tick() {
-                tries += 1;
-                fetch('/book/' + salonId + '/status/' + apptId)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data && data.confirmed) {
-                            if (pending) pending.style.display = 'none';
-                            if (confirmed) confirmed.style.display = 'block';
-                            if (meta) {
-                                const bits = [];
-                                if (data.service_name) bits.push(data.service_name);
-                                if (data.appointment_time) bits.push(data.appointment_time);
-                                meta.textContent = (bits.join(' · ') || '') + (bits.length ? ' · ' : '') + '{{ salon.name | e }}';
-                            }
-                            return;
-                        }
-                        if (tries < 120) setTimeout(tick, 4000); // up to ~8 min
-                    })
-                    .catch(() => { if (tries < 120) setTimeout(tick, 5000); });
-            }
-            setTimeout(tick, 2500);
-        })();
-        </script>
-
-{% elif success %}
-        <div class="confirm-card">
-            <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
-            <h3>
-                <span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span>
-                <span data-lang-en>Your booking is confirmed!</span>
-            </h3>
-            <p class="thanks">
-                <span data-lang-am>ስለመረጡን እናመሰግናለን</span>
-                <span data-lang-en>Thank you for choosing us</span>
-            </p>
-            <p class="sub">{{ salon.name }}</p>
-            {% if salon.phone %}
-            <a href="tel:{{ salon.phone }}" class="btn btn-sm mb-2" style="border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:600;">
-                <i class="fa-solid fa-phone me-1"></i> {{ salon.phone }}
-            </a>
-            {% endif %}
-            <div>
-                <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
-                    <span data-lang-am>ሌላ ቀጠሮ ያዙ</span>
-                    <span data-lang-en>Book another</span>
-                </a>
-            </div>
-        </div>
-
-        {% elif waitlisted %}
-        <div class="waitlist-card">
-            <div class="waitlist-icon"><i class="fa-solid fa-list-check"></i></div>
-            <h3 style="font-weight:800;color:#E65100;font-size:1.2rem;">
-                <span data-lang-am>ወደ ተጠባባቂ ዝርዝር ገብተዋል</span>
-                <span data-lang-en>You’re on the waitlist</span>
-            </h3>
-            <p class="sub" style="color:var(--muted);margin:8px 0 16px;">
-                <span data-lang-am>ሳሎኑ ክፍት ቦታ ሲኖር ያገኙዎታል።</span>
-                <span data-lang-en>We’ll contact you when a slot opens.</span>
-            </p>
-            <a href="/book/{{ salon.slug or salon.id }}" class="btn-next d-inline-block text-decoration-none px-4" style="width:auto;">
-                <span data-lang-am>ተመለስ</span><span data-lang-en>Back</span>
-            </a>
-        </div>
-
-        {% else %}
-
-        {% if error == 'booking_failed' %}
-        <div class="alert alert-danger">
-            <span data-lang-am>ቀጠሮ ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።</span>
-            <span data-lang-en>Could not save booking. Please try again.</span>
-        </div>
-        {% endif %}
-        {% if error == 'deposit_required' %}
+        {% if error == 'conflict' %}
         <div class="alert alert-warning">
-            <span data-lang-am>እባክዎ የቅድሚያ ክፍያ ማረጋገጫ (screenshot) ይስቀሉ።</span>
-            <span data-lang-en>Please upload a payment screenshot to complete booking.</span>
+            <span data-lang-am>ይህ ሰዓት ተይዟል። ሌላ ሰዓት ወይም ሰራተኛ ይምረጡ።</span>
+            <span data-lang-en>That slot is taken. Please choose another time or professional.</span>
         </div>
-        {% endif %}
-        {% if error == 'outside_hours' %}
+        {% elif error %}
         <div class="alert alert-danger">
-            <span data-lang-am>የመረጡት ሰዓት ከባለሙያው የስራ ሰዓት ውጪ ነው።</span>
-            <span data-lang-en>That time is outside the staff member’s working hours.</span>
+            <span data-lang-am>ስህተት ተፈጥሯል። እንደገና ይሞክሩ።</span>
+            <span data-lang-en>Something went wrong. Please try again.</span>
         </div>
         {% endif %}
-        {#
-  Public booking conflict panel — paste near the top of the booking card
-  (after trust bar / before step 1), when error == 'conflict'.
 
-  Expects context from _build_conflict_context:
-    conflict_name, conflict_phone, conflict_service, conflict_staff,
-    conflict_staff_name, conflict_time, conflict_date,
-    alt_staff, next_slot, next_slot_display
-  And salon_ref for form actions.
-#}
+        <div class="book-card">
+            <div class="steps-bar" id="stepsBar">
+                <div class="dot active" data-s="1"></div>
+                <div class="dot" data-s="2"></div>
+                <div class="dot" data-s="3"></div>
+                <div class="dot" data-s="4"></div>
+                <div class="dot" data-s="5"></div>
+            </div>
 
-{% if error == 'conflict' %}
-<style>
-  .conflict-panel {
-    border: 1.5px solid #f5c2c7;
-    background: linear-gradient(180deg, #fff5f5 0%, #fff 60%);
-    border-radius: 16px;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  .conflict-panel .cp-title {
-    font-weight: 800;
-    color: #842029;
-    margin: 0 0 6px;
-    font-size: 0.98rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .conflict-panel .cp-sub {
-    font-size: 0.82rem;
-    color: #7A6E6E;
-    margin: 0 0 12px;
-  }
-  .conflict-panel .cp-section-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #5A4936;
-    margin: 0 0 8px;
-  }
-  .conflict-panel .cp-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .conflict-panel .btn-alt {
-    background: var(--accent, #9C6B3F);
-    color: #fff;
-    border: none;
-    font-weight: 700;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    min-height: 42px;
-  }
-  .conflict-panel .btn-next-slot {
-    background: #fff;
-    color: #5A4936;
-    border: 1.5px solid var(--border, #E3D3C0);
-    font-weight: 700;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    min-height: 42px;
-  }
-  .conflict-panel .btn-wait {
-    background: #fff;
-    color: #7A6E6E;
-    border: 1px dashed var(--border, #E3D3C0);
-    font-weight: 600;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-size: 0.82rem;
-    min-height: 42px;
-  }
-</style>
+            <form method="post" action="/book/{{ salon_ref }}" id="bookingForm" enctype="multipart/form-data">
 
-<div class="conflict-panel" role="alert">
-  <p class="cp-title">
-    <i class="fa-solid fa-triangle-exclamation"></i>
-    <span>
-      <span data-lang-am>ይህ ሰዓት ተይዟል</span>
-      <span data-lang-en>This time is taken</span>
-      {% if conflict_staff_name %} — {{ conflict_staff_name }}{% endif %}
-    </span>
-  </p>
-  <p class="cp-sub">
-    <span data-lang-am>ከታች ካሉት አማራጮች አንዱን ይምረጡ — በፍጥነት ቀጠሮ ይያዙ።</span>
-    <span data-lang-en>Pick one option below to finish booking quickly.</span>
-  </p>
-
-  {# 1) Same slot — other staff who offer this service #}
-  {% if alt_staff %}
-  <p class="cp-section-label">
-    <i class="fa-solid fa-user-check me-1" style="color:var(--accent,#9C6B3F);"></i>
-    <span data-lang-am>በተመሳሳይ ሰዓት የሚገኙ (ለዚህ አገልግሎት)</span>
-    <span data-lang-en>Available at the same time (for this service)</span>
-  </p>
-  <div class="cp-actions">
-    {% for alt in alt_staff %}
-    <form method="post" action="/book/{{ salon_ref }}" enctype="multipart/form-data">
-      <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-      <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-      <input type="hidden" name="service_id" value="{{ conflict_service }}">
-      <input type="hidden" name="staff_id" value="{{ alt.id }}">
-      <input type="hidden" name="appointment_time" value="{{ conflict_time }}">
-      <input type="hidden" name="party_size" value="1">
-      <button type="submit" class="btn-alt">
-        <i class="fa-solid fa-user me-1"></i>{{ alt.name }}
-      </button>
-    </form>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {# 2) Same preferred staff — next free slot #}
-  {% if next_slot and conflict_staff %}
-  <p class="cp-section-label">
-    <i class="fa-solid fa-clock me-1" style="color:var(--accent,#9C6B3F);"></i>
-    <span data-lang-am>ተመራጭ ባለሙያ — ቀጣይ ነፃ ሰዓት</span>
-    <span data-lang-en>Preferred pro — next free slot</span>
-  </p>
-  <div class="cp-actions">
-    <form method="post" action="/book/{{ salon_ref }}" enctype="multipart/form-data">
-      <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-      <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-      <input type="hidden" name="service_id" value="{{ conflict_service }}">
-      <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-      <input type="hidden" name="appointment_time" value="{{ next_slot }}">
-      <input type="hidden" name="party_size" value="1">
-      <button type="submit" class="btn-next-slot">
-        {% if conflict_staff_name %}{{ conflict_staff_name }} · {% endif %}
-        {{ next_slot_display or next_slot }}
-      </button>
-    </form>
-  </div>
-  {% endif %}
-
-  {# 3) Waitlist #}
-  <p class="cp-section-label">
-    <i class="fa-solid fa-list-check me-1"></i>
-    <span data-lang-am>ወይም ተጠባባቂ ላይ ይግቡ</span>
-    <span data-lang-en>Or join the waitlist</span>
-  </p>
-  <div class="cp-actions">
-    <form method="post" action="/book/{{ salon_ref }}/waitlist">
-      <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-      <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-      <input type="hidden" name="service_id" value="{{ conflict_service }}">
-      {% if conflict_staff %}
-      <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
-      {% endif %}
-      <input type="hidden" name="preferred_date" value="{{ conflict_date or current_date }}">
-      <button type="submit" class="btn-wait">
-        <i class="fa-solid fa-list-check me-1"></i>
-        <span data-lang-am>ተጠባባቂ ላይ ጨምር</span>
-        <span data-lang-en>Join waitlist</span>
-      </button>
-    </form>
-  </div>
-
-  {% if not alt_staff and not next_slot %}
-  <p class="small text-muted mb-0">
-    <span data-lang-am>በአሁኑ ጊዜ ሌላ ነፃ ባለሙያ ወይም ሰዓት አልተገኘም — ተጠባባቂ ይመከራል።</span>
-    <span data-lang-en>No other free pro or slot found right now — waitlist is recommended.</span>
-  </p>
-  {% endif %}
-</div>
-{% endif %}
-
-        
-
-        <!-- Progress -->
-        <div class="steps-bar" id="stepsBar">
-            <div class="dot active" data-s="1"></div>
-            <div class="dot" data-s="2"></div>
-            <div class="dot" data-s="3"></div>
-            <div class="dot" data-s="4"></div>
-            <div class="dot" data-s="5"></div>
-        </div>
-
-        <form action="/book/{{ salon.slug or salon.id }}" method="post" id="bookingForm" enctype="multipart/form-data">
-
-            <!-- STEP 1: Service -->
-            <div class="step-panel active" data-step="1">
-                <h2 class="section-title">
-                    <span class="step-num">1</span>
-                    <span data-lang-am>አገልግሎት ይምረጡ</span>
-                    <span data-lang-en>Choose service</span>
-                </h2>
-                <div class="svc-list">
-                    {% for s in services %}
-                    <label class="svc-card {% if conflict_service and s.id == conflict_service %}selected{% elif not conflict_service and loop.first %}selected{% endif %}"
-                           data-service-id="{{ s.id }}">
-                        <input type="radio" name="service_id" value="{{ s.id }}"
-                            data-name="{{ s.name }}" data-price="{{ s.price }}" data-deposit="{{ s.deposit_amount or 0 }}"
-                            data-is-package="{{ 1 if s.is_package else 0 }}"
-                            data-min-people="{{ s.min_people or 1 }}"
-                            data-max-people="{{ s.max_people or 0 }}"
-                            data-extra-price="{{ s.extra_person_price or 0 }}"
-                            data-allow-outside="{{ 1 if s.allow_outside_hours else 0 }}"
-                            {% if conflict_service and s.id == conflict_service %}checked{% elif not conflict_service and loop.first %}checked{% endif %}
-                            required onchange="onServicePick(this)">
-                        <div class="svc-icon"><i class="fa-solid {% if s.is_package %}fa-gift{% else %}fa-spa{% endif %}"></i></div>
-                        <div class="svc-body">
-                            <p class="svc-name">
-                                {{ s.name }}
-                                {% if s.is_package %}<span class="pkg-badge" style="margin-left:6px;font-size:0.6rem;vertical-align:middle;">ፓኬጅ / Pkg</span>{% endif %}
-                            </p>
-                            <p class="svc-meta">
-                                {% if s.duration_minutes %}{{ s.duration_minutes }} <span data-lang-am>ደቂቃ</span><span data-lang-en>min</span>{% else %}—{% endif %}
-                                {% if s.is_package %}
-                                · <i class="fa-solid fa-users"></i> {{ s.min_people or 1 }}{% if s.max_people %}–{{ s.max_people }}{% endif %}
-                                {% endif %}
-                                {% if s.is_package and s.includes_text %}
-                                <br><span style="font-size:0.72rem;">{{ s.includes_text }}</span>
-                                {% endif %}
-                            </p>
-                        </div>
-                        <div class="svc-price">
-                            {% if s.is_package and s.extra_person_price %}
-                            {{ s.price }}+
-                            <span style="font-size:0.7rem;font-weight:600;color:var(--muted);">{{ s.extra_person_price }}/extra</span>
-                            {% else %}
-                            {{ s.price }} ETB
-                            {% endif %}
-                            {% if salon.deposit_enabled and s.deposit_amount and s.deposit_amount|float > 0 %}
-                            <div style="font-size:0.7rem;font-weight:600;color:var(--muted);margin-top:2px;">
-                                <span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span>
-                                {{ s.deposit_amount }} ETB
-                            </div>
-                            {% endif %}
-                        </div>
+                <!-- Step 1: Service (includes packages as selectable cards) -->
+                <div class="step-panel active" data-step="1">
+                    <label class="form-label">
+                        <span data-lang-am>አገልግሎት ይምረጡ</span>
+                        <span data-lang-en>Choose a service</span>
                     </label>
-                    {% endfor %}
-
-                    <!-- Party size (packages) — price updates with headcount -->
-                    <div id="partySizeBlock" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--cream);">
-                        <label class="form-label mb-1">
-                            <span data-lang-am>ስንት ሰዎች?</span>
-                            <span data-lang-en>How many people?</span>
+                    <div class="svc-list">
+                        {% for s in services %}
+                        <label class="svc-card" for="svc-{{ s.id }}">
+                            <input type="radio" name="service_id" id="svc-{{ s.id }}" value="{{ s.id }}"
+                                   data-name="{{ s.name }}"
+                                   data-price="{{ s.price }}"
+                                   data-deposit="{{ s.deposit_amount or 0 }}"
+                                   data-is-package="{{ 1 if s.is_package else 0 }}"
+                                   data-min-people="{{ s.min_people or 1 }}"
+                                   data-max-people="{{ s.max_people or 0 }}"
+                                   data-extra-price="{{ s.extra_person_price or 0 }}"
+                                   data-duration="{{ s.duration_minutes or 30 }}"
+                                   onchange="onServicePick(this)" required>
+                            <div class="svc-icon">
+                                {% if s.is_package %}
+                                <i class="fa-solid fa-gift"></i>
+                                {% else %}
+                                <i class="fa-solid fa-scissors"></i>
+                                {% endif %}
+                            </div>
+                            <div class="svc-body">
+                                <div class="svc-name">
+                                    {{ s.name }}
+                                    {% if s.is_package %}
+                                    <span style="font-size:0.65rem;background:var(--cream);color:var(--accent);padding:2px 7px;border-radius:999px;margin-left:4px;font-weight:800;">
+                                        <span data-lang-am>ጥቅል</span><span data-lang-en>PKG</span>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <p class="svc-meta">
+                                    {{ s.duration_minutes or 30 }} ደቂቃ
+                                    {% if s.is_package and s.min_people and s.min_people > 1 %}
+                                    · {{ s.min_people }}{% if s.max_people %}–{{ s.max_people }}{% else %}+{% endif %} ሰዎች
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="svc-price">{{ "{:,.0f}".format(s.price or 0) }} ብር</div>
                         </label>
-                        <input type="number" name="party_size" id="partySize" class="form-control"
-                               min="1" max="50" value="1" style="max-width:140px;"
-                               oninput="updatePackageTotal()">
-                        <p class="small text-muted mt-1 mb-1" id="partySizeHint"></p>
-                        <div id="packageTotalLine" style="display:none;font-weight:800;color:var(--accent);font-size:1.05rem;">
-                            <span data-lang-am>ጠቅላላ፡</span>
-                            <span data-lang-en>Total:</span>
-                            <span id="packageTotalValue">0</span> ETB
+                        {% endfor %}
+                    </div>
+
+                    <!-- Party size for packages (shown only when package selected) -->
+                    <div id="partySizeBlock" style="display:none;">
+                        <label class="form-label">
+                            <span data-lang-am>የሰዎች ብዛት</span>
+                            <span data-lang-en>Number of people</span>
+                        </label>
+                        <input type="number" class="form-control" name="party_size" id="partySize" value="1" min="1" onchange="updatePackageTotal()" oninput="updatePackageTotal()">
+                        <p class="small text-muted mt-1 mb-0" id="partySizeHint"></p>
+                        <div id="packageTotalLine" style="display:none;">
+                            <span data-lang-am>ጠቅላላ</span>
+                            <span data-lang-en>Total</span>:
+                            <span id="packageTotalValue">0</span> ብር
                         </div>
                     </div>
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-next" onclick="goStep(2)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                        <i class="fa-solid fa-arrow-right ms-1"></i>
-                    </button>
-                </div>
-            </div>
 
-            <!-- STEP 2: Staff -->
-            <div class="step-panel" data-step="2">
-                <h2 class="section-title">
-                    <span class="step-num">2</span>
-                    <span data-lang-am>ባለሙያ ይምረጡ</span>
-                    <span data-lang-en>Choose professional</span>
-                </h2>
-                <div class="staff-list" id="staffList">
-                    {% for st in staff_members %}
-                    {% set avatar_name = (st.name or 'S')|replace(' ', '+') %}
-                    {% set avatar_url = 'https://ui-avatars.com/api/?background=9C6B3F&color=fff&bold=true&size=128&name=' ~ avatar_name %}
-                    {% set photo_src = st.photo_url if (st.photo_url and st.photo_url|trim) else avatar_url %}
-                    {% set sid_list = st.service_ids if st.service_ids else [] %}
-                    <label class="staff-pick" data-services="{{ sid_list|join(',') if sid_list else 'all' }}">
-                        <input type="radio" name="staff_id" value="{{ st.id }}"
-                            data-name="{{ st.name }}"
-                            data-open="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}"
-                            data-close="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}"
-                            data-days="{{ st.working_days if st.working_days else salon.working_days }}"
-                            data-services="{{ sid_list|join(',') if sid_list else 'all' }}"
-                            {% if conflict_staff and st.id == conflict_staff %}checked
-                            {% elif not conflict_staff and loop.first %}checked{% endif %}
-                            required onchange="onStaffPick()">
-                        <span class="staff-check"><i class="fa-solid fa-check"></i></span>
-                        <div class="staff-ring">
-                            <img class="staff-photo-img" src="{{ photo_src }}" alt="{{ st.name }}" data-fallback="{{ avatar_url }}" loading="lazy">
-                        </div>
-                        <div class="nm">{{ st.name }}</div>
+                    <div class="step-nav">
+                        <button type="button" class="btn-next" onclick="goStep(2)">
+                            <span data-lang-am>ቀጣይ</span>
+                            <span data-lang-en>Next</span>
+                            <i class="fa-solid fa-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Staff -->
+                <div class="step-panel" data-step="2">
+                    <label class="form-label">
+                        <span data-lang-am>ባለሙያ ይምረጡ</span>
+                        <span data-lang-en>Choose a professional</span>
                     </label>
-                    {% endfor %}
+                    <div class="staff-list" id="staffList">
+                        {% for st in staff_members %}
+                        <label class="staff-pick" data-services="{{ st.service_ids|join(',') if st.service_ids else 'all' }}">
+                            <input type="radio" name="staff_id" value="{{ st.id }}"
+                                   data-name="{{ st.name }}"
+                                   data-open="{{ st.opening_time or salon.opening_time or '09:00' }}"
+                                   data-close="{{ st.closing_time or salon.closing_time or '18:00' }}"
+                                   data-days="{{ st.working_days or salon.working_days or '0,1,2,3,4,5,6' }}"
+                                   onchange="onStaffPick()" required>
+                            <div class="staff-ring">
+                                {% if st.photo_url %}
+                                <img class="staff-photo-img" src="{{ st.photo_url }}" data-fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect fill='%23F6ECE1' width='80' height='80'/%3E%3Ctext x='40' y='48' text-anchor='middle' fill='%239C6B3F' font-size='28' font-family='sans-serif'%3E{{ (st.name or '?')[0]|upper }}%3C/text%3E%3C/svg%3E" alt="">
+                                {% else %}
+                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--accent);background:var(--cream);font-size:1.4rem;">{{ (st.name or '?')[0]|upper }}</div>
+                                {% endif %}
+                            </div>
+                            <span class="staff-check"><i class="fa-solid fa-check"></i></span>
+                            <div class="nm">{{ st.name }}</div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p id="noStaffForService" style="display:none;" class="text-muted small text-center mt-2">
+                        <span data-lang-am>ለዚህ አገልግሎት ባለሙያ አልተመደበም</span>
+                        <span data-lang-en>No professional assigned to this service</span>
+                    </p>
+                    <p class="small text-muted mt-2" id="staffHoursHint"></p>
+                    <div class="step-nav">
+                        <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
+                        <button type="button" class="btn-next" onclick="goStep(3)">
+                            <span data-lang-am>ቀጣይ</span>
+                            <span data-lang-en>Next</span>
+                        </button>
+                    </div>
                 </div>
-                <p class="small text-muted mt-2 mb-0" id="noStaffForService" style="display:none;">
-                    <span data-lang-am>ለዚህ አገልግሎት ባለሙያ አልተመደበም። ሌላ አገልግሎት ይምረጡ ወይም ሳሎኑን ይደውሉ።</span>
-                    <span data-lang-en>No professional is assigned to this service. Choose another or call the salon.</span>
-                </p>
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn-next" onclick="goStep(3)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                    </button>
-                </div>
-            </div>
 
-            <!-- STEP 3: Date & time -->
-            <div class="step-panel" data-step="3">
-                <h2 class="section-title">
-                    <span class="step-num">3</span>
-                    <span data-lang-am>ቀንና ሰዓት</span>
-                    <span data-lang-en>Date & time</span>
-                </h2>
-                <div class="mb-3">
-                    <label class="form-label"><span data-lang-am>ቀን</span><span data-lang-en>Date</span></label>
-                    <input type="date" id="ethDate" class="form-control" value="{{ current_date }}" required>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label"><span data-lang-am>ሰዓት (ኢትዮጵያ)</span><span data-lang-en>Time (Ethiopian)</span></label>
+                <!-- Step 3: Date & time -->
+                <div class="step-panel" data-step="3">
+                    <label class="form-label">
+                        <span data-lang-am>ቀን</span>
+                        <span data-lang-en>Date</span>
+                    </label>
+                    <input type="date" class="form-control mb-3" id="ethDate" name="appointment_date_display" min="{{ current_date }}" required>
+
+                    <label class="form-label">
+                        <span data-lang-am>ሰዓት</span>
+                        <span data-lang-en>Time</span>
+                    </label>
                     <div class="eth-time-picker">
                         <div class="eth-wheel-shell">
                             <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col" id="wheelEth"></div>
+                            <div class="wheel-col wheel-eth" id="wheelEth"></div>
                         </div>
-                        <div class="eth-preview" id="ethPreview">
-                            <span class="time-dual-main">ጧት 3:00 ሰዓት</span>
-                            <div class="time-dual-sub">9:00 AM</div>
-                        </div>
+                        <div class="eth-preview" id="ethPreview">—</div>
                     </div>
                     <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
-                    <p class="small text-muted mt-2 mb-0" id="staffHoursHint"></p>
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn-next" onclick="goStep(4)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                    </button>
-                </div>
-            </div>
 
-            <!-- STEP 4: Info -->
-            <div class="step-panel" data-step="4">
-                <h2 class="section-title">
-                    <span class="step-num">4</span>
-                    <span data-lang-am>የእርስዎ መረጃ</span>
-                    <span data-lang-en>Your information</span>
-                </h2>
-                <div class="mb-3">
-                    <label class="form-label"><span data-lang-am>ሙሉ ስም</span><span data-lang-en>Full name</span></label>
-                    <input type="text" name="customer_name" id="customerName" class="form-control" value="{{ conflict_name or '' }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label"><span data-lang-am>ስልክ ቁጥር</span><span data-lang-en>Phone number</span></label>
-                    <input type="tel" name="customer_phone" id="customerPhone" class="form-control" value="{{ conflict_phone or '' }}" required placeholder="0911223344">
-                </div>
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn-next" onclick="goStep(5)">
-                        <span data-lang-am>ቀጣይ</span><span data-lang-en>Continue</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- STEP 5: Confirm (+ optional deposit) -->
-            <div class="step-panel" data-step="5">
-                <h2 class="section-title">
-                    <span class="step-num">5</span>
-                    <span data-lang-am>ያረጋግጡ</span>
-                    <span data-lang-en>Confirm booking</span>
-                </h2>
-                <div class="summary-box">
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
-                        <span class="val" id="sumService">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ባለሙያ</span><span data-lang-en>Professional</span></span>
-                        <span class="val" id="sumStaff">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ቀን / ሰዓት</span><span data-lang-en>Date / time</span></span>
-                        <span class="val" id="sumWhen">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ስም</span><span data-lang-en>Name</span></span>
-                        <span class="val" id="sumName">—</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
-                        <span class="val" id="sumPrice" style="color:var(--accent);">—</span>
-                    </div>
-                    <div class="summary-row" id="sumDepositRow" style="display:none;">
-                        <span class="lbl"><span data-lang-am>ቅድሚያ ክፍያ</span><span data-lang-en>Deposit due</span></span>
-                        <span class="val" id="sumDeposit" style="color:#E65100;">—</span>
+                    <div class="step-nav">
+                        <button type="button" class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i></button>
+                        <button type="button" class="btn-next" onclick="goStep(4)">
+                            <span data-lang-am>ቀጣይ</span>
+                            <span data-lang-en>Next</span>
+                        </button>
                     </div>
                 </div>
 
-                {% if salon.deposit_enabled %}
-                <div id="depositBlock" style="display:none;margin-bottom:16px;">
-                    <div style="background:#FFF8E1;border:1px solid #FFE0B2;border-radius:14px;padding:14px;margin-bottom:12px;">
-                        <div style="font-weight:700;margin-bottom:8px;color:#E65100;">
-                            <i class="fa-solid fa-money-bill-transfer me-1"></i>
-                            <span data-lang-am>ቅድሚያ ክፍያ ያስፈልጋል</span>
-                            <span data-lang-en>Deposit required</span>
-                        </div>
-                        <p class="small text-muted mb-2" style="margin:0;">
-                            <span data-lang-am>ከታች ካሉት የክፍያ ዘዴዎች አንዱን ይምረጡ፣ ይክፈሉ፣ ከዚያ የክፍያ ማረጋገጫ screenshot ይስቀሉ።</span>
-                            <span data-lang-en>Choose a payment method below, pay the deposit, then upload a screenshot of the payment.</span>
-                        </p>
-                        {% if salon.payment_methods %}
-                        <div class="mb-2">
-                            {% for m in salon.payment_methods %}
-                            <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:#fff;">
-                                <input type="radio" name="payment_method" value="{{ m.name }}" style="margin-top:4px;" {% if loop.first %}checked{% endif %}>
-                                <div style="flex:1;min-width:0;">
-                                    <div style="font-weight:700;">{{ m.name }}</div>
-                                    {% if m.account %}
-                                    <div class="d-flex align-items-center gap-2" style="margin-top:4px;">
-                                        <span style="font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.3px;">{{ m.account }}</span>
-                                        <button type="button" onclick="event.preventDefault();event.stopPropagation();copyAccount('{{ m.account|e }}', this)"
-                                                style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--accent);cursor:pointer;">
-                                            <i class="fa-regular fa-copy me-1"></i>
-                                            <span data-lang-am>ቅዳ</span>
-                                            <span data-lang-en>Copy</span>
-                                        </button>
-                                    </div>
-                                    {% endif %}
-                                    {% if m.instructions %}<div class="small text-muted mt-1">{{ m.instructions }}</div>{% endif %}
-                                </div>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <p class="small text-muted">
-                            <span data-lang-am>የክፍያ ዘዴ አልተቀናበረም — ሳሎኑን በስልክ ያግኙ።</span>
-                            <span data-lang-en>No payment methods configured — please call the salon.</span>
-                        </p>
-                        {% endif %}
+                <!-- Step 4: Customer details -->
+                <div class="step-panel" data-step="4">
+                    <div class="mb-3">
                         <label class="form-label">
+                            <span data-lang-am>ስም</span>
+                            <span data-lang-en>Name</span>
+                        </label>
+                        <input type="text" class="form-control" name="customer_name" id="customerName" required autocomplete="name">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <span data-lang-am>ስልክ</span>
+                            <span data-lang-en>Phone</span>
+                        </label>
+                        <input type="tel" class="form-control" name="customer_phone" id="customerPhone" required inputmode="tel" autocomplete="tel">
+                    </div>
+                    <div class="step-nav">
+                        <button type="button" class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i></button>
+                        <button type="button" class="btn-next" onclick="goStep(5)">
+                            <span data-lang-am>ቀጣይ</span>
+                            <span data-lang-en>Next</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Confirm -->
+                <div class="step-panel" data-step="5">
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span class="lbl"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
+                            <span class="val" id="sumService">—</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="lbl"><span data-lang-am>ባለሙያ</span><span data-lang-en>Professional</span></span>
+                            <span class="val" id="sumStaff">—</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="lbl"><span data-lang-am>ቀን / ሰዓት</span><span data-lang-en>When</span></span>
+                            <span class="val" id="sumWhen">—</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="lbl"><span data-lang-am>ስም</span><span data-lang-en>Name</span></span>
+                            <span class="val" id="sumName">—</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
+                            <span class="val" id="sumPrice">—</span>
+                        </div>
+                        <div class="summary-row" id="sumDepositRow" style="display:none;">
+                            <span class="lbl"><span data-lang-am>ቅድመ ክፍያ</span><span data-lang-en>Deposit</span></span>
+                            <span class="val" id="sumDeposit">—</span>
+                        </div>
+                    </div>
+
+                    {% if salon.deposit_enabled %}
+                    <div id="depositBlock" style="display:none;" class="mb-3">
+                        <label class="form-label">
+                            <span data-lang-am>የክፍያ ዘዴ</span>
+                            <span data-lang-en>Payment method</span>
+                        </label>
+                        <select class="form-select mb-2" name="payment_method">
+                            {% for m in payment_methods or [] %}
+                            <option value="{{ m.name }}">{{ m.name }}{% if m.account %} — {{ m.account }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        {% for m in payment_methods or [] %}
+                        {% if m.account %}
+                        <div class="small mb-1">
+                            <strong>{{ m.name }}:</strong> {{ m.account }}
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="copyAccount('{{ m.account }}', this)">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        <label class="form-label mt-2">
                             <span data-lang-am>የክፍያ screenshot</span>
                             <span data-lang-en>Payment screenshot</span>
                         </label>
-                        <input type="file" name="payment_screenshot" id="paymentScreenshot" accept="image/*" class="form-control">
+                        <input type="file" class="form-control" name="payment_screenshot" id="paymentScreenshot" accept="image/*">
+                    </div>
+                    {% endif %}
+
+                    <div class="step-nav">
+                        <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
+                        <button type="submit" class="btn-next">
+                            <i class="fa-solid fa-calendar-check me-1"></i>
+                            <span data-lang-am>ቀጠሮ አረጋግጥ</span>
+                            <span data-lang-en>Confirm booking</span>
+                        </button>
                     </div>
                 </div>
-                {% endif %}
 
-                <div class="step-nav">
-                    <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="submit" class="btn-next">
-                        <i class="fa-solid fa-calendar-check me-1"></i>
-                        <span data-lang-am>ቀጠሮ አረጋግጥ</span>
-                        <span data-lang-en>Confirm booking</span>
-                    </button>
-                </div>
-            </div>
-
-        </form>
-        {% endif %}
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- Sticky CTA -->
-{% if not success and not waitlisted %}
 {% set min_price = namespace(v=None) %}
 {% for s in services %}
     {% if min_price.v is none or s.price < min_price.v %}{% set min_price.v = s.price %}{% endif %}
@@ -1497,8 +1207,8 @@
         <div class="price-hint">
             <strong id="stickyPriceLabel">
                 {% if min_price.v is not none %}
-                <span data-lang-am>ከ {{ min_price.v }} ብር ጀምሮ</span>
-                <span data-lang-en>From {{ min_price.v }} ETB</span>
+                <span data-lang-am>ከ {{ "{:,.0f}".format(min_price.v) }} ብር ጀምሮ</span>
+                <span data-lang-en>From {{ "{:,.0f}".format(min_price.v) }} ETB</span>
                 {% else %}
                 <span data-lang-am>ቀጠሮ ያዙ</span>
                 <span data-lang-en>Book now</span>
@@ -1529,7 +1239,6 @@ function copyAccount(text, btn) {
         btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> OK';
         setTimeout(function () { btn.innerHTML = old; }, 1200);
     }).catch(function () {
-        // fallback
         var ta = document.createElement('textarea');
         ta.value = text;
         document.body.appendChild(ta);
@@ -1610,8 +1319,6 @@ function goStep(n) {
     });
     document.body.classList.add('booking-open');
     if (n === 3) {
-        // Panel was just made visible — the wheel's earlier scrollTo calls had no
-        // effect while it was display:none, so re-apply the position now.
         setTimeout(() => {
             if (typeof ethWheel !== 'undefined' && ethWheel && typeof ethWheel.reset === 'function') {
                 ethWheel.reset(selectedHHMM);
@@ -1620,6 +1327,7 @@ function goStep(n) {
     }
 }
 
+/* Package → service selection (connected to booking flow) */
 function pickPackage(id, card) {
     document.querySelectorAll('.pkg-card').forEach(c => c.classList.remove('selected'));
     if (card) card.classList.add('selected');
@@ -1629,11 +1337,14 @@ function pickPackage(id, card) {
         onServicePick(radio);
         startBooking();
         goStep(1);
-        // scroll to selected service card
         const svcCard = radio.closest('.svc-card');
-        if (svcCard) svcCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (svcCard) {
+            svcCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            svcCard.classList.add('selected');
+        }
     }
 }
+
 function onServicePick(el) {
     document.querySelectorAll('.svc-card').forEach(c => c.classList.remove('selected'));
     el.closest('.svc-card').classList.add('selected');
@@ -1642,8 +1353,8 @@ function onServicePick(el) {
     if (label && price) {
         const en = document.documentElement.lang === 'en';
         label.innerHTML = en
-            ? `<span data-lang-en style="display:inline">From ${price} ETB</span>`
-            : `<span data-lang-am style="display:inline">ከ ${price} ብር ጀምሮ</span>`;
+            ? `<span data-lang-en style="display:inline">From ${Number(price).toLocaleString()} ETB</span>`
+            : `<span data-lang-am style="display:inline">ከ ${Number(price).toLocaleString()} ብር ጀምሮ</span>`;
     }
     // Party size + dynamic total for packages
     const isPkg = el.dataset.isPackage === '1';
@@ -1661,15 +1372,14 @@ function onServicePick(el) {
             if (maxP > 0) input.max = maxP; else input.removeAttribute('max');
             if (!input.value || parseInt(input.value, 10) < minP) input.value = minP;
             const en = document.documentElement.lang === 'en';
-            let h = en ? `${minP}` : `${minP}`;
+            let h = en ? `At least ${minP} people` : `ቢያንስ ${minP} ሰዎች`;
             if (maxP > 0) h = en ? `${minP}–${maxP} people` : `${minP}–${maxP} ሰዎች`;
-            else h = en ? `At least ${minP} people` : `ቢያንስ ${minP} ሰዎች`;
             if (extra > 0) {
                 h += en
-                    ? ` · Primary ${base} ETB + ${extra} each extra`
-                    : ` · ዋና ${base} ብር + ተጨማሪ ${extra}`;
+                    ? ` · Primary ${base.toLocaleString()} ETB + ${extra.toLocaleString()} each extra`
+                    : ` · ዋና ${base.toLocaleString()} ብር + ተጨማሪ ${extra.toLocaleString()}`;
             }
-            hint.textContent = h;
+            if (hint) hint.textContent = h;
             updatePackageTotal();
         } else {
             block.style.display = 'none';
@@ -1678,8 +1388,13 @@ function onServicePick(el) {
             if (tot) tot.style.display = 'none';
         }
     }
+    // Keep package cards in sync
+    document.querySelectorAll('.pkg-card').forEach(c => {
+        c.classList.toggle('selected', String(c.dataset.serviceId) === String(el.value));
+    });
     filterStaffForService();
 }
+
 function updatePackageTotal() {
     const svc = document.querySelector('input[name="service_id"]:checked');
     const input = document.getElementById('partySize');
@@ -1707,10 +1422,10 @@ function updatePackageTotal() {
             ? `<span data-lang-en style="display:inline">${total.toLocaleString()} ETB</span>`
             : `<span data-lang-am style="display:inline">${total.toLocaleString()} ብር</span>`;
     }
-    // summary price on step 5
     const sumPrice = document.getElementById('sumPrice');
     if (sumPrice) sumPrice.textContent = total.toLocaleString() + ' ETB';
 }
+
 function filterStaffForService() {
     const svc = document.querySelector('input[name="service_id"]:checked');
     const svcId = svc ? String(svc.value) : '';
@@ -1737,7 +1452,6 @@ function filterStaffForService() {
     });
     const none = document.getElementById('noStaffForService');
     if (none) none.style.display = visible === 0 ? 'block' : 'none';
-    // Auto-select first visible if none selected
     const checked = document.querySelector('input[name="staff_id"]:checked');
     if ((!checked || checked.closest('.staff-pick')?.classList.contains('staff-hidden')) && firstVisible) {
         firstVisible.checked = true;
@@ -1750,7 +1464,6 @@ function refreshSummary() {
     const svc = document.querySelector('input[name="service_id"]:checked');
     const st = document.querySelector('input[name="staff_id"]:checked');
     const name = document.getElementById('customerName')?.value || '—';
-    const when = document.getElementById('ethPreview')?.textContent || '';
     const date = document.getElementById('ethDate')?.value || '';
     document.getElementById('sumService').textContent = svc ? svc.dataset.name : '—';
     document.getElementById('sumStaff').textContent = st ? st.dataset.name : '—';
@@ -1770,7 +1483,11 @@ function refreshSummary() {
       sumWhen.textContent = date + (whenText ? ' · ' + whenText : '');
     }
     document.getElementById('sumName').textContent = name;
-    document.getElementById('sumPrice').textContent = svc ? (svc.dataset.price + ' ETB') : '—';
+    if (svc) {
+        updatePackageTotal();
+    } else {
+        document.getElementById('sumPrice').textContent = '—';
+    }
     const dep = svc ? parseFloat(svc.dataset.deposit || '0') : 0;
     const depRow = document.getElementById('sumDepositRow');
     const depVal = document.getElementById('sumDeposit');
@@ -1816,20 +1533,7 @@ document.querySelectorAll('img.staff-photo-img').forEach(img => {
     });
 });
 
-/* ============================================================
-   Ethiopian time wheel — data + wheel construction.
-   NOTE: this block must run BEFORE the "Time mode" block below,
-   because that block calls applyTimeMode() immediately on load,
-   which in turn calls updatePreviewAndHidden() — and that
-   function reads `selectedHHMM`. `selectedHHMM` is declared with
-   `let`, so referencing it before this block runs throws a
-   ReferenceError (temporal dead zone) and — since that error is
-   uncaught — silently aborts the rest of the script, including
-   the call to initWheel() that actually builds the wheel's items.
-   That was the root cause of the wheel appearing empty. Keeping
-   this block first guarantees selectedHHMM/slots/ethWheel exist
-   before anything else tries to use them.
-   ============================================================ */
+/* Ethiopian time wheel */
 function westernToEth(h, m) {
     const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
     const eh = Math.floor(total / 60);
@@ -1856,28 +1560,17 @@ function buildEthSlots() {
     return slots;
 }
 
-/* Robust, mobile-friendly picker wheel.
-   Relies on native touch scrolling + CSS scroll-snap instead of a manual
-   touchstart/touchmove re-implementation — the manual version could end up
-   fighting the browser's own scroll handling on some phones and get "stuck". */
 function initWheel(container, values, initial, onChange) {
     const ITEM = 44;
-
     container.innerHTML =
         '<div class="wheel-spacer" aria-hidden="true"></div>' +
         values.map((v, i) => `<div class="wheel-item" data-idx="${i}">${v}</div>`).join('') +
         '<div class="wheel-spacer" aria-hidden="true"></div>';
-
     const items = Array.from(container.querySelectorAll('.wheel-item'));
     let current = null;
     let settleTimer = null;
-
-    function clampIdx(i) {
-        return Math.max(0, Math.min(values.length - 1, i));
-    }
-    function idxFromScroll() {
-        return clampIdx(Math.round(container.scrollTop / ITEM));
-    }
+    function clampIdx(i) { return Math.max(0, Math.min(values.length - 1, i)); }
+    function idxFromScroll() { return clampIdx(Math.round(container.scrollTop / ITEM)); }
     function scrollToIdx(i, smooth) {
         i = clampIdx(i);
         container.scrollTo({ top: i * ITEM, behavior: smooth ? 'smooth' : 'auto' });
@@ -1890,11 +1583,6 @@ function initWheel(container, values, initial, onChange) {
             if (typeof onChange === 'function') onChange(values[i]);
         }
     }
-
-    // Native scrolling (touch drag, mouse wheel, trackpad) does the heavy lifting.
-    // We just track which item is centered as the user scrolls, and snap-settle
-    // shortly after scrolling stops (CSS scroll-snap also helps here, this is
-    // a fallback/refinement for browsers with looser snap behavior).
     container.addEventListener('scroll', () => {
         mark(idxFromScroll());
         clearTimeout(settleTimer);
@@ -1904,38 +1592,26 @@ function initWheel(container, values, initial, onChange) {
             mark(i);
         }, 120);
     }, { passive: true });
-
     items.forEach((it, i) => {
         it.addEventListener('click', () => {
             scrollToIdx(i, true);
             mark(i);
         });
     });
-
     const start = Math.max(0, values.indexOf(initial));
     requestAnimationFrame(() => {
         scrollToIdx(start, false);
         mark(start);
     });
-
     return {
         set: (v) => {
             const ix = values.indexOf(v);
-            if (ix >= 0) {
-                scrollToIdx(ix, true);
-                mark(ix);
-            }
+            if (ix >= 0) { scrollToIdx(ix, true); mark(ix); }
         },
-        // Re-apply the current position without animation — needed after the
-        // wheel becomes visible (it was display:none, so earlier scrollTo calls
-        // had no effect since the element had zero size at the time).
         reset: (v) => {
             const target = (v != null) ? v : current;
             const ix = values.indexOf(target);
-            if (ix >= 0) {
-                scrollToIdx(ix, false);
-                mark(ix);
-            }
+            if (ix >= 0) { scrollToIdx(ix, false); mark(ix); }
         }
     };
 }
@@ -1974,9 +1650,6 @@ function updatePreviewAndHidden() {
 }
 document.getElementById('ethDate')?.addEventListener('change', updatePreviewAndHidden);
 
-/* ===== Time mode: eth | dual | intl (default dual) =====
-   Runs AFTER the wheel block above so selectedHHMM/updatePreviewAndHidden
-   are ready before initTimeMode() fires on load. */
 function westernLabel(hh, mm) {
   hh = parseInt(hh, 10); mm = parseInt(mm, 10) || 0;
   const suffix = hh < 12 ? 'AM' : 'PM';
@@ -1988,15 +1661,8 @@ function applyTimeMode(mode) {
   mode = 'dual';
   document.documentElement.setAttribute('data-time', mode);
   if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
-  document.querySelectorAll('[data-dual-time]').forEach(el => {
-    const eth = el.getAttribute('data-eth') || '';
-    const west = el.getAttribute('data-west') || '';
-    el.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
-  });
 }
-(function initTimeMode() {
-  applyTimeMode('dual');
-})();
+(function initTimeMode() { applyTimeMode('dual'); })();
 
 const dayAm = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
 const dayEn = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -2040,7 +1706,6 @@ document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
         }
     }
 });
-
 
 /* My bookings lookup */
 function lookupMyBookings() {
