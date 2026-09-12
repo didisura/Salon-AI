@@ -1000,19 +1000,43 @@
 
         <!-- ==================== HOME ==================== -->
         {% if active_tab == 'home' %}
-        <!-- Booking link -->
+        <!-- Booking link
+             Multi-location: ALWAYS use the active location slug (including HQ)
+             so clients never get a confusing brand-only /book/<hq-slug> link.
+             Single-location: keep existing booking_url / salon.slug behavior. -->
+        {% set _base = (request.base_url|string).rstrip('/') %}
+        {% set _bl = namespace(url=(booking_url or (_base ~ '/book/' ~ (salon.slug or salon.id)))) %}
+        {% if is_multi_location and locations %}
+          {% for loc in locations if loc.id == active_location_id %}
+            {% set _bl.url = _base ~ '/book/' ~ (loc.slug or loc.id) %}
+          {% endfor %}
+        {% endif %}
         <div class="card-soft mb-3" style="background:#F6ECE1;">
             <p class="small fw-semibold mb-2" style="color:var(--text-dark);">
                 <span data-lang-am>የደንበኛ ቀጠሮ ሊንክ</span>
                 <span data-lang-en>Client booking link</span>
+                {% if is_multi_location %}
+                <span class="badge ms-1" style="background:var(--accent);color:#fff;font-size:0.65rem;font-weight:700;">
+                  <i class="fa-solid fa-location-dot me-1"></i>
+                  <span data-lang-am>ይህ ቦታ</span>
+                  <span data-lang-en>This location</span>
+                </span>
+                {% endif %}
             </p>
             <div class="d-flex align-items-center gap-2">
-                <input type="text" id="bookingLinkInput" readonly value="{{ booking_url or (request.base_url|string).rstrip('/') ~ '/book/' ~ (salon.slug or salon.id) }}"
+                <input type="text" id="bookingLinkInput" readonly value="{{ _bl.url }}"
                        class="form-control form-control-sm" style="background:#fff;font-family:monospace;">
                 <button type="button" onclick="copyBookingLink()" class="btn btn-accent btn-sm text-nowrap" id="copyBookingBtn">
                     <i class="fa-solid fa-copy me-1"></i> <span data-lang-am>ቅዳ</span><span data-lang-en>Copy</span>
                 </button>
             </div>
+            {% if is_multi_location %}
+            <p class="small text-muted mt-2 mb-0">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                <span data-lang-am>እያንዳንዱ ቅርንጫፍ (HQ ጨምሮ) የራሱ ቀጠሮ ሊንክ አለው — ደንበኛው ትክክለኛውን ቦታ ይመርጣል።</span>
+                <span data-lang-en>Each branch (including HQ) has its own booking link so clients always land on the right location.</span>
+            </p>
+            {% endif %}
         </div>
 
         <!-- Pending deposit payments — any date, confirm from Home -->
@@ -2284,8 +2308,10 @@
                 </div>
                 <div class="d-flex gap-1 flex-wrap">
                   <a href="/book/{{ loc.slug or loc.id }}" target="_blank" rel="noopener"
-                     class="btn btn-outline-soft btn-sm" style="min-height:36px;padding:6px 10px;font-size:0.75rem">
-                    <i class="fa-solid fa-link"></i>
+                     class="btn btn-outline-soft btn-sm" style="min-height:36px;padding:6px 10px;font-size:0.75rem"
+                     title="/book/{{ loc.slug or loc.id }}">
+                    <i class="fa-solid fa-link me-1"></i>
+                    <span class="d-none d-md-inline" style="font-family:monospace;font-size:0.7rem;">/book/{{ loc.slug or loc.id }}</span>
                   </a>
                   <button type="button" class="btn btn-outline-soft btn-sm"
                           style="min-height:36px;padding:6px 10px;font-size:0.75rem"
