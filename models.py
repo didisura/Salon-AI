@@ -2,7 +2,8 @@ import enum
 import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Text, Numeric, DateTime, Date, Time, ForeignKey, Enum, func, JSON, TypeDecorator
+    Column, Integer, String, Text, Numeric, DateTime, Date, Time,
+    ForeignKey, func, JSON, TypeDecorator,
 )
 from sqlalchemy.orm import relationship
 
@@ -70,6 +71,25 @@ class Salon(Base):
     deposit_enabled = Column(Integer, nullable=False, default=0)
     payment_methods = Column(JSON, nullable=True)
 
+    # --- Multi-branch ---
+    # parent_id IS NULL  → root / HQ / independent salon
+    # parent_id set      → branch of that HQ
+    parent_id = Column(Integer, ForeignKey("salons.id"), nullable=True, index=True)
+    location_name = Column(String(80), nullable=True)  # e.g. "Bole", "CMC"
+
+    parent = relationship(
+        "Salon",
+        remote_side="Salon.id",
+        back_populates="branches",
+        foreign_keys=[parent_id],
+    )
+    branches = relationship(
+        "Salon",
+        back_populates="parent",
+        foreign_keys=[parent_id],
+        cascade="all, delete-orphan",
+    )
+
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
     staff_members = relationship("Staff", back_populates="salon", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="salon", cascade="all, delete-orphan")
@@ -80,6 +100,58 @@ class Salon(Base):
         cascade="all, delete-orphan",
         order_by="GalleryImage.id",
     )
+
+    # ------------------------------------------------------------------
+    # Branch helpers
+    # ------------------------------------------------------------------
+
+    @property
+    def is_root(self) -> bool:
+        return self.parent_id is None
+
+    @property
+    def is_branch(self) -> bool:
+        return self.parent_id is not None
+
+    @property
+    def display_location(self) -> str:
+        """Short label for the location switcher."""
+        return (self.location_name or self.name or "").strip() or f"#{self.id}"
+
+    @property
+    def brand_name(self) -> str:
+        """Parent business / HQ name for branding."""
+        if self.parent_id and self.parent is not None:
+            return self.parent.name
+        return self.name
+
+    def root_salon(self):
+        """Walk up to the HQ / root node (guards against cycles)."""
+        node = self
+        seen = set()
+        while getattr(node, "parent_id", None) and getattr(node, "parent", None) is not None:
+            if node.id in seen:
+                break
+            seen.add(node.id)
+            node = node.parent
+        return node
+
+    def effective_payment_methods(self):
+        """Branch uses own list if set; otherwise inherit from root."""
+        own = self.payment_methods
+        if own:
+            return own
+        if self.parent_id and self.parent is not None:
+            return self.parent.payment_methods or []
+        return []
+
+    def effective_deposit_enabled(self) -> bool:
+        """Use this location's flag (copied from HQ on create if requested)."""
+        return bool(self.deposit_enabled)
+
+    # ------------------------------------------------------------------
+    # Existing helpers
+    # ------------------------------------------------------------------
 
     @property
     def working_days_set(self) -> set:
@@ -163,8 +235,7 @@ class Service(Base):
     duration_minutes = Column(Integer, nullable=False)
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
 
-    # --- Package / special offering (bridal, wedding party, etc.) ---
-    is_package = Column(Integer, nullable=False, default=0)  # 0/1
+    is_package = Column(Integer, nullable=False, default=0)
     min_people = Column(Integer, nullable=True, default=1)
     max_people = Column(Integer, nullable=True)
     includes_text = Column(String(600), nullable=True)
@@ -214,7 +285,7 @@ class Staff(Base):
     salon = relationship("Salon", back_populates="staff_members")
     day_offs = relationship(
         "StaffDayOff", back_populates="staff", cascade="all, delete-orphan",
-        order_by="StaffDayOff.off_date"
+        order_by="StaffDayOff.off_date",
     )
 
     def effective_hours(self, salon: "Salon"):
@@ -302,7 +373,6 @@ class Appointment(Base):
 
     @property
     def appointment_time(self) -> str:
-        """Ethiopian primary label (local speech)."""
         dt = self.appointment_datetime
         total = (dt.hour * 60 + dt.minute - 360) % 1440
         eh, em = total // 60, total % 60
@@ -318,7 +388,6 @@ class Appointment(Base):
 
     @property
     def appointment_time_western(self) -> str:
-        """Western 12h clock for customers who use phone time."""
         dt = self.appointment_datetime
         h, m = dt.hour, dt.minute
         suffix = "AM" if h < 12 else "PM"
@@ -329,7 +398,6 @@ class Appointment(Base):
 
     @property
     def appointment_time_dual(self) -> str:
-        """Primary Ethiopian + secondary Western — default product display."""
         return f"{self.appointment_time} · {self.appointment_time_western}"
 
     @property
@@ -340,9 +408,11 @@ class Appointment(Base):
 
     @property
     def service_price(self):
+        if self.service_price_snap is not None:
+            return float(self.service_price_snap or 0)
         if self.service:
             return float(self.service.price or 0)
-        return float(self.service_price_snap or 0)
+        return 0.0
 
     @property
     def staff_name(self):

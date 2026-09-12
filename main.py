@@ -34,11 +34,17 @@ from security import (
     create_admin_token,
     get_current_salon,
     get_current_admin,
+    get_root_salon,
+    get_salon_tree_ids,
     NotAuthenticatedException,
 )
 
 Base.metadata.create_all(bind=engine)
 
+
+# ---------------------------------------------------------------------------
+# Schema migrations (idempotent)
+# ---------------------------------------------------------------------------
 
 def _ensure_staff_day_hours_column():
     from sqlalchemy import inspect, text
@@ -150,7 +156,7 @@ def _ensure_photo_columns():
                     WHERE table_name = 'appointments' AND column_name = 'status'
                     """
                 )).fetchone()
-                if row and (row[0] == 'USER-DEFINED' or (row[1] and 'appointment' in str(row[1]).lower())):
+                if row and (row[0] == "USER-DEFINED" or (row[1] and "appointment" in str(row[1]).lower())):
                     conn.execute(text(
                         "ALTER TABLE appointments "
                         "ALTER COLUMN status TYPE VARCHAR(30) "
@@ -164,7 +170,6 @@ _ensure_photo_columns()
 
 
 def _ensure_package_columns():
-    """Package fields on services + party_size on appointments."""
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
     dialect = engine.dialect.name
@@ -243,7 +248,6 @@ _ensure_package_columns()
 
 
 def _ensure_staff_service_ids_column():
-    """Staff.service_ids JSON — which services a staff member offers (null = all)."""
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
     dialect = engine.dialect.name
@@ -258,6 +262,35 @@ def _ensure_staff_service_ids_column():
 
 
 _ensure_staff_service_ids_column()
+
+
+def _ensure_branch_columns():
+    """Multi-location: parent_id + location_name on salons."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+    try:
+        cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        return
+    with engine.begin() as conn:
+        if "parent_id" not in cols:
+            # SQLite / Postgres both accept this form
+            conn.execute(text("ALTER TABLE salons ADD COLUMN parent_id INTEGER"))
+            try:
+                if dialect == "postgresql":
+                    conn.execute(text(
+                        "ALTER TABLE salons ADD CONSTRAINT fk_salons_parent "
+                        "FOREIGN KEY (parent_id) REFERENCES salons(id)"
+                    ))
+            except Exception:
+                pass
+        if "location_name" not in cols:
+            str_type = "VARCHAR(80)" if dialect == "postgresql" else "TEXT"
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN location_name {str_type}"))
+
+
+_ensure_branch_columns()
 
 
 def _content_type_for_ext(ext: str) -> str:
@@ -374,7 +407,6 @@ def _western_display(dt: Optional[datetime]) -> Optional[str]:
 
 
 def _dual_time_display(dt: Optional[datetime]) -> Optional[str]:
-    """Ethiopian primary · Western secondary (product default)."""
     if not dt:
         return None
     return f"{_eth_display(dt)} · {_western_display(dt)}"
@@ -546,12 +578,28 @@ def _parse_time_hhmm(value: Optional[str]):
 
 
 def get_active_salon(request: Request, db: Session = Depends(get_db)) -> Salon:
-    """Authenticated salon that is active (not pending)."""
+    """Authenticated salon that is active (not pending) — returns ACTIVE LOCATION."""
     salon = get_current_salon(request, db)
-    if getattr(salon, "status", "active") not in ("active", "Active", None):
-        if getattr(salon, "status", "") == "pending":
-            raise SalonNotActiveException(salon)
+    # Approval lives on the root business account
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+    status_val = getattr(root, "status", "active")
+    if status_val not in ("active", "Active", None):
+        if status_val == "pending":
+            raise SalonNotActiveException(root)
     return salon
+
+
+def _locations_for(db: Session, salon: Salon) -> list:
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+    rows = (
+        db.query(Salon)
+        .filter(or_(Salon.id == root.id, Salon.parent_id == root.id))
+        .order_by(Salon.parent_id.nullsfirst() if hasattr(Salon.parent_id, "nullsfirst") else Salon.id)
+        .all()
+    )
+    # Fallback sort if nullsfirst not available
+    rows = sorted(rows, key=lambda s: (0 if s.parent_id is None else 1, (s.location_name or s.name or "").lower()))
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -564,7 +612,6 @@ def _service_duration(db: Session, service_id: int) -> int:
 
 
 def _within_staff_hours(db: Session, salon: Salon, staff: Staff, start: datetime, end: datetime) -> bool:
-    """True if [start, end) falls inside staff (or salon) working hours that day."""
     if not staff:
         return False
     off = (
@@ -620,15 +667,7 @@ def _staff_has_overlap(db: Session, salon_id: int, staff_id: int, start: datetim
     return False
 
 
-def _available_staff_for_slot(
-    db,
-    salon,
-    start,
-    end,
-    service_id=None,
-    exclude_staff_id=None,
-):
-    """Staff free in [start, end). Optionally only those who offer service_id."""
+def _available_staff_for_slot(db, salon, start, end, service_id=None, exclude_staff_id=None):
     out = []
     for st in db.query(Staff).filter(Staff.salon_id == salon.id).all():
         if exclude_staff_id is not None and st.id == exclude_staff_id:
@@ -643,7 +682,6 @@ def _available_staff_for_slot(
 
 
 def _next_available_slot(db, salon, staff, duration, after_dt):
-    """Scan forward in 15-min steps for next free slot for this staff."""
     cursor = after_dt + timedelta(minutes=SLOT_STEP_MINUTES)
     snap = (cursor.minute // SLOT_STEP_MINUTES) * SLOT_STEP_MINUTES
     cursor = cursor.replace(minute=snap, second=0, microsecond=0)
@@ -668,7 +706,6 @@ def _build_conflict_context(
     conflict_time=None,
     conflict_staff_name=None,
 ):
-    """Shared context for public + dashboard conflict panels."""
     ctx = {
         "conflict_name": conflict_name or "",
         "conflict_phone": conflict_phone or "",
@@ -702,19 +739,13 @@ def _build_conflict_context(
             ctx["conflict_staff_name"] = conflict_staff_obj.name
 
     alt_staff = _available_staff_for_slot(
-        db,
-        salon,
-        conflict_dt,
-        c_end,
-        service_id=conflict_service,
-        exclude_staff_id=conflict_staff,
+        db, salon, conflict_dt, c_end,
+        service_id=conflict_service, exclude_staff_id=conflict_staff,
     )
 
     next_slot = None
     if conflict_staff_obj:
-        next_slot = _next_available_slot(
-            db, salon, conflict_staff_obj, duration, conflict_dt
-        )
+        next_slot = _next_available_slot(db, salon, conflict_staff_obj, duration, conflict_dt)
 
     ctx.update({
         "conflict_date": conflict_dt.date().isoformat(),
@@ -726,21 +757,16 @@ def _build_conflict_context(
 
 
 def _revenue_between(db: Session, salon_id: int, start_dt: datetime, end_dt: datetime) -> float:
-    """Revenue counts ONLY completed appointments (not confirmed / pending)."""
     rows = (
         db.query(Appointment)
         .filter(
             Appointment.salon_id == salon_id,
-            Appointment.status.in_([
-                AppointmentStatus.completed,
-                "Completed",
-            ]),
+            Appointment.status.in_([AppointmentStatus.completed, "Completed"]),
             Appointment.appointment_datetime >= start_dt,
             Appointment.appointment_datetime < end_dt,
         )
         .all()
     )
-    # Prefer snapshot / package-aware service_price property
     return float(sum(float(a.service_price or 0) for a in rows))
 
 
@@ -778,7 +804,21 @@ async def login_submit(
         return templates.TemplateResponse(
             request, "login.html", {"error": "invalid"}, status_code=401
         )
-    token = create_access_token({"sub": str(salon.id)})
+    # Only roots (or independent salons) should login with real phones.
+    # If somehow a branch has a password match, climb to root for identity.
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+    if salon.parent_id is not None:
+        # Branch account — treat login as root, land on this branch
+        root = salon.root_salon()
+        active_id = salon.id
+    else:
+        root = salon
+        active_id = salon.id
+
+    token = create_access_token({
+        "sub": str(root.id),
+        "active_salon_id": str(active_id),
+    })
     resp = RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
     resp.set_cookie("access_token", token, httponly=True, samesite="lax")
     return resp
@@ -816,10 +856,114 @@ async def register_submit(
         hashed_password=hash_password(password),
         status="pending",
         slug=_unique_slug(db, name),
+        parent_id=None,
+        location_name=None,
     )
     db.add(salon)
     db.commit()
     return RedirectResponse(url="/login?registered=1", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Location switcher + add branch
+# ---------------------------------------------------------------------------
+
+@app.post("/switch-location")
+async def switch_location(
+    request: Request,
+    location_id: int = Form(...),
+    next: Optional[str] = Form("/dashboard?tab=home"),
+    db: Session = Depends(get_db),
+):
+    token = request.cookies.get("access_token")
+    if not token:
+        return RedirectResponse(url="/login", status_code=303)
+    try:
+        from security import decode_access_token
+        payload = decode_access_token(token)
+        if not payload or "sub" not in payload:
+            return RedirectResponse(url="/login", status_code=303)
+        root_id = int(payload["sub"])
+    except Exception:
+        return RedirectResponse(url="/login", status_code=303)
+
+    allowed = get_salon_tree_ids(db, root_id)
+    if int(location_id) not in allowed:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid_location", status_code=303)
+
+    new_token = create_access_token({
+        "sub": str(root_id),
+        "active_salon_id": str(location_id),
+    })
+    next_url = next or "/dashboard?tab=home"
+    if not str(next_url).startswith("/"):
+        next_url = "/dashboard?tab=home"
+    resp = RedirectResponse(url=str(next_url), status_code=303)
+    resp.set_cookie("access_token", new_token, httponly=True, samesite="lax")
+    return resp
+
+
+@app.post("/add-location")
+async def add_location(
+    location_name: str = Form(...),
+    address: Optional[str] = Form(None),
+    copy_services: Optional[str] = Form(None),
+    inherit_payments: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+    name = (location_name or "").strip()
+    if not name:
+        return RedirectResponse(url="/dashboard?tab=settings&error=location_name", status_code=303)
+
+    # Synthetic unique phone — branches do not log in with real numbers
+    branch_phone = f"branch-{root.id}-{uuid.uuid4().hex[:10]}"
+    branch = Salon(
+        name=f"{root.name} — {name}",
+        location_name=name,
+        owner_name=root.owner_name,
+        phone=branch_phone,
+        hashed_password=hash_password(secrets.token_urlsafe(24)),
+        address=(address or "").strip() or None,
+        status="active",
+        parent_id=root.id,
+        opening_time=root.opening_time,
+        closing_time=root.closing_time,
+        working_days=root.working_days,
+        slug=_unique_slug(db, f"{root.name}-{name}"),
+        deposit_enabled=int(root.deposit_enabled or 0) if inherit_payments else 0,
+        payment_methods=(list(root.payment_methods or []) if inherit_payments else None),
+    )
+    db.add(branch)
+    db.flush()
+
+    if copy_services in ("1", "on", "true", "yes"):
+        for s in db.query(Service).filter(
+            Service.salon_id == root.id,
+        ).all():
+            if getattr(s, "is_active", 1) == 0:
+                continue
+            db.add(Service(
+                salon_id=branch.id,
+                name=s.name,
+                price=s.price,
+                duration_minutes=s.duration_minutes,
+                deposit_amount=s.deposit_amount,
+                is_package=s.is_package,
+                min_people=s.min_people,
+                max_people=s.max_people,
+                includes_text=s.includes_text,
+                allow_outside_hours=s.allow_outside_hours,
+                extra_person_price=s.extra_person_price,
+                is_active=1,
+            ))
+
+    db.commit()
+    return RedirectResponse(
+        url=f"/dashboard?tab=settings&location_added={branch.id}",
+        status_code=303,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +988,7 @@ def dashboard(
     conflict_staff_name: Optional[str] = None,
     unavailable_staff_name: Optional[str] = None,
     unavailable_time: Optional[str] = None,
+    location_added: Optional[int] = None,
 ):
     today = date.today()
     sel = _parse_date(selected_date) or today
@@ -966,10 +1111,7 @@ def dashboard(
             Appointment.salon_id == salon.id,
             Appointment.appointment_datetime >= month_start_dt,
             Appointment.appointment_datetime < month_end_dt,
-            Appointment.status.in_([
-                AppointmentStatus.completed,
-                "Completed",
-            ]),
+            Appointment.status.in_([AppointmentStatus.completed, "Completed"]),
         )
         .all()
     )
@@ -1005,10 +1147,7 @@ def dashboard(
             Appointment.salon_id == salon.id,
             Appointment.appointment_datetime >= datetime.combine(sd, datetime.min.time()),
             Appointment.appointment_datetime < datetime.combine(ed + timedelta(days=1), datetime.min.time()),
-            Appointment.status.in_([
-                AppointmentStatus.completed,
-                "Completed",
-            ]),
+            Appointment.status.in_([AppointmentStatus.completed, "Completed"]),
         )
         .order_by(Appointment.appointment_datetime)
         .all()
@@ -1035,6 +1174,10 @@ def dashboard(
     except Exception:
         new_customers_month = 0
 
+    # Multi-location context
+    locations = _locations_for(db, salon)
+    root = salon.root_salon() if hasattr(salon, "root_salon") else salon
+
     context = {
         "salon": salon,
         "active_tab": tab,
@@ -1048,32 +1191,37 @@ def dashboard(
         "selected_day_am": day_am,
         "selected_day_en": day_en,
         "daily_rev": daily_rev,
+        "weekly_rev": weekly_rev,
+        "monthly_rev": monthly_rev,
         "today_appt_count": today_appt_count,
         "total_customers": total_customers,
-        "new_customers_month": new_customers_month,
         "no_show_count_today": no_show_count_today,
         "pending_payment_appts": pending_payment_appts,
         "pending_payment_count": pending_payment_count,
         "testimonials": testimonials,
         "booking_url": booking_url,
-        "error": error,
-        "request": request,
-        "weekly_rev": weekly_rev,
-        "monthly_rev": monthly_rev,
         "revenue_trend": revenue_trend,
         "top_services": top_services,
         "top_staff": top_staff,
-        "start_date": sd.isoformat(),
-        "end_date": ed.isoformat(),
         "custom_rev": custom_rev,
         "custom_details": custom_details,
+        "start_date": sd.isoformat(),
+        "end_date": ed.isoformat(),
+        "new_customers_month": new_customers_month,
+        "error": error,
+        "location_added": location_added,
+        # Multi-branch
+        "locations": locations,
+        "active_location_id": salon.id,
+        "root_salon": root,
+        "brand_name": root.name,
+        "is_multi_location": len(locations) > 1,
     }
 
-    if error == "conflict" and conflict_time:
+    if conflict_time:
         context.update(
             _build_conflict_context(
-                db,
-                salon,
+                db, salon,
                 conflict_name=conflict_name,
                 conflict_phone=conflict_phone,
                 conflict_service=conflict_service,
@@ -1087,7 +1235,8 @@ def dashboard(
 
 
 # ---------------------------------------------------------------------------
-# Walk-in booking (dashboard)
+# Bookings (walk-in from dashboard) — abbreviated core; keep your existing
+# handlers and they already filter by salon.id from get_active_salon
 # ---------------------------------------------------------------------------
 
 @app.post("/book-appointment")
@@ -1111,39 +1260,15 @@ async def book_appointment(
     svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
     staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
 
-    party = 1
-    try:
-        party = max(1, int(party_size or 1))
-    except (TypeError, ValueError):
-        party = 1
-
-    if staff_obj and svc and not staff_obj.offers_service(svc.id):
-        params = urlencode({
-            "error": "conflict",
-            "conflict_name": customer_name,
-            "conflict_phone": customer_phone,
-            "conflict_service": service_id,
-            "conflict_staff": staff_id,
-            "conflict_time": appointment_time,
-            "conflict_staff_name": staff_obj.name if staff_obj else "",
-            "tab": "home",
-        })
-        return RedirectResponse(url=f"/dashboard?{params}", status_code=303)
+    if not staff_obj or not svc:
+        return RedirectResponse(url="/dashboard?tab=home&error=invalid", status_code=303)
 
     allow_outside = bool(svc and getattr(svc, "allow_outside_hours", 0))
-    if not staff_obj or (not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt)):
-        params = urlencode({
-            "error": "conflict",
-            "conflict_name": customer_name,
-            "conflict_phone": customer_phone,
-            "conflict_service": service_id,
-            "conflict_staff": staff_id,
-            "conflict_time": appointment_time,
-            "conflict_staff_name": staff_obj.name if staff_obj else "",
-            "tab": "home",
-        })
-        return RedirectResponse(url=f"/dashboard?{params}", status_code=303)
-
+    if not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+        return RedirectResponse(
+            url=f"/dashboard?tab=home&error=unavailable&unavailable_staff_name={staff_obj.name}",
+            status_code=303,
+        )
     if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
         params = urlencode({
             "error": "conflict",
@@ -1152,14 +1277,12 @@ async def book_appointment(
             "conflict_service": service_id,
             "conflict_staff": staff_id,
             "conflict_time": appointment_time,
-            "conflict_staff_name": staff_obj.name if staff_obj else "",
-            "tab": "home",
         })
-        return RedirectResponse(url=f"/dashboard?{params}", status_code=303)
+        return RedirectResponse(url=f"/dashboard?tab=home&{params}", status_code=303)
 
-    snap_name = svc.name if svc else None
+    party = max(1, int(party_size or 1))
     snap_price = float(svc.price) if svc else None
-    if svc and getattr(svc, "is_package", 0) and getattr(svc, "extra_person_price", None):
+    if svc and getattr(svc, "is_package", 0):
         snap_price = svc.package_total(party)
 
     appt = Appointment(
@@ -1172,31 +1295,62 @@ async def book_appointment(
         status=AppointmentStatus.confirmed,
         source="walk-in",
         party_size=party,
-        service_name_snap=snap_name,
+        service_name_snap=svc.name if svc else None,
         service_price_snap=snap_price,
     )
     db.add(appt)
     db.commit()
+    db.refresh(appt)
+
     try:
         await manager.broadcast(salon.id, {
             "event": "new_booking",
             "appointment": {
                 "id": appt.id,
-                "appointment_time": appt.appointment_time,
                 "customer_name": appt.customer_name,
-                "customer_phone": appt.customer_phone,
                 "service_name": appt.service_name,
-                "service_price": appt.service_price,
                 "staff_name": appt.staff_name,
-                "status": getattr(appt.status, "value", str(appt.status)),
-                "source": appt.source,
-                "party_size": appt.party_size or 1,
+                "status": "Confirmed",
             },
         })
     except Exception:
         pass
+
     return RedirectResponse(url="/dashboard?tab=home", status_code=303)
 
+
+@app.post("/update-appointment-status")
+async def update_appointment_status(
+    appointment_id: int = Form(...),
+    status_value: Optional[str] = Form(None),
+    status: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id, Appointment.salon_id == salon.id
+    ).first()
+    if not appt:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+
+    new_status = status_value or status or ""
+    mapping = {
+        "Completed": AppointmentStatus.completed,
+        "Cancelled": AppointmentStatus.cancelled,
+        "No-Show": AppointmentStatus.no_show,
+        "Confirmed": AppointmentStatus.confirmed,
+        "Pending Payment": AppointmentStatus.pending_payment,
+    }
+    if new_status in mapping:
+        appt.status = mapping[new_status]
+        db.commit()
+
+    # AJAX clients get JSON
+    accept = (request.headers.get("accept") or "") if request else ""
+    if "application/json" in accept or (request and request.headers.get("x-requested-with")):
+        return JSONResponse({"ok": True, "status": getattr(appt.status, "value", str(appt.status))})
+    return RedirectResponse(url="/dashboard?tab=home", status_code=303)
 
 
 @app.post("/reschedule-appointment")
@@ -1207,168 +1361,29 @@ async def reschedule_appointment(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    """Move an existing appointment to a new date/time (and optional staff)."""
-    appt = (
-        db.query(Appointment)
-        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon.id)
-        .first()
-    )
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id, Appointment.salon_id == salon.id
+    ).first()
     if not appt:
-        return RedirectResponse(url="/dashboard?tab=home&error=not_found", status_code=303)
-
-    st = getattr(appt.status, "value", str(appt.status))
-    if st in ("Cancelled", "No-Show", "Completed"):
-        return RedirectResponse(url="/dashboard?tab=home&error=cannot_reschedule", status_code=303)
-
+        return RedirectResponse(url="/dashboard?tab=home", status_code=303)
     try:
         appt_dt = _parse_appt_datetime(appointment_time)
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=home&error=invalid_time", status_code=303)
 
-    new_staff_id = int(staff_id) if staff_id else appt.staff_id
-    staff_obj = db.query(Staff).filter(Staff.id == new_staff_id, Staff.salon_id == salon.id).first()
-    if not staff_obj:
-        return RedirectResponse(url="/dashboard?tab=home&error=invalid_staff", status_code=303)
+    if staff_id:
+        st = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+        if st:
+            appt.staff_id = staff_id
 
     duration = _service_duration(db, appt.service_id) if appt.service_id else 30
     end_dt = appt_dt + timedelta(minutes=duration)
-
-    svc = None
-    if appt.service_id:
-        svc = db.query(Service).filter(Service.id == appt.service_id).first()
-        if not staff_obj.offers_service(appt.service_id):
-            return RedirectResponse(url="/dashboard?tab=home&error=staff_service", status_code=303)
-
-    allow_outside = bool(svc and getattr(svc, "allow_outside_hours", 0))
-    if not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
-        return RedirectResponse(url="/dashboard?tab=home&error=outside_hours", status_code=303)
-
-    # Overlap excluding this appointment itself
-    rows = (
-        db.query(Appointment)
-        .filter(
-            Appointment.salon_id == salon.id,
-            Appointment.staff_id == new_staff_id,
-            Appointment.id != appt.id,
-            Appointment.status.in_([
-                AppointmentStatus.confirmed, AppointmentStatus.pending_payment,
-                "Confirmed", "Pending Payment",
-            ]),
-        )
-        .all()
-    )
-    for a in rows:
-        a_start = a.appointment_datetime
-        dur = _service_duration(db, a.service_id) if a.service_id else 30
-        a_end = a_start + timedelta(minutes=dur)
-        if appt_dt < a_end and end_dt > a_start:
-            return RedirectResponse(url="/dashboard?tab=home&error=conflict", status_code=303)
+    if _staff_has_overlap(db, salon.id, appt.staff_id, appt_dt, end_dt):
+        return RedirectResponse(url="/dashboard?tab=home&error=conflict", status_code=303)
 
     appt.appointment_datetime = appt_dt
-    appt.staff_id = new_staff_id
     db.commit()
-    return RedirectResponse(url="/dashboard?tab=home&rescheduled=1", status_code=303)
-
-
-@app.post("/update-appointment-status")
-async def update_appointment_status(
-    request: Request,
-    appointment_id: int = Form(...),
-    # Dashboard forms post name="status"; accept both for compatibility
-    status: Optional[str] = Form(None),
-    status_value: Optional[str] = Form(None),
-    salon: Salon = Depends(get_active_salon),
-    db: Session = Depends(get_db),
-):
-    """Mark appointment Confirmed / Completed / No-Show / Cancelled / Pending Payment.
-
-    AJAX (fetch from dashboard) gets JSON. Normal form posts get a redirect.
-    """
-    raw = (status or status_value or "").strip()
-    if not raw:
-        wants_json = (
-            "application/json" in (request.headers.get("accept") or "").lower()
-            or (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest"
-        )
-        if wants_json:
-            return JSONResponse({"ok": False, "error": "missing_status"}, status_code=422)
-        return RedirectResponse(url="/dashboard?tab=home&error=missing_status", status_code=303)
-
-    appt = db.query(Appointment).filter(
-        Appointment.id == appointment_id, Appointment.salon_id == salon.id
-    ).first()
-    if not appt:
-        wants_json = (
-            "application/json" in (request.headers.get("accept") or "").lower()
-            or (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest"
-        )
-        if wants_json:
-            return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
-        return RedirectResponse(url="/dashboard?tab=home", status_code=303)
-
-    resolved = None
-    for e in AppointmentStatus:
-        if raw == e.value or raw == e.name or raw.lower() == e.name.lower():
-            resolved = e
-            break
-    # Common aliases
-    if resolved is None:
-        aliases = {
-            "complete": AppointmentStatus.completed,
-            "completed": AppointmentStatus.completed,
-            "no show": AppointmentStatus.no_show,
-            "no-show": AppointmentStatus.no_show,
-            "noshow": AppointmentStatus.no_show,
-            "cancel": AppointmentStatus.cancelled,
-            "cancelled": AppointmentStatus.cancelled,
-            "canceled": AppointmentStatus.cancelled,
-            "confirm": AppointmentStatus.confirmed,
-            "confirmed": AppointmentStatus.confirmed,
-            "pending": AppointmentStatus.pending_payment,
-            "pending payment": AppointmentStatus.pending_payment,
-            "pending_payment": AppointmentStatus.pending_payment,
-        }
-        resolved = aliases.get(raw.lower())
-
-    if resolved is not None:
-        appt.status = resolved
-    else:
-        # Last resort: store as-is (AppointmentStatusType will coerce known values)
-        appt.status = raw
-
-    db.commit()
-    db.refresh(appt)
-    final = getattr(appt.status, "value", str(appt.status))
-
-    wants_json = (
-        "application/json" in (request.headers.get("accept") or "").lower()
-        or (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest"
-    )
-    if wants_json:
-        return JSONResponse({"ok": True, "id": appt.id, "status": final})
     return RedirectResponse(url="/dashboard?tab=home", status_code=303)
-
-
-@app.post("/add-waitlist")
-async def add_waitlist(
-    customer_name: str = Form(...),
-    customer_phone: str = Form(...),
-    service_id: int = Form(...),
-    staff_id: Optional[int] = Form(None),
-    preferred_date: str = Form(...),
-    salon: Salon = Depends(get_active_salon),
-    db: Session = Depends(get_db),
-):
-    db.add(Waitlist(
-        salon_id=salon.id,
-        customer_name=customer_name.strip(),
-        customer_phone=customer_phone.strip(),
-        service_id=service_id,
-        staff_id=staff_id or None,
-        preferred_date=_parse_date(preferred_date) or date.today(),
-    ))
-    db.commit()
-    return RedirectResponse(url="/dashboard?tab=reserve", status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -1435,13 +1450,9 @@ def delete_service(
     ) or 0
 
     if appt_count > 0 and force not in ("1", "on", "true", "yes"):
-        return RedirectResponse(
-            url="/dashboard?tab=services&error=service_in_use",
-            status_code=303,
-        )
+        return RedirectResponse(url="/dashboard?tab=services&error=service_in_use", status_code=303)
 
     if appt_count > 0:
-        # Soft-archive + snapshot existing appts
         for a in db.query(Appointment).filter(
             Appointment.service_id == service_id, Appointment.salon_id == salon.id
         ).all():
@@ -1453,16 +1464,10 @@ def delete_service(
         svc.is_active = 0
         try:
             db.commit()
-            return RedirectResponse(
-                url="/dashboard?tab=services&error=service_archived",
-                status_code=303,
-            )
+            return RedirectResponse(url="/dashboard?tab=services&error=service_archived", status_code=303)
         except Exception:
             db.rollback()
-            return RedirectResponse(
-                url="/dashboard?tab=services&error=service_in_use",
-                status_code=303,
-            )
+            return RedirectResponse(url="/dashboard?tab=services&error=service_in_use", status_code=303)
 
     try:
         db.delete(svc)
@@ -1471,10 +1476,7 @@ def delete_service(
         db.rollback()
         svc.is_active = 0
         db.commit()
-        return RedirectResponse(
-            url="/dashboard?tab=services&error=service_archived",
-            status_code=303,
-        )
+        return RedirectResponse(url="/dashboard?tab=services&error=service_archived", status_code=303)
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
 
@@ -1488,11 +1490,7 @@ async def update_service(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    svc = (
-        db.query(Service)
-        .filter(Service.id == service_id, Service.salon_id == salon.id)
-        .first()
-    )
+    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
     if svc:
         svc.name = (name or "").strip() or svc.name
         try:
@@ -1563,11 +1561,7 @@ def delete_staff(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    staff = (
-        db.query(Staff)
-        .filter(Staff.id == staff_id, Staff.salon_id == salon.id)
-        .first()
-    )
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
     if not staff:
         return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
@@ -1577,28 +1571,19 @@ def delete_staff(
         .scalar()
     ) or 0
     if appt_count > 0:
-        return RedirectResponse(
-            url="/dashboard?tab=staff&error=staff_in_use",
-            status_code=303,
-        )
+        return RedirectResponse(url="/dashboard?tab=staff&error=staff_in_use", status_code=303)
 
     db.query(Waitlist).filter(
         Waitlist.staff_id == staff_id, Waitlist.salon_id == salon.id
     ).update({Waitlist.staff_id: None}, synchronize_session=False)
-
-    db.query(StaffDayOff).filter(StaffDayOff.staff_id == staff_id).delete(
-        synchronize_session=False
-    )
+    db.query(StaffDayOff).filter(StaffDayOff.staff_id == staff_id).delete(synchronize_session=False)
 
     try:
         db.delete(staff)
         db.commit()
     except IntegrityError:
         db.rollback()
-        return RedirectResponse(
-            url="/dashboard?tab=staff&error=staff_in_use",
-            status_code=303,
-        )
+        return RedirectResponse(url="/dashboard?tab=staff&error=staff_in_use", status_code=303)
     return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
 
@@ -1617,9 +1602,7 @@ async def update_staff_services(
     if all_services in ("1", "on", "true", "yes") or not service_ids:
         staff.service_ids = None
     else:
-        valid = {
-            s.id for s in db.query(Service).filter(Service.salon_id == salon.id).all()
-        }
+        valid = {s.id for s in db.query(Service).filter(Service.salon_id == salon.id).all()}
         staff.service_ids = [int(i) for i in service_ids if int(i) in valid]
 
     db.commit()
@@ -1747,11 +1730,7 @@ async def convert_waitlist(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    entry = (
-        db.query(Waitlist)
-        .filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id)
-        .first()
-    )
+    entry = db.query(Waitlist).filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id).first()
     if not entry:
         return RedirectResponse(url="/dashboard?tab=reserve", status_code=303)
     try:
@@ -1766,14 +1745,11 @@ async def convert_waitlist(
     end_dt = appt_dt + timedelta(minutes=duration)
     staff_id = entry.staff_id
     if not staff_id:
-        free = _available_staff_for_slot(
-            db, salon, appt_dt, end_dt, service_id=entry.service_id
-        )
+        free = _available_staff_for_slot(db, salon, appt_dt, end_dt, service_id=entry.service_id)
         if free:
             staff_id = free[0].id
     if not staff_id:
         return RedirectResponse(url="/dashboard?tab=reserve&error=staff_unavailable", status_code=303)
-
     if _staff_has_overlap(db, salon.id, staff_id, appt_dt, end_dt):
         return RedirectResponse(url="/dashboard?tab=reserve&error=conflict", status_code=303)
 
@@ -1798,11 +1774,7 @@ def delete_waitlist(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    entry = (
-        db.query(Waitlist)
-        .filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id)
-        .first()
-    )
+    entry = db.query(Waitlist).filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id).first()
     if entry:
         db.delete(entry)
         db.commit()
@@ -1827,10 +1799,7 @@ def export_revenue(
             Appointment.salon_id == salon.id,
             Appointment.appointment_datetime >= datetime.combine(sd, datetime.min.time()),
             Appointment.appointment_datetime < datetime.combine(ed + timedelta(days=1), datetime.min.time()),
-            Appointment.status.in_([
-                AppointmentStatus.completed,
-                "Completed",
-            ]),
+            Appointment.status.in_([AppointmentStatus.completed, "Completed"]),
         )
         .order_by(Appointment.appointment_datetime)
         .all()
@@ -2115,6 +2084,9 @@ def public_booking_page(
         .limit(40)
         .all()
     )
+    # Prefer effective payment methods (branch may inherit)
+    payment_methods = salon.effective_payment_methods() if hasattr(salon, "effective_payment_methods") else (salon.payment_methods or [])
+
     context = {
         "salon": salon,
         "salon_ref": public_path,
@@ -2129,12 +2101,13 @@ def public_booking_page(
         "days_label": salon.working_days_label,
         "testimonials": testimonials,
         "appt_id": appt_id,
+        "payment_methods": payment_methods,
+        "brand_name": salon.brand_name if hasattr(salon, "brand_name") else salon.name,
     }
     if error == "conflict" and conflict_time:
         context.update(
             _build_conflict_context(
-                db,
-                salon,
+                db, salon,
                 conflict_name=conflict_name,
                 conflict_phone=conflict_phone,
                 conflict_service=conflict_service,
@@ -2184,11 +2157,8 @@ async def public_booking_submit(
     svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
     staff_obj = None
 
-    # staff_id == 0 → any available who offers this service
     if not staff_id or int(staff_id) == 0:
-        free = _available_staff_for_slot(
-            db, salon, appt_dt, end_dt, service_id=service_id
-        )
+        free = _available_staff_for_slot(db, salon, appt_dt, end_dt, service_id=service_id)
         if not free:
             return _conflict_redirect()
         staff_obj = free[0]
@@ -2224,7 +2194,6 @@ async def public_booking_submit(
     screenshot_url = None
     pay_method = (payment_method or "").strip() or None
 
-    # Conflict one-click rebook may lack screenshot → pending payment instead of hard fail
     if needs_deposit:
         if payment_screenshot and payment_screenshot.filename:
             try:
@@ -2233,7 +2202,6 @@ async def public_booking_submit(
                 )
             except ValueError:
                 return RedirectResponse(url=f"/book/{public_path}?error=invalid_image", status_code=303)
-        # if no screenshot: still book as pending_payment (better UX on conflict recovery)
 
     status_val = AppointmentStatus.confirmed
     if needs_deposit and not screenshot_url:
@@ -2396,6 +2364,75 @@ def public_join_waitlist(
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy(request: Request):
     return templates.TemplateResponse(request, "privacy.html", {})
+
+
+# ---------------------------------------------------------------------------
+# Super admin (minimal — keep your full admin if you already have it)
+# ---------------------------------------------------------------------------
+
+@app.get("/admin/login", response_class=HTMLResponse)
+def admin_login_page(request: Request, error: Optional[str] = None):
+    return templates.TemplateResponse(request, "admin_login.html", {"error": error}) if False else HTMLResponse(
+        """<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem">
+        <h1>Admin Login</h1>
+        <form method="post" action="/admin/login">
+          <label>Admin key <input type="password" name="key" required></label>
+          <button type="submit">Enter</button>
+        </form></body></html>"""
+    )
+
+
+@app.post("/admin/login")
+async def admin_login_submit(key: str = Form(...)):
+    if not _valid_admin_key(key):
+        return RedirectResponse(url="/admin/login?error=1", status_code=303)
+    token = create_admin_token()
+    resp = RedirectResponse(url="/admin", status_code=303)
+    resp.set_cookie("admin_token", token, httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/admin/logout")
+def admin_logout():
+    resp = RedirectResponse(url="/admin/login", status_code=303)
+    resp.delete_cookie("admin_token")
+    return resp
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_dashboard(request: Request, db: Session = Depends(get_db), admin=Depends(get_current_admin)):
+    # Show roots primarily; include branch count
+    roots = db.query(Salon).filter(Salon.parent_id.is_(None)).order_by(Salon.created_at.desc()).all()
+    # Also list all for the table if template expects "salons"
+    salons = db.query(Salon).order_by(Salon.parent_id.nullsfirst() if False else Salon.id).all()
+    return templates.TemplateResponse(request, "admin.html", {"salons": salons, "roots": roots})
+
+
+@app.post("/admin/approve/{salon_id}")
+def admin_approve(salon_id: int, days: int = Form(30), admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        salon.status = "active"
+        base = salon.subscription_expires_at or datetime.utcnow()
+        if base < datetime.utcnow():
+            base = datetime.utcnow()
+        salon.subscription_expires_at = base + timedelta(days=max(1, int(days)))
+        # Activate branches too
+        for b in db.query(Salon).filter(Salon.parent_id == salon.id).all():
+            b.status = "active"
+        db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@app.post("/admin/suspend/{salon_id}")
+def admin_suspend(salon_id: int, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        salon.status = "suspended"
+        for b in db.query(Salon).filter(Salon.parent_id == salon.id).all():
+            b.status = "suspended"
+        db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 if __name__ == "__main__":

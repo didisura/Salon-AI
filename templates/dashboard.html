@@ -660,6 +660,33 @@
         .time-dual-main { font-weight: 800; color: var(--accent); }
         .time-dual-sub { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 
+
+        /* ---------- Multi-location switcher ---------- */
+        .location-switcher {
+            margin-bottom: 16px;
+        }
+        .location-switcher .loc-chip {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: #5A4936;
+            font-weight: 700;
+            font-size: 0.78rem;
+            padding: 7px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .location-switcher .loc-chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .location-switcher .loc-chip.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 3px 10px rgba(156,107,63,0.25);
+        }
+
 </style>
 </head>
 <body>
@@ -787,6 +814,36 @@
                 </a>
             </div>
         </header>
+
+        <!-- Multi-location switcher -->
+        {% if is_multi_location %}
+        <div class="location-switcher">
+          <form action="/switch-location" method="post" id="locationSwitchForm"
+                class="d-flex flex-wrap align-items-center gap-2">
+            <input type="hidden" name="next" value="/dashboard?tab={{ active_tab or 'home' }}">
+            <span class="small fw-semibold text-muted me-1">
+              <i class="fa-solid fa-location-dot me-1"></i>
+              <span data-lang-am>ቦታ</span>
+              <span data-lang-en>Location</span>:
+            </span>
+            {% for loc in locations %}
+            <button type="submit"
+                    name="location_id"
+                    value="{{ loc.id }}"
+                    class="loc-chip {% if loc.id == active_location_id %}active{% endif %}">
+              {% if loc.parent_id is none %}
+                <i class="fa-solid fa-building me-1"></i>
+              {% else %}
+                <i class="fa-solid fa-store me-1"></i>
+              {% endif %}
+              {{ loc.location_name or loc.name }}
+            </button>
+            {% endfor %}
+          </form>
+        </div>
+        {% endif %}
+
+
 
         <!-- Error banners -->
         {#
@@ -2051,6 +2108,109 @@
 
         <!-- ==================== SETTINGS (hours + address) ==================== -->
         {% if active_tab == 'settings' %}
+
+        <!-- Multi-location: Add branch -->
+        <div class="card-soft mb-4" id="addLocationCard">
+          <h3 class="h6 fw-bold mb-3">
+            <i class="fa-solid fa-plus-circle me-1" style="color: var(--accent)"></i>
+            <span data-lang-am>አዲስ ቦታ / ቅርንጫፍ</span>
+            <span data-lang-en>Add location / branch</span>
+          </h3>
+          <p class="small text-muted mb-3">
+            <span data-lang-am>
+              እያንዳንዱ ቅርንጫፍ የራሱ ቀጠሮ፣ ሰራተኛ፣ አገልግሎትና ፎቶ ይኖረዋል። አንድ መግቢያ — ቦታ ቀይር።
+            </span>
+            <span data-lang-en>
+              Each branch has its own bookings, staff, services, and photos.
+              One login — switch location.
+            </span>
+          </p>
+
+          {% if location_added %}
+          <div class="alert alert-success py-2 small">
+            <span data-lang-am>ቅርንጫፍ ተጨምሯል። ከላይ ባለው ቦታ መቀየሪያ ይምረጡት።</span>
+            <span data-lang-en>Branch added. Select it from the location switcher above.</span>
+          </div>
+          {% endif %}
+
+          <form action="/add-location" method="post" class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label small fw-semibold">
+                <span data-lang-am>የቦታ ስም</span>
+                <span data-lang-en>Location name</span>
+              </label>
+              <input type="text" name="location_name" class="form-control" required
+                     placeholder="Bole / CMC / Summit" maxlength="80">
+            </div>
+            <div class="col-12 col-md-5">
+              <label class="form-label small fw-semibold">
+                <span data-lang-am>አድራሻ</span>
+                <span data-lang-en>Address</span>
+              </label>
+              <input type="text" name="address" class="form-control" placeholder="Optional">
+            </div>
+            <div class="col-12 col-md-3 d-flex align-items-end">
+              <button type="submit" class="btn btn-accent w-100">
+                <i class="fa-solid fa-plus me-1"></i>
+                <span data-lang-am>ጨምር</span>
+                <span data-lang-en>Add</span>
+              </button>
+            </div>
+            <div class="col-12">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="copy_services" value="1" id="copySvc" checked>
+                <label class="form-check-label small" for="copySvc">
+                  <span data-lang-am>ከ HQ አገልግሎቶችን ቅዳ</span>
+                  <span data-lang-en>Copy services from HQ</span>
+                </label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="inherit_payments" value="1" id="inhPay" checked>
+                <label class="form-check-label small" for="inhPay">
+                  <span data-lang-am>የክፍያ መንገዶችን ውረስ</span>
+                  <span data-lang-en>Inherit payment methods</span>
+                </label>
+              </div>
+            </div>
+          </form>
+
+          {% if locations and locations|length >= 1 %}
+          <hr class="my-3">
+          <p class="small fw-semibold mb-2">
+            <span data-lang-am>የእርስዎ ቦታዎች</span>
+            <span data-lang-en>Your locations</span>
+          </p>
+          <ul class="list-unstyled small mb-0">
+            {% for loc in locations %}
+            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+              <span>
+                {% if loc.parent_id is none %}
+                  <strong>{{ loc.name }}</strong>
+                  <span class="badge rounded-pill" style="background:#ECECEC;color:#555;font-size:0.65rem">HQ</span>
+                {% else %}
+                  {{ loc.location_name or loc.name }}
+                {% endif %}
+                {% if loc.address %}
+                  <span class="text-muted"> · {{ loc.address }}</span>
+                {% endif %}
+                {% if loc.id == active_location_id %}
+                  <span class="badge rounded-pill ms-1" style="background:var(--accent);color:#fff;font-size:0.65rem">
+                    <span data-lang-am>አሁን</span><span data-lang-en>Active</span>
+                  </span>
+                {% endif %}
+              </span>
+              <a href="/book/{{ loc.slug or loc.id }}" target="_blank" rel="noopener"
+                 class="text-decoration-none small" style="color: var(--accent)">
+                <i class="fa-solid fa-link me-1"></i>
+                <span data-lang-am>ቀጠሮ ሊንክ</span>
+                <span data-lang-en>Booking link</span>
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+
         <section class="card-soft">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <i class="fa-solid fa-clock" style="color:var(--accent);"></i>

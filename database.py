@@ -4,9 +4,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Loads variables from a .env file in the project root (if present) into
-# the environment, so DATABASE_URL doesn't need to be set manually every
-# time you open a new terminal.
+# Loads variables from a .env file in the project root (if present).
 load_dotenv()
 
 # Set DATABASE_URL in your environment (or .env file) in production, e.g.:
