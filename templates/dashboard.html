@@ -687,6 +687,24 @@
             box-shadow: 0 3px 10px rgba(156,107,63,0.25);
         }
 
+
+        /* Package (Fresha / Booksy style) */
+        .package-box .form-check-input:checked {
+            background-color: var(--accent);
+            border-color: var(--accent);
+        }
+        .package-edit-card .form-control-sm,
+        .package-box .form-control-sm {
+            border-radius: 10px;
+        }
+        #addPkgPreview {
+            animation: fadeInPkg 0.2s ease;
+        }
+        @keyframes fadeInPkg {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: none; }
+        }
+
 </style>
 </head>
 <body>
@@ -1266,7 +1284,7 @@
                                                 </select>
                                             </form>
                                                 <button type="button" class="btn btn-sm btn-outline-soft mt-1"
-                                                        onclick="openReschedule({{ appt.id }}, '{{ appt.customer_name|e }}', '{{ appt.appointment_datetime.strftime('%Y-%m-%d') }}', '{{ appt.appointment_datetime.strftime('%H:%M') }}', {{ appt.staff_id }})"
+                                                        onclick="openReschedule({{ appt.id }}, '{{ appt.customer_name|e }}', '{{ appt.appointment_datetime.strftime('%Y-%m-%d') }}', '{{ appt.appointment_datetime.strftime('%H:%M') }}', {{ appt.staff_id }}, {{ appt.service_id }})"
                                                         style="font-size:0.78rem;">
                                                     <i class="fa-solid fa-calendar-day me-1"></i>
                                                     <span data-lang-am>ቀን ቀይር</span>
@@ -1703,8 +1721,10 @@
                                                 <i class="fa-solid fa-save"></i>
                                                 <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-soft" data-bs-toggle="collapse" data-bs-target="#pkgEdit-{{ s.id }}">
-                                                <i class="fa-solid fa-gift"></i>
+                                            <button type="button" class="btn btn-sm btn-outline-soft" data-bs-toggle="collapse" data-bs-target="#pkgEdit-{{ s.id }}" title="Package">
+                                                <i class="fa-solid fa-gift me-1"></i>
+                                                <span class="d-none d-md-inline" data-lang-am>ፓኬጅ</span>
+                                                <span class="d-none d-md-inline" data-lang-en>Pkg</span>
                                             </button>
                                             <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDeleteService({{ s.id }}, {{ s.name|tojson }})">
                                                 <i class="fa-solid fa-trash"></i>
@@ -1712,10 +1732,36 @@
                                         </div>
                                     </form>
                                     {% if s.is_package %}
-                                    <div class="small text-muted mt-1">
-                                        {% if s.includes_text %}{{ s.includes_text }} · {% endif %}
-                                        <i class="fa-solid fa-users"></i> {{ s.min_people or 1 }}–{{ s.max_people or '∞' }}
-                                        {% if s.extra_person_price %} · {{ s.price }} + {{ s.extra_person_price }}/extra{% endif %}
+                                    <div class="mt-2 p-2 rounded-3 d-flex flex-wrap align-items-center gap-2" style="background:#F6ECE1;border:1px solid var(--border);">
+                                        <span class="badge" style="background:var(--accent);font-size:0.68rem;">
+                                            <i class="fa-solid fa-gift me-1"></i>
+                                            <span data-lang-am>ፓኬጅ</span><span data-lang-en>Package</span>
+                                        </span>
+                                        {% if s.includes_text %}
+                                        <span class="small fw-semibold" style="color:var(--text-dark);">{{ s.includes_text }}</span>
+                                        {% endif %}
+                                        <span class="small text-muted">
+                                            <i class="fa-solid fa-users me-1"></i>{{ s.min_people or 1 }}–{{ s.max_people or '∞' }}
+                                            <span data-lang-am>ሰዎች</span><span data-lang-en>ppl</span>
+                                        </span>
+                                        {% if s.extra_person_price and s.extra_person_price > 0 %}
+                                        <span class="small fw-bold" style="color:var(--accent);">
+                                            {{ s.price }} ETB
+                                            <span class="fw-normal text-muted">+</span>
+                                            {{ s.extra_person_price }} / <span data-lang-am>ተጨማሪ</span><span data-lang-en>extra</span>
+                                        </span>
+                                        {% else %}
+                                        <span class="small fw-bold" style="color:var(--accent);">
+                                            {{ s.price }} ETB
+                                            <span class="fw-normal text-muted">(<span data-lang-am>flat</span><span data-lang-en>flat</span>)</span>
+                                        </span>
+                                        {% endif %}
+                                        {% if s.allow_outside_hours %}
+                                        <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                            <i class="fa-solid fa-moon me-1"></i>
+                                            <span data-lang-am>ከሰዓት ውጪ</span><span data-lang-en>Outside hrs</span>
+                                        </span>
+                                        {% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
@@ -1724,56 +1770,108 @@
                         <tr class="collapse" id="pkgEdit-{{ s.id }}">
                             <td colspan="5" class="p-0 border-0">
                                 <form action="/update-service-package" method="post" enctype="multipart/form-data"
-                                      class="p-3 m-2 rounded-3" style="background:#faf8f5;border:1px solid var(--border);">
-                                    <div class="fw-semibold small mb-2" style="color:var(--accent);">
-                                        <i class="fa-solid fa-gift me-1"></i>
-                                        <span data-lang-am>ፓኬጅ ቅንብሮች</span>
-                                        <span data-lang-en>Package settings</span>
-                                        — {{ s.name }}
+                                      class="p-3 m-2 rounded-3 package-edit-card" style="background:linear-gradient(180deg,#fff 0%,#faf8f5 100%);border:1.5px solid var(--border);">
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                        <div class="fw-bold" style="color:var(--accent);font-size:0.95rem;">
+                                            <i class="fa-solid fa-gift me-1"></i>
+                                            <span data-lang-am>ፓኬጅ ቅንብሮች</span>
+                                            <span data-lang-en>Package settings</span>
+                                            <span class="text-muted fw-normal">— {{ s.name }}</span>
+                                        </div>
+                                        <label class="form-check m-0">
+                                            <input type="checkbox" name="is_package" value="1" class="form-check-input" {% if s.is_package %}checked{% endif %}
+                                                   onchange="this.closest('form').querySelector('.pkg-fields').style.opacity=this.checked?'1':'0.45'">
+                                            <span class="form-check-label small fw-semibold">
+                                                <span data-lang-am>ፓኬጅ ነው</span><span data-lang-en>Is package</span>
+                                            </span>
+                                        </label>
                                     </div>
-                                    <div class="row g-2 align-items-end">
-                                        <div class="col-12 col-md-auto">
-                                            <label class="form-check m-0">
-                                                <input type="checkbox" name="is_package" value="1" class="form-check-input" {% if s.is_package %}checked{% endif %}>
-                                                <span class="form-check-label small fw-semibold">
-                                                    <span data-lang-am>ፓኬጅ ነው</span><span data-lang-en>Is package</span>
-                                                </span>
-                                            </label>
+
+                                    <div class="pkg-fields">
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label small fw-semibold mb-1">
+                                                    <i class="fa-solid fa-list-check me-1" style="color:var(--accent);"></i>
+                                                    <span data-lang-am>ምን ያካትታል?</span>
+                                                    <span data-lang-en>What’s included?</span>
+                                                </label>
+                                                <input type="text" name="includes_text" class="form-control form-control-sm"
+                                                       value="{{ s.includes_text or '' }}"
+                                                       placeholder="Hair · Makeup · Nails">
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold mb-1">
+                                                    <span data-lang-am>ዝቅተኛ ሰዎች</span>
+                                                    <span data-lang-en>Min people</span>
+                                                </label>
+                                                <input type="number" name="min_people" class="form-control form-control-sm" min="1" max="50" value="{{ s.min_people or 1 }}">
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold mb-1">
+                                                    <span data-lang-am>ከፍተኛ ሰዎች</span>
+                                                    <span data-lang-en>Max people</span>
+                                                </label>
+                                                <input type="number" name="max_people" class="form-control form-control-sm" min="1" max="50" value="{{ s.max_people or 10 }}">
+                                            </div>
                                         </div>
-                                        <div class="col-12 col-md-3">
-                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ምን ያካትታል</span><span data-lang-en>Includes</span></label>
-                                            <input type="text" name="includes_text" class="form-control form-control-sm" value="{{ s.includes_text or '' }}">
+
+                                        <div class="row g-3 mt-1 p-3 rounded-3" style="background:#fff;border:1px solid var(--border);">
+                                            <div class="col-12">
+                                                <div class="small fw-bold mb-1" style="color:var(--accent);">
+                                                    <i class="fa-solid fa-coins me-1"></i>
+                                                    <span data-lang-am>የዋጋ ሞዴል (ዋና + ተጨማሪ)</span>
+                                                    <span data-lang-en>Pricing (primary + extras)</span>
+                                                </div>
+                                                <p class="small text-muted mb-2 mb-md-0" style="line-height:1.35;">
+                                                    <span data-lang-am>ዋና ሰው = ከላይ ያለው ዋጋ ወይም እዚህ። እያንዳንዱ ተጨማሪ ሰው ከታች።</span>
+                                                    <span data-lang-en>Primary person = price above or here. Each extra person uses the extra price.</span>
+                                                </p>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold mb-1">
+                                                    <span data-lang-am>ዋና ሰው ዋጋ</span>
+                                                    <span data-lang-en>Primary price</span>
+                                                </label>
+                                                <input type="number" name="primary_price" class="form-control form-control-sm" min="0" step="0.01" value="{{ s.price }}">
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold mb-1">
+                                                    <span data-lang-am>ተጨማሪ ሰው</span>
+                                                    <span data-lang-en>Extra / person</span>
+                                                </label>
+                                                <input type="number" name="extra_person_price" class="form-control form-control-sm" min="0" step="0.01"
+                                                       value="{{ s.extra_person_price if s.extra_person_price is not none else 0 }}">
+                                            </div>
+                                            <div class="col-12 col-md-3 d-flex align-items-end">
+                                                <label class="form-check m-0">
+                                                    <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input" {% if s.allow_outside_hours %}checked{% endif %}>
+                                                    <span class="form-check-label small">
+                                                        <i class="fa-solid fa-moon me-1" style="color:var(--accent);"></i>
+                                                        <span data-lang-am>ከሰዓት ውጪ</span>
+                                                        <span data-lang-en>Outside hours</span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <div class="col-12 col-md-3">
+                                                <label class="form-label small fw-semibold mb-1">
+                                                    <i class="fa-solid fa-image me-1" style="color:var(--accent);"></i>
+                                                    <span data-lang-am>ፎቶ</span>
+                                                    <span data-lang-en>Photo</span>
+                                                </label>
+                                                <input type="file" name="photo" accept="image/*" class="form-control form-control-sm">
+                                                {% if s.photo_url %}
+                                                <img src="{{ s.photo_url }}" alt="" style="height:40px;border-radius:8px;margin-top:6px;border:1px solid var(--border);">
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                        <div class="col-4 col-md-1">
-                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ዝቅተኛ</span><span data-lang-en>Min</span></label>
-                                            <input type="number" name="min_people" class="form-control form-control-sm" min="1" value="{{ s.min_people or 1 }}">
-                                        </div>
-                                        <div class="col-4 col-md-1">
-                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ከፍተኛ</span><span data-lang-en>Max</span></label>
-                                            <input type="number" name="max_people" class="form-control form-control-sm" min="1" value="{{ s.max_people or '' }}">
-                                        </div>
-                                        <div class="col-4 col-md-2">
-                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ዋና ዋጋ</span><span data-lang-en>Primary</span></label>
-                                            <input type="number" name="primary_price" class="form-control form-control-sm" min="0" step="0.01" value="{{ s.price }}">
-                                        </div>
-                                        <div class="col-6 col-md-2">
-                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ተጨማሪ</span><span data-lang-en>Extra/ppl</span></label>
-                                            <input type="number" name="extra_person_price" class="form-control form-control-sm" min="0" step="0.01" value="{{ s.extra_person_price if s.extra_person_price is not none else '' }}">
-                                        </div>
-                                        <div class="col-12 col-md-auto">
-                                            <label class="form-check m-0">
-                                                <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input" {% if s.allow_outside_hours %}checked{% endif %}>
-                                                <span class="form-check-label small"><span data-lang-am>ከሰዓት ውጪ</span><span data-lang-en>Outside hrs</span></span>
-                                            </label>
-                                        </div>
-                                        <div class="col-12 col-md-3">
-                                            <label class="form-label small text-muted mb-0"><span data-lang-am>ፎቶ</span><span data-lang-en>Photo</span></label>
-                                            <input type="file" name="photo" accept="image/*" class="form-control form-control-sm">
-                                            {% if s.photo_url %}<img src="{{ s.photo_url }}" alt="" style="height:36px;border-radius:8px;margin-top:4px;">{% endif %}
-                                        </div>
-                                        <div class="col-12 col-md-auto">
+
+                                        <div class="d-flex justify-content-end mt-3">
                                             <input type="hidden" name="service_id" value="{{ s.id }}">
-                                            <button type="submit" class="btn btn-accent btn-sm"><i class="fa-solid fa-save me-1"></i><span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span></button>
+                                            <button type="submit" class="btn btn-accent btn-sm">
+                                                <i class="fa-solid fa-save me-1"></i>
+                                                <span data-lang-am>ፓኬጅ አስቀምጥ</span>
+                                                <span data-lang-en>Save package</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </form>
@@ -3056,73 +3154,120 @@
                         </label>
                         <input type="number" name="duration_minutes" class="form-control" min="5" step="5" value="30" required>
                     </div>
-                    <div class="mb-2 p-3 rounded-3" style="border:1px solid var(--border);background:#faf8f5;">
-                        <label class="form-check mb-2">
-                            <input type="checkbox" name="is_package" value="1" class="form-check-input"
-                                   id="addIsPackage"
-                                   onchange="document.getElementById('addPkgFields').style.display=this.checked?'block':'none'">
-                            <span class="form-check-label fw-semibold">
-                                <i class="fa-solid fa-gift me-1" style="color:var(--accent);"></i>
-                                <span data-lang-am>ይህ ፓኬጅ ነው (ሰርግ / ብራይዳል…)</span>
-                                <span data-lang-en>This is a package (wedding / bridal…)</span>
+                    <!-- Package (Fresha / Booksy style) -->
+                    <div class="mb-3 p-3 rounded-3 package-box" style="border:1.5px solid var(--border);background:linear-gradient(180deg,#fff 0%,#faf8f5 100%);">
+                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                            <label class="form-check m-0 flex-grow-1">
+                                <input type="checkbox" name="is_package" value="1" class="form-check-input"
+                                       id="addIsPackage"
+                                       onchange="toggleAddPkg(this.checked)">
+                                <span class="form-check-label fw-bold" style="font-size:0.95rem;">
+                                    <i class="fa-solid fa-gift me-1" style="color:var(--accent);"></i>
+                                    <span data-lang-am>ይህ ፓኬጅ / ጥቅል ነው</span>
+                                    <span data-lang-en>This is a package</span>
+                                </span>
+                            </label>
+                            <span class="badge rounded-pill" style="background:#F6ECE1;color:var(--accent);font-weight:700;font-size:0.7rem;">
+                                <span data-lang-am>ሰርግ · ብራይዳል · ቡድን</span>
+                                <span data-lang-en>Wedding · Bridal · Group</span>
                             </span>
-                        </label>
-                        <div id="addPkgFields" style="display:none;">
-                            <div class="mb-2">
-                                <label class="form-label small text-muted fw-semibold mb-1">
+                        </div>
+                        <p class="small text-muted mb-0" id="addPkgHint" style="line-height:1.35;">
+                            <span data-lang-am>ለብቻ አገልግሎት ከሆነ ይህን ይተዉት። ለሰርግ/ብራይዳል ወይም ቡድን ዋጋ ሲኖርዎ ያብሩት።</span>
+                            <span data-lang-en>Leave off for a normal single service. Turn on for wedding, bridal or group pricing.</span>
+                        </p>
+
+                        <div id="addPkgFields" class="mt-3 pt-3" style="display:none;border-top:1px dashed var(--border);">
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold mb-1" style="color:var(--text-dark);">
+                                    <i class="fa-solid fa-list-check me-1" style="color:var(--accent);"></i>
                                     <span data-lang-am>ምን ያካትታል?</span>
                                     <span data-lang-en>What’s included?</span>
                                 </label>
-                                <input type="text" name="includes_text" class="form-control form-control-sm"
-                                       placeholder="Hair, Makeup, Nails / ፀጉር፣ ሜካፕ፣ ጥፍር">
+                                <input type="text" name="includes_text" id="addIncludesText" class="form-control form-control-sm"
+                                       placeholder="Hair · Makeup · Nails  /  ፀጉር · ሜካፕ · ጥፍር"
+                                       oninput="updatePkgPreview()">
+                                <p class="small text-muted mb-0 mt-1">
+                                    <span data-lang-am>ደንበኛው በቡኪንግ ገጹ ላይ የሚያየው ዝርዝር</span>
+                                    <span data-lang-en>Shown to the customer on the booking page</span>
+                                </p>
                             </div>
-                            <div class="row g-2 mb-2">
+
+                            <div class="row g-2 mb-3">
                                 <div class="col-6">
-                                    <label class="form-label small text-muted fw-semibold mb-1">
+                                    <label class="form-label small fw-semibold mb-1">
                                         <span data-lang-am>ዝቅተኛ ሰዎች</span>
                                         <span data-lang-en>Min people</span>
                                     </label>
-                                    <input type="number" name="min_people" class="form-control form-control-sm"
-                                           min="1" max="50" value="1" placeholder="1">
+                                    <input type="number" name="min_people" id="addMinPeople" class="form-control form-control-sm"
+                                           min="1" max="50" value="1" oninput="updatePkgPreview()">
                                 </div>
                                 <div class="col-6">
-                                    <label class="form-label small text-muted fw-semibold mb-1">
+                                    <label class="form-label small fw-semibold mb-1">
                                         <span data-lang-am>ከፍተኛ ሰዎች</span>
                                         <span data-lang-en>Max people</span>
                                     </label>
-                                    <input type="number" name="max_people" class="form-control form-control-sm"
-                                           min="1" max="50" placeholder="10">
+                                    <input type="number" name="max_people" id="addMaxPeople" class="form-control form-control-sm"
+                                           min="1" max="50" value="10" placeholder="10" oninput="updatePkgPreview()">
                                 </div>
                             </div>
-                            <div class="mb-2 p-2 rounded-3" style="background:#fff;border:1px dashed var(--border);">
-                                <p class="small text-muted mb-2">
-                                    <span data-lang-am>ዋጋ፡ ከላይ ያለው «ዋጋ» የዋና ሰው (ሙሽራ/ዋና) ነው። ተጨማሪ ሰው ከታች ይሙሉ።</span>
-                                    <span data-lang-en>Price above = primary person (bride/main). Set extra person price below.</span>
+
+                            <!-- Pricing model — Fresha style -->
+                            <div class="p-3 rounded-3 mb-3" style="background:#fff;border:1px solid var(--border);">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="fa-solid fa-coins" style="color:var(--accent);"></i>
+                                    <span class="fw-bold small">
+                                        <span data-lang-am>የዋጋ ሞዴል</span>
+                                        <span data-lang-en>Pricing model</span>
+                                    </span>
+                                </div>
+                                <p class="small text-muted mb-2" style="line-height:1.35;">
+                                    <span data-lang-am>ከላይ ያለው «ዋጋ» = <strong>ዋና ሰው</strong> (ሙሽራ / ዋና)። እያንዳንዱ ተጨማሪ ሰው ከታች ይሙሉ።</span>
+                                    <span data-lang-en>Price above = <strong>primary person</strong> (bride / main). Each extra person uses the price below.</span>
                                 </p>
-                                <label class="form-label small text-muted fw-semibold mb-1">
+                                <label class="form-label small fw-semibold mb-1">
                                     <span data-lang-am>ተጨማሪ ሰው ዋጋ (ETB)</span>
                                     <span data-lang-en>Extra person price (ETB)</span>
                                 </label>
-                                <input type="number" name="extra_person_price" class="form-control form-control-sm"
-                                       min="0" step="0.01" placeholder="0 = flat package price">
+                                <input type="number" name="extra_person_price" id="addExtraPrice" class="form-control form-control-sm"
+                                       min="0" step="0.01" value="0" placeholder="0 = same price for everyone"
+                                       oninput="updatePkgPreview()">
                                 <p class="small text-muted mb-0 mt-1">
-                                    <span data-lang-am>ምሳሌ፡ ዋና 5000 + እያንዳንዱ ተጨማሪ 2000 → 6 ሰው = 5000+(5×2000)=15000</span>
-                                    <span data-lang-en>E.g. primary 5000 + each extra 2000 → 6 people = 15,000</span>
+                                    <span data-lang-am>0 ከሆነ ሁሉም ሰው ተመሳሳይ ዋጋ ይከፍላል (flat package)</span>
+                                    <span data-lang-en>0 = flat package (same price no matter how many people)</span>
                                 </p>
+
+                                <!-- Live calculator -->
+                                <div id="addPkgPreview" class="mt-3 p-2 rounded-3 d-none" style="background:#F6ECE1;border:1px solid var(--border);">
+                                    <div class="small fw-bold mb-1" style="color:var(--accent);">
+                                        <i class="fa-solid fa-calculator me-1"></i>
+                                        <span data-lang-am>የዋጋ ማሳያ</span>
+                                        <span data-lang-en>Price preview</span>
+                                    </div>
+                                    <div id="addPkgPreviewBody" class="small" style="line-height:1.5;"></div>
+                                </div>
                             </div>
-                            <label class="form-check mb-2">
+
+                            <label class="form-check mb-3">
                                 <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input">
                                 <span class="form-check-label small">
-                                    <span data-lang-am>ከስራ ሰዓት ውጪ ማስያዝ ይቻላል (ሰርግ ጧት/ማታ)</span>
-                                    <span data-lang-en>Allow booking outside salon hours (early/late wedding slots)</span>
+                                    <i class="fa-solid fa-moon me-1" style="color:var(--accent);"></i>
+                                    <span data-lang-am>ከስራ ሰዓት ውጪ ማስያዝ ይቻላል (ሰርግ ጧት / ማታ)</span>
+                                    <span data-lang-en>Allow booking outside salon hours (early / late wedding slots)</span>
                                 </span>
                             </label>
+
                             <div class="mb-0">
-                                <label class="form-label small text-muted fw-semibold mb-1">
-                                    <span data-lang-am>ፓኬጅ ፎቶ (ይማርክት)</span>
+                                <label class="form-label small fw-semibold mb-1">
+                                    <i class="fa-solid fa-image me-1" style="color:var(--accent);"></i>
+                                    <span data-lang-am>ፓኬጅ ፎቶ (ማርኬቲንግ)</span>
                                     <span data-lang-en>Package photo (marketing)</span>
                                 </label>
                                 <input type="file" name="photo" accept="image/*" class="form-control form-control-sm">
+                                <p class="small text-muted mb-0 mt-1">
+                                    <span data-lang-am>በቡኪንግ ገጹ ላይ ቆንጆ ምስል ያሳያል</span>
+                                    <span data-lang-en>Shown as a hero image on the public booking page</span>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -3748,6 +3893,63 @@ document.getElementById('bookModal')?.addEventListener('shown.bs.modal', filterB
     <input type="hidden" name="force" value="1">
 </form>
 <script>
+
+/* ========== Package helpers (Fresha / Booksy style) ========== */
+function toggleAddPkg(on) {
+    const box = document.getElementById('addPkgFields');
+    const hint = document.getElementById('addPkgHint');
+    if (box) box.style.display = on ? 'block' : 'none';
+    if (hint) hint.style.display = on ? 'none' : 'block';
+    if (on) updatePkgPreview();
+}
+function updatePkgPreview() {
+    const preview = document.getElementById('addPkgPreview');
+    const body = document.getElementById('addPkgPreviewBody');
+    if (!preview || !body) return;
+    const priceEl = document.querySelector('#addServiceModal input[name="price"]');
+    const primary = parseFloat(priceEl && priceEl.value ? priceEl.value : 0) || 0;
+    const extra = parseFloat((document.getElementById('addExtraPrice') || {}).value || 0) || 0;
+    const minP = parseInt((document.getElementById('addMinPeople') || {}).value || 1, 10) || 1;
+    const maxP = parseInt((document.getElementById('addMaxPeople') || {}).value || 10, 10) || 10;
+    const en = document.documentElement.lang === 'en';
+
+    if (primary <= 0) {
+        preview.classList.add('d-none');
+        return;
+    }
+    preview.classList.remove('d-none');
+
+    function total(n) {
+        if (extra <= 0) return primary; // flat
+        return primary + Math.max(0, n - 1) * extra;
+    }
+    const samples = [minP];
+    if (maxP > minP) {
+        const mid = Math.min(Math.max(minP + 1, Math.round((minP + maxP) / 2)), maxP);
+        if (mid !== minP) samples.push(mid);
+        if (maxP !== mid) samples.push(maxP);
+    }
+    const lines = samples.map(n => {
+        const t = total(n);
+        if (en) {
+            return n === 1
+                ? `1 person → <strong>${t.toLocaleString()} ETB</strong>`
+                : `${n} people → <strong>${t.toLocaleString()} ETB</strong>` +
+                  (extra > 0 ? ` <span class="text-muted">(${primary} + ${n-1}×${extra})</span>` : ' <span class="text-muted">(flat)</span>');
+        }
+        return n === 1
+            ? `1 ሰው → <strong>${t.toLocaleString()} ETB</strong>`
+            : `${n} ሰዎች → <strong>${t.toLocaleString()} ETB</strong>` +
+              (extra > 0 ? ` <span class="text-muted">(${primary} + ${n-1}×${extra})</span>` : ' <span class="text-muted">(flat)</span>');
+    });
+    body.innerHTML = lines.join('<br>');
+}
+document.querySelector('#addServiceModal input[name="price"]')?.addEventListener('input', updatePkgPreview);
+document.getElementById('addServiceModal')?.addEventListener('shown.bs.modal', () => {
+    const chk = document.getElementById('addIsPackage');
+    if (chk) toggleAddPkg(chk.checked);
+});
+
 function confirmDeleteService(id, name) {
     const en = document.documentElement.lang === 'en';
     const msg = en
@@ -3766,14 +3968,25 @@ function confirmDeleteService(id, name) {
       <form action="/reschedule-appointment" method="post" id="rescheduleForm">
         <div class="modal-header">
           <h5 class="modal-title">
-            <span data-lang-am>ቀጠሮ ቀን/ሰዓት ቀይር</span>
-            <span data-lang-en>Reschedule appointment</span>
+            <span data-lang-am>ቀጠሮ አርትዕ / ቀይር</span>
+            <span data-lang-en>Edit / Reschedule</span>
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <input type="hidden" name="appointment_id" id="rescheduleApptId" value="">
           <p class="small text-muted mb-2" id="rescheduleCustomerLabel"></p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              <span data-lang-am>አገልግሎት</span>
+              <span data-lang-en>Service</span>
+            </label>
+            <select class="form-select" name="service_id" id="rescheduleServiceSelect" required>
+              {% for s in services %}
+              <option value="{{ s.id }}">{{ s.name }} ({{ s.price }} ETB)</option>
+              {% endfor %}
+            </select>
+          </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">
               <span data-lang-am>አዲስ ቀን</span>
@@ -3802,9 +4015,15 @@ function confirmDeleteService(id, name) {
             </label>
             <select class="form-select" name="staff_id" id="rescheduleStaffSelect">
               {% for st in staff_members %}
-              <option value="{{ st.id }}">{{ st.name }}</option>
+              {% set sid_list = st.service_ids if st.service_ids else [] %}
+              <option value="{{ st.id }}"
+                      data-services="{{ sid_list|join(',') if sid_list else 'all' }}">{{ st.name }}</option>
               {% endfor %}
             </select>
+            <p class="small text-muted mt-1 mb-0" id="rescheduleNoStaffHint" style="display:none;">
+              <span data-lang-am>ለዚህ አገልግሎት ባለሙያ የለም</span>
+              <span data-lang-en>No staff for this service</span>
+            </p>
           </div>
         </div>
         <div class="modal-footer">
@@ -3822,12 +4041,48 @@ function confirmDeleteService(id, name) {
   </div>
 </div>
 <script>
-function openReschedule(id, name, dateStr, timeHM, staffId) {
+function filterRescheduleStaffByService() {
+  const svcSel = document.getElementById('rescheduleServiceSelect');
+  const staffSel = document.getElementById('rescheduleStaffSelect');
+  const hint = document.getElementById('rescheduleNoStaffHint');
+  if (!svcSel || !staffSel) return;
+  const svcId = String(svcSel.value || '');
+  let visible = 0;
+  let firstVal = null;
+  Array.from(staffSel.options).forEach(opt => {
+    const raw = opt.dataset.services || 'all';
+    let ok = true;
+    if (raw !== 'all' && svcId) {
+      ok = raw.split(',').map(s => s.trim()).includes(svcId);
+    }
+    opt.hidden = !ok;
+    opt.disabled = !ok;
+    if (ok) {
+      visible += 1;
+      if (!firstVal) firstVal = opt.value;
+    }
+  });
+  if (hint) hint.style.display = visible === 0 ? 'block' : 'none';
+  const cur = staffSel.options[staffSel.selectedIndex];
+  if (!cur || cur.hidden || cur.disabled) {
+    if (firstVal) staffSel.value = firstVal;
+  }
+}
+
+function openReschedule(id, name, dateStr, timeHM, staffId, serviceId) {
   document.getElementById('rescheduleApptId').value = id;
   document.getElementById('rescheduleCustomerLabel').textContent = name || '';
   document.getElementById('rescheduleDate').value = dateStr || '';
+  const svcSel = document.getElementById('rescheduleServiceSelect');
+  if (svcSel && serviceId) svcSel.value = String(serviceId);
   const staffSel = document.getElementById('rescheduleStaffSelect');
   if (staffSel && staffId) staffSel.value = String(staffId);
+  filterRescheduleStaffByService();
+  // keep staff if still valid after filter
+  if (staffSel && staffId) {
+    const stillOk = Array.from(staffSel.options).some(o => String(o.value) === String(staffId) && !o.hidden && !o.disabled);
+    if (stillOk) staffSel.value = String(staffId);
+  }
   const col = document.getElementById('wheelEthReschedule');
   const hidden = document.getElementById('rescheduleAppointmentTime');
   const prev = document.getElementById('rescheduleEthPreview');
@@ -3852,6 +4107,7 @@ function openReschedule(id, name, dateStr, timeHM, staffId) {
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 }
+document.getElementById('rescheduleServiceSelect')?.addEventListener('change', filterRescheduleStaffByService);
 </script>
 
 </body>

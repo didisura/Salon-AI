@@ -44,7 +44,12 @@
         html[lang="am"] [data-lang-am] { display: inline !important; }
         html[lang="am"] [data-lang-en] { display: none !important; }
 
-        .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 24px; }
+        .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 24px; overflow-x: visible; }
+        /* Let carousels breathe past padding slightly on phones */
+        .featured-scroll, .pkg-scroll, .gallery-row, .testimonial-scroll, .cat-row {
+            width: 100%;
+            max-width: 100%;
+        }
 
         /* Hero */
         .hero {
@@ -84,9 +89,32 @@
         }
 
         /* Category chips */
+        /* Shared horizontal carousel behavior (mobile-friendly sideways swipe) */
+        .h-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
+            touch-action: pan-x;
+            padding-bottom: 10px;
+            margin-left: -4px;
+            margin-right: -4px;
+            padding-left: 4px;
+            padding-right: 4px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        .h-scroll::-webkit-scrollbar { height: 4px; }
+        .h-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .h-scroll > * { flex-shrink: 0; scroll-snap-align: start; }
+
         .cat-row {
             display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
             -webkit-overflow-scrolling: touch; scrollbar-width: none;
+            touch-action: pan-x; overscroll-behavior-x: contain;
         }
         .cat-row::-webkit-scrollbar { display: none; }
         .cat-chip {
@@ -98,10 +126,13 @@
 
         /* Gallery */
         .gallery-row {
-            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch; padding-bottom: 4px;
+            display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; touch-action: pan-x;
+            padding-bottom: 10px; scrollbar-width: thin;
         }
         .gallery-row::-webkit-scrollbar { height: 4px; }
+        .gallery-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         .g-tile {
             flex: 0 0 140px; height: 150px; border-radius: 14px; overflow: hidden;
             scroll-snap-align: start; border: 1px solid var(--border); background: var(--cream);
@@ -140,9 +171,13 @@
         }
         .rev-filter.active { background: var(--cream); border-color: var(--accent); color: var(--accent); }
         .testimonial-scroll {
-            display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
+            display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; touch-action: pan-x;
+            padding-bottom: 10px; scrollbar-width: thin;
         }
+        .testimonial-scroll::-webkit-scrollbar { height: 4px; }
+        .testimonial-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         .t-card {
             flex: 0 0 240px; scroll-snap-align: start;
             background: #FAFAF8; border: 1px solid var(--border); border-radius: 14px; padding: 12px;
@@ -176,10 +211,13 @@
             margin: 0 0 10px; display: flex; align-items: center; gap: 6px;
         }
         .featured-scroll {
-            display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch; padding-bottom: 4px;
+            display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; touch-action: pan-x;
+            padding-bottom: 10px; scrollbar-width: thin;
         }
         .featured-scroll::-webkit-scrollbar { height: 4px; }
+        .featured-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         .feat-card {
             flex: 0 0 148px; scroll-snap-align: start;
             background: #fff; border: 1px solid var(--border); border-radius: 16px;
@@ -240,8 +278,10 @@
             margin: 0 0 14px;
         }
         .pkg-scroll {
-            display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch; padding: 4px 2px 12px;
+            display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; touch-action: pan-x;
+            padding: 4px 2px 12px; scrollbar-width: thin;
         }
         .pkg-scroll::-webkit-scrollbar { height: 4px; }
         .pkg-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -688,7 +728,7 @@
         <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
         <h3><span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span><span data-lang-en>Booking confirmed!</span></h3>
         <p class="thanks"><span data-lang-am>እናመሰግናለን</span><span data-lang-en>Thank you</span></p>
-        <p class="sub"><span data-lang-am>በቅርብ ጊዜ እንደሰማዎት እንረዳዎታለን።</span><span data-lang-en>We'll see you soon.</span></p>
+        <p class="sub"><span data-lang-am>ቀጠሮ ተረጋግጧል እናመሰግናለን</span><span data-lang-en>We'll see you soon.</span></p>
         <a href="/book/{{ salon_ref }}" class="btn btn-accent" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;">
             <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
         </a>
@@ -732,14 +772,7 @@
         {% endif %}
     </div>
 
-    <!-- Hours + location -->
-    <div class="hours-strip">
-        <i class="fa-solid fa-clock"></i>
-        <div>
-            <strong><span data-lang-am>የስራ ሰዓት</span><span data-lang-en>Opening hours</span></strong><br>
-            {{ hours_label or '—' }} · {{ days_label or '—' }}
-        </div>
-    </div>
+    <!-- Location (hours already shown in trust bar) -->
     {% if salon.address %}
     <div class="location-strip">
         <i class="fa-solid fa-location-dot"></i>
