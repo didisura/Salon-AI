@@ -920,13 +920,18 @@ async def add_location(
         return RedirectResponse(url="/dashboard?tab=settings&error=location_name", status_code=303)
 
     # Ensure HQ also has a place label (Bole / CMC / …) in the switcher
+    brand = (root.name or "").split(" — ")[0].strip() or root.name
     if not (root.location_name or "").strip():
         hq_place = (hq_location_name or "").strip() or "HQ"
         root.location_name = hq_place
+        # Give HQ a location-style booking slug too (e.g. addis-beauty-spa-bole)
+        try:
+            root.slug = _unique_slug(db, f"{brand} {hq_place}", root.id)
+        except Exception:
+            pass
 
     # Synthetic unique phone — branches do not log in with real numbers
     branch_phone = f"branch-{root.id}-{uuid.uuid4().hex[:10]}"
-    brand = (root.name or "").split(" — ")[0].strip() or root.name
     branch = Salon(
         name=f"{brand} — {name}",
         location_name=name,
@@ -1009,13 +1014,21 @@ async def update_location(
         for b in db.query(Salon).filter(Salon.parent_id == loc.id).all():
             b_place = (b.location_name or b.name or "").strip()
             b.name = f"{brand} — {b_place}"
+            try:
+                b.slug = _unique_slug(db, b.name, b.id)
+            except Exception:
+                pass
+        # HQ also gets a location-style slug so /book/... is clear (Brand + place)
+        # e.g. "Addis Beauty Spa Bole" → addis-beauty-spa-bole
+        slug_source = f"{brand} {place}".strip() if place else brand
     else:
         brand = (root.name or "").split(" — ")[0].strip() or root.name
         loc.name = f"{brand} — {place}"
+        slug_source = loc.name
 
-    # Refresh slug for this location
+    # Refresh slug for this location (HQ included → location-style URL)
     try:
-        loc.slug = _unique_slug(db, loc.name, loc.id)
+        loc.slug = _unique_slug(db, slug_source if loc.parent_id is None else loc.name, loc.id)
     except Exception:
         pass
 

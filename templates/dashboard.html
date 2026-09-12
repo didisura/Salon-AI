@@ -2292,7 +2292,7 @@
                   {% if loc.parent_id is none %}
                     <strong>{{ loc.location_name or 'HQ' }}</strong>
                     <span class="badge rounded-pill" style="background:#ECECEC;color:#555;font-size:0.65rem">HQ</span>
-                    <div class="text-muted" style="font-size:0.75rem">{{ loc.name }}</div>
+                    <div class="text-muted" style="font-size:0.75rem">{{ loc.name }}{% if loc.location_name %} · {{ loc.location_name }}{% endif %}</div>
                   {% else %}
                     <strong>{{ loc.location_name or loc.name }}</strong>
                     <div class="text-muted" style="font-size:0.75rem">{{ loc.name }}</div>
@@ -2455,22 +2455,47 @@
         </div>
         <script>
         function openEditLocation(id, placeName, address, brandName, isHq) {
-          document.getElementById('editLocId').value = id;
-          document.getElementById('editLocName').value = placeName || '';
-          document.getElementById('editLocAddress').value = address || '';
-          const wrap = document.getElementById('editBrandWrap');
-          const brand = document.getElementById('editBrandName');
-          if (isHq === true || isHq === 'true') {
-            wrap.style.display = 'block';
-            let b = brandName || '';
-            if (b.indexOf(' — ') >= 0) b = b.split(' — ')[0].trim();
-            brand.value = b;
-          } else {
-            wrap.style.display = 'none';
-            brand.value = '';
+          try {
+            var idEl = document.getElementById('editLocId');
+            var nameEl = document.getElementById('editLocName');
+            var addrEl = document.getElementById('editLocAddress');
+            var wrap = document.getElementById('editBrandWrap');
+            var brand = document.getElementById('editBrandName');
+            var el = document.getElementById('editLocationModal');
+            if (!idEl || !nameEl || !el) {
+              console.error('Edit location modal fields missing');
+              alert('Edit form not ready. Please refresh the page.');
+              return;
+            }
+            idEl.value = id;
+            nameEl.value = placeName || '';
+            if (addrEl) addrEl.value = address || '';
+            var hq = (isHq === true || isHq === 'true' || isHq === 1 || isHq === '1');
+            if (wrap && brand) {
+              if (hq) {
+                wrap.style.display = 'block';
+                var b = brandName || '';
+                if (b.indexOf(' — ') >= 0) b = b.split(' — ')[0].trim();
+                brand.value = b;
+                brand.removeAttribute('disabled');
+              } else {
+                wrap.style.display = 'none';
+                brand.value = '';
+              }
+            }
+            if (window.bootstrap) {
+              bootstrap.Modal.getOrCreateInstance(el).show();
+            } else {
+              // fallback if bootstrap not loaded yet
+              el.classList.add('show');
+              el.style.display = 'block';
+              el.removeAttribute('aria-hidden');
+              document.body.classList.add('modal-open');
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Could not open edit form.');
           }
-          const el = document.getElementById('editLocationModal');
-          if (window.bootstrap && el) bootstrap.Modal.getOrCreateInstance(el).show();
         }
         function confirmDeleteLocation(form, name) {
           const en = document.documentElement.lang === 'en';
@@ -2489,8 +2514,7 @@
         {% endif %}
         </script>
 
-        <section
-<section class="card-soft">
+        <section class="card-soft">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <i class="fa-solid fa-clock" style="color:var(--accent);"></i>
                 <h5 class="fw-bold mb-0">
