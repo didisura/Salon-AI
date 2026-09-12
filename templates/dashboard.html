@@ -134,19 +134,23 @@
             min-width: 0;
         }
         .topbar-logo {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 10px;
             overflow: hidden;
             flex-shrink: 0;
             background: #4A2F22;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(156,107,63,0.2);
             box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
         }
         .topbar-logo img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             display: block;
         }
         .topbar-brand .topbar-text { min-width: 0; }
@@ -512,23 +516,23 @@
 
 
         .logo-mark {
-            width: 112px;
-            height: 112px;
+            width: 100px;
+            height: 100px;
             margin: 0 auto 10px;
-            border-radius: 22px;
+            border-radius: 20px;
             background: #4A2F22;
-            border: 1px solid rgba(156,107,63,0.25);
+            border: 1px solid rgba(156,107,63,0.22);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 14px rgba(74,47,34,0.18);
+            box-shadow: 0 4px 14px rgba(74,47,34,0.16);
             overflow: hidden;
-            padding: 0;
+            padding: 10px;
         }
         .logo-mark img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             display: block;
         }
         .logo h2 {
@@ -666,7 +670,7 @@
         <div>
             <div class="logo">
                 <div class="logo-mark">
-                    <img src="/static/logo.png" alt="Melkegna" width="112" height="112">
+                    <img src="/static/logo.png" alt="Melkegna">
                 </div>
                 <h2><span data-lang-am>መልከኛ</span><span data-lang-en>Melkegna</span></h2>
                 <small>BEAUTY. BUILT ON TRUST.</small>
@@ -754,7 +758,7 @@
         <header class="topbar">
             <div class="topbar-brand">
                 <div class="topbar-logo" aria-hidden="true">
-                    <img src="/static/logo.png" alt="">
+                    <img src="/static/logo.png" alt="Melkegna">
                 </div>
                 <div class="topbar-text">
                     <h2>{{ salon.name }}</h2>
