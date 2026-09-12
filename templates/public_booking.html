@@ -583,13 +583,6 @@
         /* Dual time: Ethiopian primary + Western secondary */
         .time-dual-main { font-weight: 800; color: var(--accent); font-size: 1rem; }
         .time-dual-sub { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
-        .time-mode-toggle {
-            position: fixed; top: 12px; right: 70px; z-index: 2001;
-            display: flex; align-items: center; gap: 4px;
-            background: rgba(255,255,255,0.94); border: 1px solid var(--border);
-            border-radius: 999px; padding: 6px 10px; font-weight: 700; font-size: 0.72rem;
-            color: var(--accent); cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-        }
         html[data-time="intl"] .time-eth-only { display: none !important; }
         html[data-time="eth"] .time-west-only { display: none !important; }
 
@@ -601,11 +594,6 @@
 </style>
 </head>
 <body class="{% if success or waitlisted %}success-view{% endif %}">
-
-<button type="button" class="time-mode-toggle" id="timeModeToggle" onclick="toggleTimeMode()" title="Time format">
-  <span id="timeModeLabel">ዓ/ET</span>
-</button>
-
 
 <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
     <i class="fa-solid fa-language"></i>
@@ -831,29 +819,6 @@
     {% endif %}
 
     
-    <!-- MY BOOKINGS LOOKUP -->
-    <div class="mybook-card" id="myBookingsCard">
-        <h3>
-            <i class="fa-solid fa-calendar-check"></i>
-            <span data-lang-am>የእኔ ቀጠሮዎች</span>
-            <span data-lang-en>My bookings</span>
-        </h3>
-        <p class="small text-muted mb-2" style="margin-top:-4px;">
-            <span data-lang-am>ስልክዎን ያስገቡ — ቀጠሮዎችዎን ይመልከቱ</span>
-            <span data-lang-en>Enter your phone to see your appointments</span>
-        </p>
-        <div class="mybook-row">
-            <input type="tel" id="myBookPhone" inputmode="tel" autocomplete="tel"
-                   placeholder="09xxxxxxxx" aria-label="Phone">
-            <button type="button" id="myBookBtn" onclick="lookupMyBookings()">
-                <span data-lang-am>ፈልግ</span>
-                <span data-lang-en>Find</span>
-            </button>
-        </div>
-        <div id="myBookResults" class="mybook-list" style="display:none;"></div>
-        <p id="myBookHint" class="mybook-hint" style="display:none;"></p>
-    </div>
-
     {% if salon.phone %}
     <div class="location-strip">
         <i class="fa-solid fa-phone"></i>
@@ -884,6 +849,29 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- MY BOOKINGS LOOKUP -->
+    <div class="mybook-card" id="myBookingsCard">
+        <h3>
+            <i class="fa-solid fa-calendar-check"></i>
+            <span data-lang-am>የእኔ ቀጠሮዎች</span>
+            <span data-lang-en>My bookings</span>
+        </h3>
+        <p class="small text-muted mb-2" style="margin-top:-4px;">
+            <span data-lang-am>ስልክዎን ያስገቡ — ቀጠሮዎችዎን ይመልከቱ</span>
+            <span data-lang-en>Enter your phone to see your appointments</span>
+        </p>
+        <div class="mybook-row">
+            <input type="tel" id="myBookPhone" inputmode="tel" autocomplete="tel"
+                   placeholder="09xxxxxxxx" aria-label="Phone">
+            <button type="button" id="myBookBtn" onclick="lookupMyBookings()">
+                <span data-lang-am>ፈልግ</span>
+                <span data-lang-en>Find</span>
+            </button>
+        </div>
+        <div id="myBookResults" class="mybook-list" style="display:none;"></div>
+        <p id="myBookHint" class="mybook-hint" style="display:none;"></p>
+    </div>
 
     <!-- BOOKING -->
     <div class="book-card" id="bookingSection">
@@ -1995,34 +1983,19 @@ function westernLabel(hh, mm) {
   let h12 = hh % 12; if (h12 === 0) h12 = 12;
   return h12 + ':' + String(mm).padStart(2,'0') + ' ' + suffix;
 }
-function getTimeMode() {
-  return localStorage.getItem('melkegna_time') || 'dual';
-}
+function getTimeMode() { return 'dual'; }
 function applyTimeMode(mode) {
+  mode = 'dual';
   document.documentElement.setAttribute('data-time', mode);
-  localStorage.setItem('melkegna_time', mode);
-  const lab = document.getElementById('timeModeLabel');
-  if (lab) {
-    if (mode === 'eth') lab.textContent = 'ዓ/ET';
-    else if (mode === 'intl') lab.textContent = '12h';
-    else lab.textContent = 'ዓ+12';
-  }
   if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
   document.querySelectorAll('[data-dual-time]').forEach(el => {
     const eth = el.getAttribute('data-eth') || '';
     const west = el.getAttribute('data-west') || '';
-    if (mode === 'eth') el.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
-    else if (mode === 'intl') el.innerHTML = '<span class="time-dual-main">' + west + '</span>';
-    else el.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+    el.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
   });
 }
-function toggleTimeMode() {
-  const cur = getTimeMode();
-  const next = cur === 'dual' ? 'eth' : (cur === 'eth' ? 'intl' : 'dual');
-  applyTimeMode(next);
-}
 (function initTimeMode() {
-  applyTimeMode(getTimeMode());
+  applyTimeMode('dual');
 })();
 
 const dayAm = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
