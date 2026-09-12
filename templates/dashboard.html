@@ -2885,12 +2885,13 @@ function ethLabel(h, m) {
 }
 const ETH_SLOTS = [];
 (function buildSlots() {
-    for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 60; m += 15) {
-            const hh = String(h).padStart(2, '0');
-            const mm = String(m).padStart(2, '0');
-            ETH_SLOTS.push({ western: `${hh}:${mm}`, label: ethLabel(h, m) });
-        }
+    // Start list at ጧት 12 (Western 06:00) — same order as public booking
+    for (let i = 0; i < 96; i++) {
+        const h = (6 + Math.floor(i / 4)) % 24;
+        const m = (i % 4) * 15;
+        const hh = String(h).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        ETH_SLOTS.push({ western: `${hh}:${mm}`, label: ethLabel(h, m) });
     }
 })();
 
