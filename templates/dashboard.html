@@ -619,13 +619,6 @@
     
         .time-dual-main { font-weight: 800; color: var(--accent); }
         .time-dual-sub { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
-        .time-mode-btn {
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border);
-            background: #fff; color: var(--text-dark); font-weight: 600;
-            font-size: 0.78rem; cursor: pointer; width: 100%;
-        }
-        .time-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 </style>
 </head>
@@ -697,11 +690,6 @@
                 <i class="fa-solid fa-globe"></i>
                 <span id="langLabelSidebar">EN</span>
             </button>
-            
-        <button type="button" class="time-mode-btn" id="timeModeBtn" onclick="toggleTimeModeDash()">
-            <i class="fa-regular fa-clock"></i>
-            <span id="timeModeBtnLabel">ዓ + 12h</span>
-        </button>
 
         <a href="/logout" class="logout-link">
                 <i class="fa-solid fa-right-from-bracket me-1"></i>
@@ -2919,29 +2907,15 @@ function ethLabelHM(hhmm) {
   }
   return hhmm || '';
 }
-function getTimeMode() { return localStorage.getItem('melkegna_time') || 'dual'; }
+function getTimeMode() { return 'dual'; }
 function setTimeModeLabel() {
-  const mode = getTimeMode();
+  const mode = 'dual';
   document.documentElement.setAttribute('data-time', mode);
-  const lab = document.getElementById('timeModeBtnLabel');
-  if (lab) {
-    if (mode === 'eth') lab.textContent = 'የኢትዮጵያ';
-    else if (mode === 'intl') lab.textContent = '12h / International';
-    else lab.textContent = 'ዓ + 12h';
-  }
   document.querySelectorAll('.js-time-dual').forEach(el => {
     const eth = el.getAttribute('data-eth') || '';
     const west = el.getAttribute('data-west') || '';
-    if (mode === 'eth') el.innerHTML = eth;
-    else if (mode === 'intl') el.innerHTML = west;
-    else el.innerHTML = eth + ' <span class="time-dual-sub">(' + west + ')</span>';
+    el.innerHTML = eth + ' <span class="time-dual-sub">(' + west + ')</span>';
   });
-}
-function toggleTimeModeDash() {
-  const cur = getTimeMode();
-  const next = cur === 'dual' ? 'eth' : (cur === 'eth' ? 'intl' : 'dual');
-  localStorage.setItem('melkegna_time', next);
-  setTimeModeLabel();
 }
 document.addEventListener('DOMContentLoaded', setTimeModeLabel);
 
