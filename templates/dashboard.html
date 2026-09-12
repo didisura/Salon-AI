@@ -1287,7 +1287,7 @@
                                                 <div class="eth-wheel-highlight" style="height:36px;"></div>
                                                 <div class="wheel-col wheel-eth wl-wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;width:118px;" data-wl-id="{{ w.id }}"></div>
                                             </div>
-                                            <div class="eth-preview wl-eth-preview" style="font-size:0.85rem;margin-top:4px;">ጧት 9:00 ሰዓት</div>
+                                            <div class="eth-preview wl-eth-preview" style="font-size:0.85rem;margin-top:4px;">ጧት 3:00 ሰዓት</div>
                                         </div>
                                         <button type="submit" class="btn btn-sm btn-accent text-nowrap">
                                             <span data-lang-am>ቦታ ስጠው</span><span data-lang-en>Book</span>
@@ -1896,7 +1896,7 @@
                                                     <div class="eth-wheel-highlight"></div>
                                                     <div class="wheel-col wheel-eth" id="wheelEthStaffOpen-{{ st.id }}"></div>
                                                 </div>
-                                                <div class="eth-preview" id="staffOpenPreview-{{ st.id }}">ጧት 9:00 ሰዓት</div>
+                                                <div class="eth-preview" id="staffOpenPreview-{{ st.id }}">ጧት 3:00 ሰዓት</div>
                                             </div>
                                             <input type="hidden" name="opening_time" id="staffOpeningTime-{{ st.id }}"
                                                    value="{{ st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M') }}">
@@ -1910,7 +1910,7 @@
                                                     <div class="eth-wheel-highlight"></div>
                                                     <div class="wheel-col wheel-eth" id="wheelEthStaffClose-{{ st.id }}"></div>
                                                 </div>
-                                                <div class="eth-preview" id="staffClosePreview-{{ st.id }}">ማታ 6:00 ሰዓት</div>
+                                                <div class="eth-preview" id="staffClosePreview-{{ st.id }}">ማታ 12:00 ሰዓት</div>
                                             </div>
                                             <input type="hidden" name="closing_time" id="staffClosingTime-{{ st.id }}"
                                                    value="{{ st.closing_time.strftime('%H:%M') if st.closing_time else salon.closing_time.strftime('%H:%M') }}">
@@ -1948,7 +1948,7 @@
                                                     <div class="eth-wheel-highlight" style="height:36px;"></div>
                                                     <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;" id="dayOpenEth-{{ st.id }}-{{ i }}"></div>
                                                 </div>
-                                                <div class="eth-preview" id="dayOpenPreview-{{ st.id }}-{{ i }}">ጧት 9:00</div>
+                                                <div class="eth-preview" id="dayOpenPreview-{{ st.id }}-{{ i }}">ጧት 3:00</div>
                                             </div>
                                             <span class="text-muted small fw-bold">–</span>
                                             <div class="eth-time-picker compact staff-day-wheel" data-role="close" data-staff-id="{{ st.id }}" data-day="{{ i }}">
@@ -1956,7 +1956,7 @@
                                                     <div class="eth-wheel-highlight" style="height:36px;"></div>
                                                     <div class="wheel-col wheel-eth" style="height:108px;padding-top:36px;padding-bottom:36px;" id="dayCloseEth-{{ st.id }}-{{ i }}"></div>
                                                 </div>
-                                                <div class="eth-preview" id="dayClosePreview-{{ st.id }}-{{ i }}">ማታ 6:00</div>
+                                                <div class="eth-preview" id="dayClosePreview-{{ st.id }}-{{ i }}">ማታ 12:00</div>
                                             </div>
                                             <input type="hidden" name="day_open_{{ i }}" id="dayOpenHidden-{{ st.id }}-{{ i }}"
                                                    value="{{ dh[i|string].open if dh and i|string in dh and dh[i|string].open else (st.opening_time.strftime('%H:%M') if st.opening_time else salon.opening_time.strftime('%H:%M')) }}">
@@ -2066,7 +2066,7 @@
                             <div class="eth-wheel-highlight"></div>
                             <div class="wheel-col wheel-eth" id="wheelEthOpen"></div>
                         </div>
-                        <div class="eth-preview" id="openEthPreview">ጧት 9:00 ሰዓት</div>
+                        <div class="eth-preview" id="openEthPreview">ጧት 3:00 ሰዓት</div>
                     </div>
                     <input type="hidden" name="opening_time" id="settingsOpeningTime" value="{{ salon.opening_time.strftime('%H:%M') }}" required>
                 </div>
@@ -2080,7 +2080,7 @@
                             <div class="eth-wheel-highlight"></div>
                             <div class="wheel-col wheel-eth" id="wheelEthClose"></div>
                         </div>
-                        <div class="eth-preview" id="closeEthPreview">ማታ 6:00 ሰዓት</div>
+                        <div class="eth-preview" id="closeEthPreview">ማታ 12:00 ሰዓት</div>
                     </div>
                     <input type="hidden" name="closing_time" id="settingsClosingTime" value="{{ salon.closing_time.strftime('%H:%M') }}" required>
                 </div>
