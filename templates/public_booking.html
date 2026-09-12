@@ -579,12 +579,12 @@
         }
 
         .alert { border-radius: 12px; font-size: 0.88rem; }
-    
+
         /* Dual time: Ethiopian primary + Western secondary */
         .time-dual-main { font-weight: 800; color: var(--accent); font-size: 1rem; }
         .time-dual-sub { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
         .time-mode-toggle {
-            position: fixed; top: 12px; right: 72px; z-index: 2000;
+            position: fixed; top: 12px; right: 70px; z-index: 2001;
             display: flex; align-items: center; gap: 4px;
             background: rgba(255,255,255,0.94); border: 1px solid var(--border);
             border-radius: 999px; padding: 6px 10px; font-weight: 700; font-size: 0.72rem;
@@ -593,13 +593,9 @@
         html[data-time="intl"] .time-eth-only { display: none !important; }
         html[data-time="eth"] .time-west-only { display: none !important; }
 
-
         .eth-preview { text-align: center; }
         .eth-preview .time-dual-main { display: block; font-weight: 800; color: var(--accent); font-size: 1.05rem; }
         .eth-preview .time-dual-sub { display: block; font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
-        .time-mode-toggle {
-            position: fixed; top: 12px; right: 70px; z-index: 2001;
-        }
         .mb-time { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
 
 </style>
@@ -1832,45 +1828,20 @@ document.querySelectorAll('img.staff-photo-img').forEach(img => {
     });
 });
 
-/* Ethiopian time wheel */
-
-/* ===== Time mode: eth | dual | intl (default dual) ===== */
-function westernLabel(hh, mm) {
-  hh = parseInt(hh, 10); mm = parseInt(mm, 10) || 0;
-  const suffix = hh < 12 ? 'AM' : 'PM';
-  let h12 = hh % 12; if (h12 === 0) h12 = 12;
-  return h12 + ':' + String(mm).padStart(2,'0') + ' ' + suffix;
-}
-function getTimeMode() {
-  return localStorage.getItem('melkegna_time') || 'dual';
-}
-function applyTimeMode(mode) {
-  document.documentElement.setAttribute('data-time', mode);
-  localStorage.setItem('melkegna_time', mode);
-  const lab = document.getElementById('timeModeLabel');
-  if (lab) {
-    if (mode === 'eth') lab.textContent = 'ዓ/ET';
-    else if (mode === 'intl') lab.textContent = '12h';
-    else lab.textContent = 'ዓ+12';
-  }
-  if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
-  document.querySelectorAll('[data-dual-time]').forEach(el => {
-    const eth = el.getAttribute('data-eth') || '';
-    const west = el.getAttribute('data-west') || '';
-    if (mode === 'eth') el.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
-    else if (mode === 'intl') el.innerHTML = '<span class="time-dual-main">' + west + '</span>';
-    else el.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
-  });
-}
-function toggleTimeMode() {
-  const cur = getTimeMode();
-  const next = cur === 'dual' ? 'eth' : (cur === 'eth' ? 'intl' : 'dual');
-  applyTimeMode(next);
-}
-(function initTimeMode() {
-  applyTimeMode(getTimeMode());
-})();
-
+/* ============================================================
+   Ethiopian time wheel — data + wheel construction.
+   NOTE: this block must run BEFORE the "Time mode" block below,
+   because that block calls applyTimeMode() immediately on load,
+   which in turn calls updatePreviewAndHidden() — and that
+   function reads `selectedHHMM`. `selectedHHMM` is declared with
+   `let`, so referencing it before this block runs throws a
+   ReferenceError (temporal dead zone) and — since that error is
+   uncaught — silently aborts the rest of the script, including
+   the call to initWheel() that actually builds the wheel's items.
+   That was the root cause of the wheel appearing empty. Keeping
+   this block first guarantees selectedHHMM/slots/ethWheel exist
+   before anything else tries to use them.
+   ============================================================ */
 function westernToEth(h, m) {
     const total = ((h * 60 + m - 360) % 1440 + 1440) % 1440;
     const eh = Math.floor(total / 60);
@@ -2014,6 +1985,45 @@ function updatePreviewAndHidden() {
     }
 }
 document.getElementById('ethDate')?.addEventListener('change', updatePreviewAndHidden);
+
+/* ===== Time mode: eth | dual | intl (default dual) =====
+   Runs AFTER the wheel block above so selectedHHMM/updatePreviewAndHidden
+   are ready before initTimeMode() fires on load. */
+function westernLabel(hh, mm) {
+  hh = parseInt(hh, 10); mm = parseInt(mm, 10) || 0;
+  const suffix = hh < 12 ? 'AM' : 'PM';
+  let h12 = hh % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + String(mm).padStart(2,'0') + ' ' + suffix;
+}
+function getTimeMode() {
+  return localStorage.getItem('melkegna_time') || 'dual';
+}
+function applyTimeMode(mode) {
+  document.documentElement.setAttribute('data-time', mode);
+  localStorage.setItem('melkegna_time', mode);
+  const lab = document.getElementById('timeModeLabel');
+  if (lab) {
+    if (mode === 'eth') lab.textContent = 'ዓ/ET';
+    else if (mode === 'intl') lab.textContent = '12h';
+    else lab.textContent = 'ዓ+12';
+  }
+  if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
+  document.querySelectorAll('[data-dual-time]').forEach(el => {
+    const eth = el.getAttribute('data-eth') || '';
+    const west = el.getAttribute('data-west') || '';
+    if (mode === 'eth') el.innerHTML = '<span class="time-dual-main">' + eth + '</span>';
+    else if (mode === 'intl') el.innerHTML = '<span class="time-dual-main">' + west + '</span>';
+    else el.innerHTML = '<span class="time-dual-main">' + eth + '</span><div class="time-dual-sub">' + west + '</div>';
+  });
+}
+function toggleTimeMode() {
+  const cur = getTimeMode();
+  const next = cur === 'dual' ? 'eth' : (cur === 'eth' ? 'intl' : 'dual');
+  applyTimeMode(next);
+}
+(function initTimeMode() {
+  applyTimeMode(getTimeMode());
+})();
 
 const dayAm = ['ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','ዓርብ','ቅዳሜ','እሁድ'];
 const dayEn = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
