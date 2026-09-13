@@ -539,14 +539,39 @@ def _public_base_url(request: Request) -> str:
 
 
 def _ensure_salon_slugs():
+    """Ensure every salon has a slug. HQ with a place name gets brand+place URL
+    so public booking links are never ambiguous next to branches (/bole, /cmc)."""
     db = SessionLocal()
     try:
         salons = db.query(Salon).all()
         changed = False
         for s in salons:
             current = (getattr(s, "slug", None) or "").strip()
-            if not current or current.startswith("salon-"):
-                s.slug = _unique_slug(db, s.name, s.id)
+            place = (getattr(s, "location_name", None) or "").strip()
+            is_root = getattr(s, "parent_id", None) is None
+
+            # Preferred source for slug
+            if is_root and place:
+                brand = (s.name or "").split(" — ")[0].strip() or (s.name or f"salon-{s.id}")
+                source = f"{brand} {place}"
+            elif not is_root:
+                source = s.name or f"branch-{s.id}"
+            else:
+                source = s.name or f"salon-{s.id}"
+
+            desired = _slugify_name(source)
+            # Rebuild if missing, generic, or HQ place not reflected in slug
+            needs = (
+                not current
+                or current.startswith("salon-")
+                or (is_root and place and place.lower().replace(" ", "-") not in current
+                    and _slugify_name(place) not in current)
+            )
+            if needs and desired:
+                s.slug = _unique_slug(db, source, s.id)
+                changed = True
+            elif not current:
+                s.slug = _unique_slug(db, source or f"salon-{s.id}", s.id)
                 changed = True
         if changed:
             db.commit()
@@ -919,14 +944,23 @@ async def add_location(
     if not name:
         return RedirectResponse(url="/dashboard?tab=settings&error=location_name", status_code=303)
 
-    # Ensure HQ also has a place label (Bole / CMC / …) in the switcher
-    brand = (root.name or "").split(" — ")[0].strip() or root.name
-    if not (root.location_name or "").strip():
+    # Ensure HQ always has a place label + location-style public URL
+    # so /book/brand-bole is never confused with branches /book/brand-cmc
+    brand = (root.name or "").split(" — ")[0].strip() or root.name or "Salon"
+    if " — " in (root.name or ""):
+        brand = root.name.split(" — ")[0].strip() or brand
+    root.name = brand  # keep HQ display name as pure brand
+
+    hq_place = (root.location_name or "").strip()
+    if not hq_place:
         hq_place = (hq_location_name or "").strip() or "HQ"
         root.location_name = hq_place
-        # Give HQ a location-style booking slug too (e.g. addis-beauty-spa-bole)
+    # Always refresh HQ booking slug to include the place
+    try:
+        root.slug = _unique_slug(db, f"{brand} {hq_place}", root.id)
+    except Exception:
         try:
-            root.slug = _unique_slug(db, f"{brand} {hq_place}", root.id)
+            root.slug = _unique_slug(db, f"salon-{root.id}-{hq_place}", root.id)
         except Exception:
             pass
 
@@ -986,7 +1020,10 @@ async def update_location(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    """Edit HQ or any branch: place name, address; HQ can also rename the brand."""
+    """Edit HQ or any branch: place name, address; HQ can also rename the brand.
+    Always regenerates a location-style public booking slug so HQ URLs look like
+    /book/brand-bole just like branches /book/brand-cmc.
+    """
     root = salon.root_salon() if hasattr(salon, "root_salon") else salon
     allowed = get_salon_tree_ids(db, root.id)
     if int(location_id) not in allowed:
@@ -1004,40 +1041,44 @@ async def update_location(
     loc.address = (address or "").strip() or None
 
     if loc.parent_id is None:
-        # HQ: optional brand rename
+        # --- HQ ---
         brand = (brand_name or "").strip()
         if not brand:
-            # Fall back to current name, strip any previous " — place" suffix
             brand = (loc.name or "").strip()
         if " — " in brand:
             brand = brand.split(" — ")[0].strip()
         if not brand:
             brand = "Salon"
-        loc.name = brand
-        # Keep branch display names in sync: "Brand — Place"
+        loc.name = brand  # pure brand name on HQ
+
+        # Sync all branch display names: "Brand — Place"
         for b in db.query(Salon).filter(Salon.parent_id == loc.id).all():
             b_place = (b.location_name or "").strip()
             if not b_place and b.name and " — " in (b.name or ""):
                 b_place = b.name.split(" — ", 1)[-1].strip()
             b_place = b_place or "Branch"
+            b.location_name = b_place
             b.name = f"{brand} — {b_place}"
             try:
-                b.slug = _unique_slug(db, b.name, b.id)
+                b.slug = _unique_slug(db, f"{brand} {b_place}", b.id)
             except Exception:
-                pass
-        # HQ also gets a location-style slug so /book/... is clear (Brand + place)
-        # e.g. "Addis Beauty Spa Bole" → addis-beauty-spa-bole
-        slug_source = f"{brand} {place}".strip() if place else brand
+                try:
+                    b.slug = _unique_slug(db, f"branch-{b.id}-{b_place}", b.id)
+                except Exception:
+                    pass
+
+        # HQ public URL MUST include the place (same pattern as branches)
+        slug_source = f"{brand} {place}"
     else:
+        # --- Branch ---
         brand = (root.name or "").split(" — ")[0].strip() or root.name or "Salon"
         loc.name = f"{brand} — {place}"
-        slug_source = loc.name
+        slug_source = f"{brand} {place}"
 
-    # Refresh slug for this location (HQ included → location-style URL)
+    # Always refresh this location's public booking slug
     try:
         loc.slug = _unique_slug(db, slug_source, loc.id)
     except Exception:
-        # Last-resort unique slug so booking URL never stays broken
         try:
             loc.slug = _unique_slug(db, f"salon-{loc.id}-{place}", loc.id)
         except Exception:
@@ -1045,6 +1086,7 @@ async def update_location(
 
     db.commit()
     return RedirectResponse(url="/dashboard?tab=settings&location_updated=1", status_code=303)
+
 
 
 @app.post("/delete-location")
@@ -1219,6 +1261,28 @@ def dashboard(
     )
 
     day_am, day_en = _day_names(sel)
+    # Keep public booking URL location-aware for HQ (brand-place), matching branches
+    try:
+        root_for_slug = salon.root_salon() if hasattr(salon, "root_salon") else salon
+        place = (getattr(salon, "location_name", None) or "").strip()
+        if salon.parent_id is None and place:
+            brand = (salon.name or "").split(" — ")[0].strip() or salon.name or f"salon-{salon.id}"
+            desired_src = f"{brand} {place}"
+            desired = _slugify_name(desired_src)
+            current = (salon.slug or "").strip()
+            if not current or (_slugify_name(place) not in current and place.lower().replace(" ", "-") not in current):
+                salon.slug = _unique_slug(db, desired_src, salon.id)
+                db.commit()
+        elif salon.parent_id is not None and place:
+            brand = (root_for_slug.name or "").split(" — ")[0].strip() or root_for_slug.name or "Salon"
+            desired_src = f"{brand} {place}"
+            current = (salon.slug or "").strip()
+            if not current or _slugify_name(place) not in current:
+                salon.slug = _unique_slug(db, desired_src, salon.id)
+                db.commit()
+    except Exception:
+        db.rollback()
+
     booking_url = f"{_public_base_url(request)}/book/{salon.slug or salon.id}"
 
     week_start = today - timedelta(days=today.weekday())
