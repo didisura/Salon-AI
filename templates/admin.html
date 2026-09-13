@@ -875,40 +875,437 @@
             </div>
         </section>
 
-        <!-- ===== PLACEHOLDER PANELS ===== -->
-        {% set placeholders = [
-            ('bookings', 'calendar-check', 'Bookings', 'Platform-wide booking feed and filters will appear here.'),
-            ('customers', 'users', 'Customers', 'Cross-salon customer directory and search.'),
-            ('payments', 'money-bill-wave', 'Payments', 'Deposit proofs, payment methods, and reconciliation.'),
-            ('noshows', 'user-xmark', 'No-shows', 'No-show rates by salon and trends.'),
-            ('waitlist', 'list-ul', 'Waitlist', 'Global waitlist entries across locations.'),
-            ('subscriptions', 'credit-card', 'Subscriptions', 'Plan management, renewals, and billing history.'),
-            ('revenue', 'chart-line', 'Revenue', 'Platform GMV, commissions, and salon performance.'),
-            ('growth', 'arrow-trend-up', 'Growth', 'Signup funnel, activation, and retention metrics.'),
-            ('branches', 'code-branch', 'Branches', 'Multi-location tree view for every HQ.'),
-            ('issues', 'triangle-exclamation', 'Issues', 'Reported problems and incident tracker.'),
-            ('contact', 'envelope', 'Contact requests', 'Inbound messages from salon owners.'),
-            ('verify', 'id-card', 'Account verification', 'KYC / document review queue.'),
-            ('admins', 'user-shield', 'Admin users', 'Manage super-admin access and roles.'),
-            ('audit', 'clipboard-list', 'Audit log', 'Who approved, suspended, or extended accounts.'),
-            ('settings', 'gear', 'Settings', 'Platform defaults, feature flags, and secrets.'),
-        ] %}
-        {% for pid, icon, title, desc in placeholders %}
-        <section class="panel" id="panel-{{ pid }}">
+
+        <!-- ===== BOOKINGS ===== -->
+        <section class="panel" id="panel-bookings">
             <div class="topbar">
                 <div>
-                    <h1>{{ title }}</h1>
-                    <p class="sub">{{ desc }}</p>
+                    <h1>Bookings</h1>
+                    <p class="sub">Latest appointments across the whole platform</p>
+                </div>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" placeholder="Search customer, salon, service…" oninput="filterTable('bookingsTable', this.value)">
                 </div>
             </div>
-            <div class="coming-soon">
-                <i class="fa-solid fa-{{ icon }}"></i>
-                <h3>{{ title }}</h3>
-                <p>{{ desc }}</p>
-                <p class="mt-3 mb-0" style="font-size:0.8rem">This module is scaffolded — wire live data when ready.</p>
+            <div class="table-wrap">
+                <table class="admin-table" id="bookingsTable">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Salon</th>
+                            <th>Customer</th>
+                            <th>Service</th>
+                            <th>Staff</th>
+                            <th>Status</th>
+                            <th>Price</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in platform_bookings or [] %}
+                        <tr data-search="{{ (b.customer_name ~ ' ' ~ b.salon_name ~ ' ' ~ b.service_name ~ ' ' ~ (b.customer_phone or ''))|lower }}">
+                            <td class="mono" data-label="When">{{ b.when.strftime('%Y-%m-%d %H:%M') if b.when else '—' }}</td>
+                            <td class="name-cell" data-label="Salon">{{ b.salon_name }}</td>
+                            <td data-label="Customer">{{ b.customer_name }}<br><span class="mono">{{ b.customer_phone }}</span></td>
+                            <td data-label="Service">{{ b.service_name }}</td>
+                            <td data-label="Staff">{{ b.staff_name }}</td>
+                            <td data-label="Status"><span class="badge-status {% if b.status == 'Completed' %}badge-active{% elif b.status in ('Cancelled','No-Show') %}badge-suspended{% else %}badge-pending{% endif %}">{{ b.status }}</span></td>
+                            <td class="mono" data-label="Price">{{ "{:,.0f}".format(b.price) }}</td>
+                            <td class="mono" data-label="Source">{{ b.source or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8"><div class="empty-state"><p>No bookings yet.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </section>
-        {% endfor %}
+
+        <!-- ===== CUSTOMERS ===== -->
+        <section class="panel" id="panel-customers">
+            <div class="topbar">
+                <div>
+                    <h1>Customers</h1>
+                    <p class="sub">Recent customers seen across salons (from latest bookings)</p>
+                </div>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" placeholder="Name or phone…" oninput="filterTable('customersTable', this.value)">
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table" id="customersTable">
+                    <thead>
+                        <tr><th>Name</th><th>Phone</th><th>Last salon</th><th>Last visit</th><th>Visits (sample)</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for c in platform_customers or [] %}
+                        <tr data-search="{{ (c.name ~ ' ' ~ c.phone)|lower }}">
+                            <td class="name-cell" data-label="Name">{{ c.name }}</td>
+                            <td class="mono" data-label="Phone">{{ c.phone }}</td>
+                            <td data-label="Salon">{{ c.salon_name }}</td>
+                            <td class="mono" data-label="Last">{{ c.last_visit.strftime('%Y-%m-%d %H:%M') if c.last_visit else '—' }}</td>
+                            <td data-label="Visits">{{ c.count }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5"><div class="empty-state"><p>No customer data yet.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== PAYMENTS ===== -->
+        <section class="panel" id="panel-payments">
+            <div class="topbar">
+                <div>
+                    <h1>Payments</h1>
+                    <p class="sub">Deposits and completed booking value from recent activity</p>
+                </div>
+            </div>
+            <div class="metrics-grid" style="margin-bottom:16px">
+                <div class="metric-card">
+                    <div class="label">Booking value (completed)</div>
+                    <div class="value">{{ "{:,.0f}".format(stats.booking_value) }} <span style="font-size:0.85rem">ETB</span></div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Deposits collected</div>
+                    <div class="value">{{ "{:,.0f}".format(stats.deposits) }} <span style="font-size:0.85rem">ETB</span></div>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr><th>When</th><th>Salon</th><th>Customer</th><th>Status</th><th>Price</th><th>Deposit</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for b in platform_payments or [] %}
+                        <tr>
+                            <td class="mono" data-label="When">{{ b.when.strftime('%Y-%m-%d %H:%M') if b.when else '—' }}</td>
+                            <td data-label="Salon">{{ b.salon_name }}</td>
+                            <td data-label="Customer">{{ b.customer_name }}</td>
+                            <td data-label="Status">{{ b.status }}</td>
+                            <td class="mono" data-label="Price">{{ "{:,.0f}".format(b.price) }}</td>
+                            <td class="mono" data-label="Deposit">{{ "{:,.0f}".format(b.deposit) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6"><div class="empty-state"><p>No payment rows in the sample yet.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== NO-SHOWS ===== -->
+        <section class="panel" id="panel-noshows">
+            <div class="topbar">
+                <div>
+                    <h1>No-shows</h1>
+                    <p class="sub">Recent no-show appointments across the platform</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr><th>When</th><th>Salon</th><th>Customer</th><th>Phone</th><th>Service</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for b in platform_noshows or [] %}
+                        <tr>
+                            <td class="mono" data-label="When">{{ b.when.strftime('%Y-%m-%d %H:%M') if b.when else '—' }}</td>
+                            <td data-label="Salon">{{ b.salon_name }}</td>
+                            <td data-label="Customer">{{ b.customer_name }}</td>
+                            <td class="mono" data-label="Phone">{{ b.customer_phone }}</td>
+                            <td data-label="Service">{{ b.service_name }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5"><div class="empty-state"><p>No no-shows in the recent sample.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== WAITLIST ===== -->
+        <section class="panel" id="panel-waitlist">
+            <div class="topbar">
+                <div>
+                    <h1>Waitlist</h1>
+                    <p class="sub">Open waitlist entries across all locations</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr><th>Preferred date</th><th>Salon</th><th>Customer</th><th>Phone</th><th>Service</th><th>Staff</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for w in platform_waitlist or [] %}
+                        <tr>
+                            <td class="mono" data-label="Date">{{ w.preferred_date }}</td>
+                            <td data-label="Salon">{{ w.salon_name }}</td>
+                            <td data-label="Customer">{{ w.customer_name }}</td>
+                            <td class="mono" data-label="Phone">{{ w.customer_phone }}</td>
+                            <td data-label="Service">{{ w.service_name }}</td>
+                            <td data-label="Staff">{{ w.staff_name }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6"><div class="empty-state"><p>Waitlist is empty.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== SUBSCRIPTIONS ===== -->
+        <section class="panel" id="panel-subscriptions">
+            <div class="topbar">
+                <div>
+                    <h1>Subscriptions</h1>
+                    <p class="sub">Every HQ account — status, expiry, branches</p>
+                </div>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" placeholder="Search salon…" oninput="filterTable('subsTable', this.value)">
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table" id="subsTable">
+                    <thead>
+                        <tr><th>Salon</th><th>Owner</th><th>Status</th><th>Expires</th><th>Days left</th><th>Branches</th><th style="text-align:right">Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for s in subscriptions or [] %}
+                        <tr data-search="{{ (s.name ~ ' ' ~ s.owner ~ ' ' ~ s.phone)|lower }}">
+                            <td class="name-cell" data-label="Salon">{{ s.name }}</td>
+                            <td data-label="Owner">{{ s.owner }}<br><span class="mono">{{ s.phone }}</span></td>
+                            <td data-label="Status">
+                                {% if s.expired %}
+                                  <span class="badge-status badge-expired">Expired</span>
+                                {% elif s.status == 'active' %}
+                                  <span class="badge-status badge-active">Active</span>
+                                {% elif s.status == 'pending' %}
+                                  <span class="badge-status badge-pending">Pending</span>
+                                {% else %}
+                                  <span class="badge-status badge-suspended">{{ s.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="mono" data-label="Expires">{{ s.expires_at.strftime('%Y-%m-%d') if s.expires_at else '—' }}</td>
+                            <td data-label="Days">{{ s.days_left if s.days_left is not none else '—' }}</td>
+                            <td data-label="Branches">{{ s.branches }}</td>
+                            <td data-label="Actions">
+                                <div class="actions-cell">
+                                    <form action="/admin/approve/{{ s.id }}" method="post" class="d-flex align-items-center gap-2">
+                                        <input type="number" name="days" value="30" min="1" class="days-input">
+                                        <button type="submit" class="btn-accent btn-sm">Extend</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7"><div class="empty-state"><p>No subscriptions.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== REVENUE ===== -->
+        <section class="panel" id="panel-revenue">
+            <div class="topbar">
+                <div>
+                    <h1>Revenue</h1>
+                    <p class="sub">Platform completed booking value & deposits</p>
+                </div>
+            </div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">Completed booking GMV</div>
+                    <div class="value">{{ "{:,.0f}".format(stats.booking_value) }}</div>
+                    <div class="sub">ETB all-time completed</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Deposits</div>
+                    <div class="value">{{ "{:,.0f}".format(stats.deposits) }}</div>
+                    <div class="sub">ETB deposited</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Total bookings</div>
+                    <div class="value">{{ stats.total_bookings }}</div>
+                    <div class="sub">all statuses</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Today</div>
+                    <div class="value">{{ stats.today_bookings }}</div>
+                    <div class="sub">bookings today</div>
+                </div>
+            </div>
+            <p class="small text-muted">Detailed commission splits can be layered later; this is live platform volume from completed appointments.</p>
+        </section>
+
+        <!-- ===== GROWTH ===== -->
+        <section class="panel" id="panel-growth">
+            <div class="topbar">
+                <div>
+                    <h1>Growth</h1>
+                    <p class="sub">Signup and network expansion</p>
+                </div>
+            </div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">Total HQs</div>
+                    <div class="value">{{ stats.total_roots }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">New HQs (30d)</div>
+                    <div class="value">{{ stats.new_roots_30d or 0 }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Active</div>
+                    <div class="value">{{ stats.active }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Pending</div>
+                    <div class="value">{{ stats.pending }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Branches</div>
+                    <div class="value">{{ stats.total_branches or 0 }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Multi-location HQs</div>
+                    <div class="value">{{ stats.multi_location_businesses or 0 }}</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== BRANCHES ===== -->
+        <section class="panel" id="panel-branches">
+            <div class="topbar">
+                <div>
+                    <h1>Branches</h1>
+                    <p class="sub">Billable locations + usage signals</p>
+                </div>
+            </div>
+            <div class="section-title"><i class="fa-solid fa-money-bill-wave"></i> Billing signals</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table">
+                    <thead><tr><th>When</th><th>Signal</th><th>Branch</th><th>Details</th></tr></thead>
+                    <tbody>
+                        {% for row in branch_events or [] %}
+                        <tr>
+                            <td class="mono" data-label="When">{% if row.created_at %}{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at.strftime is defined else row.created_at }}{% else %}—{% endif %}</td>
+                            <td data-label="Signal">{% if row.action == 'branch_created' %}<span class="badge-status badge-pending">New branch (bill)</span>{% else %}<span class="badge-status badge-active">Branch in use</span>{% endif %}</td>
+                            <td class="name-cell" data-label="Branch">{{ row.target_name or '—' }}</td>
+                            <td class="mono" data-label="Details" style="max-width:320px;white-space:normal;font-size:0.78rem;">{{ row.details or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4"><div class="empty-state"><p>No branch events yet.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="section-title"><i class="fa-solid fa-code-branch"></i> All recent branches</div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>Branch</th><th>Place</th><th>HQ id</th><th>Created</th><th>Slug</th></tr></thead>
+                    <tbody>
+                        {% for b in recent_branches or [] %}
+                        <tr>
+                            <td class="name-cell" data-label="Branch">{{ b.name }}</td>
+                            <td data-label="Place">{{ b.location_name or '—' }}</td>
+                            <td class="mono" data-label="HQ">#{{ b.parent_id }}</td>
+                            <td class="mono" data-label="Created">{{ b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else '—' }}</td>
+                            <td class="mono" data-label="Slug">/book/{{ b.slug or b.id }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5"><div class="empty-state"><p>No branches yet.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== SUPPORT stubs with real structure ===== -->
+        <section class="panel" id="panel-issues">
+            <div class="topbar"><div><h1>Issues</h1><p class="sub">Incident tracker (wire a ticket table when ready)</p></div></div>
+            <div class="card-soft"><p class="mb-0 text-muted">No issue inbox yet. Use audit log for admin actions. Add a <code>support_tickets</code> model when you want owners to file tickets.</p></div>
+        </section>
+        <section class="panel" id="panel-contact">
+            <div class="topbar"><div><h1>Contact requests</h1><p class="sub">Inbound owner messages</p></div></div>
+            <div class="card-soft"><p class="mb-0 text-muted">Connect email or a contact form endpoint later. Support phone numbers stay on each salon dashboard.</p></div>
+        </section>
+        <section class="panel" id="panel-verify">
+            <div class="topbar"><div><h1>Account verification</h1><p class="sub">Pending HQs needing approval</p></div></div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>Salon</th><th>Owner</th><th>Phone</th><th>Registered</th><th></th></tr></thead>
+                    <tbody>
+                        {% for s in pending_salons or [] %}
+                        <tr>
+                            <td class="name-cell">{{ s.name }}</td>
+                            <td>{{ s.owner_name }}</td>
+                            <td class="mono">{{ s.phone }}</td>
+                            <td class="mono">{{ s.created_at.strftime('%Y-%m-%d') if s.created_at else '—' }}</td>
+                            <td>
+                                <form action="/admin/approve/{{ s.id }}" method="post" class="d-flex gap-2">
+                                    <input type="number" name="days" value="30" min="1" class="days-input">
+                                    <button class="btn-accent btn-sm" type="submit">Approve</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5"><div class="empty-state"><p>No pending verifications.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== SYSTEM ===== -->
+        <section class="panel" id="panel-admins">
+            <div class="topbar"><div><h1>Admin users</h1><p class="sub">Super-admin access is env-based for now</p></div></div>
+            <div class="card-soft">
+                <p class="mb-2"><strong>Current model:</strong> <code>ADMIN_SECRET_KEY</code> and optional <code>ADMIN_PASSWORD_HASH</code> + <code>ADMIN_TOTP_SECRET</code>.</p>
+                <p class="mb-0 text-muted small">Multi-admin accounts table can be added later without changing salon JWT auth.</p>
+            </div>
+        </section>
+
+        <section class="panel" id="panel-audit">
+            <div class="topbar"><div><h1>Audit log</h1><p class="sub">Every admin login, approval, suspend, branch event</p></div></div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>When</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr></thead>
+                    <tbody>
+                        {% for row in audit_log or [] %}
+                        <tr>
+                            <td class="mono" data-label="When">{% if row.created_at %}{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at.strftime is defined else row.created_at }}{% else %}—{% endif %}</td>
+                            <td data-label="Action"><strong>{{ row.action }}</strong></td>
+                            <td data-label="Target">{% if row.target_name %}{{ row.target_name }}{% elif row.target_id %}#{{ row.target_id }}{% else %}—{% endif %}</td>
+                            <td class="mono" data-label="Details" style="max-width:280px;white-space:normal;">{{ row.details or '—' }}</td>
+                            <td class="mono" data-label="IP">{{ row.ip or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5"><div class="empty-state"><p>No audit entries yet.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel" id="panel-settings">
+            <div class="topbar"><div><h1>Settings</h1><p class="sub">Platform configuration (environment)</p></div></div>
+            <div class="card-soft">
+                <ul class="mb-0" style="line-height:1.8">
+                    <li><code>SECRET_KEY</code> — JWT signing</li>
+                    <li><code>ADMIN_SECRET_KEY</code> / <code>ADMIN_PASSWORD_HASH</code> / <code>ADMIN_TOTP_SECRET</code></li>
+                    <li><code>COOKIE_SECURE</code> — force HTTPS cookies</li>
+                    <li><code>PUBLIC_BASE_URL</code> — public booking links</li>
+                </ul>
+                <p class="small text-muted mt-3 mb-0">2FA enabled on this server: <strong>{{ 'yes' if totp_enabled else 'no' }}</strong></p>
+            </div>
+        </section>
 
     </main>
 </div>
@@ -951,6 +1348,16 @@ function setSalonFilter(filter, chipEl) {
         a.classList.toggle('active', (a.dataset.filter || 'all') === currentFilter);
     });
     filterSalons();
+}
+
+function filterTable(tableId, q) {
+    q = (q || '').trim().toLowerCase();
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    table.querySelectorAll('tbody tr[data-search]').forEach(row => {
+        const hay = row.getAttribute('data-search') || '';
+        row.style.display = (!q || hay.includes(q)) ? '' : 'none';
+    });
 }
 
 function filterSalons() {

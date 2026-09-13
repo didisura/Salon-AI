@@ -3103,6 +3103,126 @@ def admin_dashboard(
     stats["total_branches"] = sum(branch_counts.values())
     stats["multi_location_businesses"] = multi_loc_roots
 
+    # ---- Platform ops data for sidebar panels ----
+    salon_name_map = {s.id: s.name for s in salons}
+
+    recent_appts = (
+        db.query(Appointment)
+        .order_by(Appointment.appointment_datetime.desc())
+        .limit(80)
+        .all()
+    )
+    platform_bookings = []
+    for a in recent_appts:
+        st = getattr(a.status, "value", str(a.status))
+        platform_bookings.append({
+            "id": a.id,
+            "salon_id": a.salon_id,
+            "salon_name": salon_name_map.get(a.salon_id, f"#{a.salon_id}"),
+            "customer_name": a.customer_name,
+            "customer_phone": a.customer_phone,
+            "service_name": a.service_name,
+            "staff_name": a.staff_name,
+            "status": st,
+            "source": a.source,
+            "price": float(a.service_price or 0),
+            "deposit": float(a.deposit_amount or 0),
+            "when": a.appointment_datetime,
+            "party_size": a.party_size or 1,
+        })
+
+    # Distinct customers (by phone) from recent appointments sample + totals
+    cust_map = {}
+    for a in recent_appts:
+        phone = (a.customer_phone or "").strip()
+        if not phone:
+            continue
+        if phone not in cust_map:
+            cust_map[phone] = {
+                "phone": phone,
+                "name": a.customer_name,
+                "salon_name": salon_name_map.get(a.salon_id, ""),
+                "last_visit": a.appointment_datetime,
+                "count": 1,
+            }
+        else:
+            cust_map[phone]["count"] += 1
+            if a.appointment_datetime and (
+                not cust_map[phone]["last_visit"]
+                or a.appointment_datetime > cust_map[phone]["last_visit"]
+            ):
+                cust_map[phone]["last_visit"] = a.appointment_datetime
+                cust_map[phone]["name"] = a.customer_name
+    platform_customers = sorted(
+        cust_map.values(),
+        key=lambda x: x["last_visit"] or datetime.min,
+        reverse=True,
+    )[:60]
+
+    platform_payments = [
+        b for b in platform_bookings
+        if (b.get("deposit") or 0) > 0
+        or b.get("status") in ("Pending Payment", "pending_payment", "Completed")
+    ][:50]
+
+    platform_noshows = [
+        b for b in platform_bookings
+        if b.get("status") in ("No-Show", "no_show")
+    ]
+
+    wait_rows = (
+        db.query(Waitlist)
+        .order_by(Waitlist.preferred_date.desc(), Waitlist.id.desc())
+        .limit(50)
+        .all()
+    )
+    platform_waitlist = []
+    for w in wait_rows:
+        platform_waitlist.append({
+            "id": w.id,
+            "salon_id": w.salon_id,
+            "salon_name": salon_name_map.get(w.salon_id, f"#{w.salon_id}"),
+            "customer_name": w.customer_name,
+            "customer_phone": w.customer_phone,
+            "service_name": w.service_name,
+            "staff_name": w.staff_name,
+            "preferred_date": w.preferred_date,
+            "created_at": w.created_at,
+        })
+
+    # Subscriptions view = roots with status/expiry
+    subscriptions = []
+    for s in roots:
+        st = (s.status or "pending").lower()
+        exp = s.subscription_expires_at
+        expired = bool(exp and exp < now)
+        days_left = None
+        if exp and not expired:
+            days_left = (exp.date() - now.date()).days if hasattr(exp, "date") else None
+        subscriptions.append({
+            "id": s.id,
+            "name": s.name,
+            "owner": s.owner_name,
+            "phone": s.phone,
+            "status": st,
+            "expired": expired,
+            "expires_at": exp,
+            "days_left": days_left,
+            "branches": branch_counts.get(s.id, 0),
+        })
+
+    # Growth: registrations last 30 days
+    month_ago = now - timedelta(days=30)
+    new_roots_30 = sum(
+        1 for s in roots
+        if s.created_at and (
+            (s.created_at.replace(tzinfo=None) if getattr(s.created_at, "tzinfo", None) else s.created_at) >= month_ago
+        )
+    )
+    stats["new_roots_30d"] = new_roots_30
+    stats["waitlist_open"] = len(platform_waitlist)
+    stats["noshow_sample"] = len(platform_noshows)
+
     return templates.TemplateResponse(
         request,
         "admin.html",
@@ -3117,6 +3237,12 @@ def admin_dashboard(
             "audit_log": audit_rows,
             "branch_events": branch_events,
             "recent_branches": recent_branches,
+            "platform_bookings": platform_bookings,
+            "platform_customers": platform_customers,
+            "platform_payments": platform_payments,
+            "platform_noshows": platform_noshows,
+            "platform_waitlist": platform_waitlist,
+            "subscriptions": subscriptions,
             "totp_enabled": bool(ADMIN_TOTP_SECRET),
         },
     )
