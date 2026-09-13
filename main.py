@@ -293,6 +293,149 @@ def _ensure_branch_columns():
 _ensure_branch_columns()
 
 
+def _ensure_admin_audit_table():
+    """Idempotent create for admin_audit_log (works on SQLite + Postgres)."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    try:
+        tables = inspector.get_table_names()
+    except Exception:
+        return
+    if "admin_audit_log" in tables:
+        return
+    dialect = engine.dialect.name
+    if dialect == "postgresql":
+        ddl = """
+        CREATE TABLE IF NOT EXISTS admin_audit_log (
+            id SERIAL PRIMARY KEY,
+            action VARCHAR(80) NOT NULL,
+            target_type VARCHAR(40),
+            target_id INTEGER,
+            target_name VARCHAR(200),
+            details TEXT,
+            ip VARCHAR(60),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS admin_audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action VARCHAR(80) NOT NULL,
+            target_type VARCHAR(40),
+            target_id INTEGER,
+            target_name VARCHAR(200),
+            details TEXT,
+            ip VARCHAR(60),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(ddl))
+    except Exception:
+        pass
+
+
+_ensure_admin_audit_table()
+
+
+def _admin_audit(
+    db: Session,
+    *,
+    action: str,
+    target_type: Optional[str] = None,
+    target_id: Optional[int] = None,
+    target_name: Optional[str] = None,
+    details: Optional[str] = None,
+    ip: Optional[str] = None,
+) -> None:
+    """Append one admin audit row. Never raises into the request path."""
+    from sqlalchemy import text
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO admin_audit_log "
+                    "(action, target_type, target_id, target_name, details, ip) "
+                    "VALUES (:action, :tt, :tid, :tn, :details, :ip)"
+                ),
+                {
+                    "action": (action or "")[:80],
+                    "tt": (target_type or None),
+                    "tid": target_id,
+                    "tn": (target_name or None) and str(target_name)[:200],
+                    "details": details,
+                    "ip": (ip or None) and str(ip)[:60],
+                },
+            )
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+def _client_ip(request: Optional[Request]) -> Optional[str]:
+    if not request:
+        return None
+    xff = request.headers.get("x-forwarded-for") or ""
+    if xff:
+        return xff.split(",")[0].strip()[:60]
+    if request.client:
+        return (request.client.host or "")[:60]
+    return None
+
+
+def _verify_admin_totp(otp: Optional[str]) -> bool:
+    """If ADMIN_TOTP_SECRET is set, require a valid TOTP code. Else pass."""
+    secret = ADMIN_TOTP_SECRET
+    if not secret:
+        return True
+    code = (otp or "").strip().replace(" ", "")
+    if not code.isdigit() or len(code) not in (6, 8):
+        return False
+    try:
+        import hmac
+        import struct
+        import time
+        import base64
+        # Minimal TOTP (RFC 6238) — 30s window, SHA1, 6 digits
+        key = base64.b32decode(secret.upper().replace(" ", "") + "=" * ((8 - len(secret) % 8) % 8))
+        timestep = int(time.time()) // 30
+        for w in (0, -1, 1):  # allow ±1 step clock skew
+            msg = struct.pack(">Q", timestep + w)
+            h = hmac.new(key, msg, "sha1").digest()
+            o = h[-1] & 0x0F
+            trunc = struct.unpack(">I", h[o : o + 4])[0] & 0x7FFFFFFF
+            expected = f"{trunc % (10 ** 6):06d}"
+            if hmac.compare_digest(expected, code[-6:].zfill(6)):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def _valid_admin_credentials(key: Optional[str], otp: Optional[str] = None) -> bool:
+    """Accept ADMIN_SECRET_KEY or ADMIN_PASSWORD_HASH; enforce TOTP when configured."""
+    if not key:
+        return False
+    key = key.strip()
+    ok = False
+    if _valid_admin_key(key):
+        ok = True
+    elif ADMIN_PASSWORD_HASH:
+        try:
+            if verify_password(key, ADMIN_PASSWORD_HASH):
+                ok = True
+        except Exception:
+            ok = False
+    if not ok:
+        return False
+    return _verify_admin_totp(otp)
+
+
+
 def _content_type_for_ext(ext: str) -> str:
     return {
         ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
@@ -354,7 +497,44 @@ def serve_media(asset_id: str, db: Session = Depends(get_db)):
 
 
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me-set-ADMIN_SECRET_KEY-in-railway")
+# Optional hashed admin password (bcrypt via security.hash_password). If set, login accepts
+# either ADMIN_SECRET_KEY or this password. Prefer setting ADMIN_PASSWORD_HASH in production.
+ADMIN_PASSWORD_HASH = (os.environ.get("ADMIN_PASSWORD_HASH") or "").strip()
+# TOTP secret for optional 2FA (base32). When set, admin login requires `otp` form field.
+ADMIN_TOTP_SECRET = (os.environ.get("ADMIN_TOTP_SECRET") or "").strip()
+
 SLOT_STEP_MINUTES = 15
+
+
+def _cookie_secure() -> bool:
+    """True in production HTTPS. Set COOKIE_SECURE=0 for local HTTP dev."""
+    explicit = (os.environ.get("COOKIE_SECURE") or "").strip().lower()
+    if explicit in ("0", "false", "no", "off"):
+        return False
+    if explicit in ("1", "true", "yes", "on"):
+        return True
+    # Auto: secure when PUBLIC_BASE_URL is https
+    base = (os.environ.get("PUBLIC_BASE_URL") or "").strip().lower()
+    return base.startswith("https://")
+
+
+def _set_auth_cookie(resp, key: str, value: str, max_age: Optional[int] = None) -> None:
+    """HttpOnly + SameSite=Lax + Secure (when HTTPS) for access_token / admin_token."""
+    kwargs = dict(
+        key=key,
+        value=value,
+        httponly=True,
+        samesite="lax",
+        secure=_cookie_secure(),
+        path="/",
+    )
+    if max_age is not None:
+        kwargs["max_age"] = max_age
+    resp.set_cookie(**kwargs)
+
+
+def _clear_auth_cookie(resp, key: str) -> None:
+    resp.delete_cookie(key, path="/")
 
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_WINDOW_SECONDS = 5 * 60
@@ -966,14 +1146,14 @@ async def login_submit(
         "active_salon_id": str(active_id),
     })
     resp = RedirectResponse(url="/dashboard?tab=home", status_code=status.HTTP_303_SEE_OTHER)
-    resp.set_cookie("access_token", token, httponly=True, samesite="lax")
+    _set_auth_cookie(resp, "access_token", token)
     return resp
 
 
 @app.get("/logout")
 def logout():
     resp = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-    resp.delete_cookie("access_token")
+    _clear_auth_cookie(resp, "access_token")
     return resp
 
 
@@ -1045,7 +1225,7 @@ async def switch_location(
     if not str(next_url).startswith("/"):
         next_url = "/dashboard?tab=home"
     resp = RedirectResponse(url=str(next_url), status_code=303)
-    resp.set_cookie("access_token", new_token, httponly=True, samesite="lax")
+    _set_auth_cookie(resp, "access_token", new_token)
     return resp
 
 
@@ -1261,7 +1441,7 @@ async def delete_location(
     if was_active:
         token = create_access_token({"sub": str(root.id), "active_salon_id": str(root.id)})
         resp = RedirectResponse(url="/dashboard?tab=settings&location_deleted=1", status_code=303)
-        resp.set_cookie("access_token", token, httponly=True, samesite="lax")
+        _set_auth_cookie(resp, "access_token", token)
         return resp
 
     return RedirectResponse(url="/dashboard?tab=settings&location_deleted=1", status_code=303)
@@ -1886,7 +2066,7 @@ async def add_staff(
     except IntegrityError:
         db.rollback()
         redirect = RedirectResponse(url="/login?error=session_expired", status_code=303)
-        redirect.delete_cookie("access_token")
+        _clear_auth_cookie(redirect, "access_token")
         return redirect
     return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
@@ -2711,24 +2891,53 @@ def privacy(request: Request):
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request, error: Optional[str] = None):
     return templates.TemplateResponse(
-        request, "admin_login.html", {"error": error}
+        request,
+        "admin_login.html",
+        {"error": error, "totp_enabled": bool(ADMIN_TOTP_SECRET)},
     )
 
 
 @app.post("/admin/login")
-async def admin_login_submit(key: str = Form(...)):
-    if not _valid_admin_key(key):
+async def admin_login_submit(
+    request: Request,
+    key: str = Form(...),
+    otp: Optional[str] = Form(None),
+):
+    ip = _client_ip(request) or "unknown"
+    bucket = f"admin-login:{ip}"
+    if _is_rate_limited(bucket):
+        return RedirectResponse(url="/admin/login?error=rate", status_code=429)
+
+    if not _valid_admin_credentials(key, otp):
+        _record_attempt(bucket)
+        try:
+            db = SessionLocal()
+            try:
+                _admin_audit(db, action="login_failed", details="invalid credentials", ip=ip)
+            finally:
+                db.close()
+        except Exception:
+            pass
         return RedirectResponse(url="/admin/login?error=1", status_code=303)
+
     token = create_admin_token()
     resp = RedirectResponse(url="/admin", status_code=303)
-    resp.set_cookie("admin_token", token, httponly=True, samesite="lax")
+    _set_auth_cookie(resp, "admin_token", token)
+    try:
+        db = SessionLocal()
+        try:
+            _admin_audit(db, action="login_ok", details="admin session started", ip=ip)
+        finally:
+            db.close()
+    except Exception:
+        pass
     return resp
 
 
 @app.get("/admin/logout")
 def admin_logout():
     resp = RedirectResponse(url="/admin/login", status_code=303)
-    resp.delete_cookie("admin_token")
+    _clear_auth_cookie(resp, "admin_token")
     return resp
 
 
@@ -2813,6 +3022,30 @@ def admin_dashboard(
         "deposits": deposits,
     }
 
+    # Recent admin audit trail
+    audit_rows = []
+    try:
+        from sqlalchemy import text as sa_text
+        rows = db.execute(
+            sa_text(
+                "SELECT id, action, target_type, target_id, target_name, details, ip, created_at "
+                "FROM admin_audit_log ORDER BY id DESC LIMIT 40"
+            )
+        ).fetchall()
+        for r in rows:
+            audit_rows.append({
+                "id": r[0],
+                "action": r[1],
+                "target_type": r[2],
+                "target_id": r[3],
+                "target_name": r[4],
+                "details": r[5],
+                "ip": r[6],
+                "created_at": r[7],
+            })
+    except Exception:
+        audit_rows = []
+
     return templates.TemplateResponse(
         request,
         "admin.html",
@@ -2824,12 +3057,15 @@ def admin_dashboard(
             "expiring_salons": expiring_salons,
             "branch_counts": branch_counts,
             "now": now,
+            "audit_log": audit_rows,
+            "totp_enabled": bool(ADMIN_TOTP_SECRET),
         },
     )
 
 
 @app.post("/admin/approve/{salon_id}")
 def admin_approve(
+    request: Request,
     salon_id: int,
     days: int = Form(30),
     admin=Depends(get_current_admin),
@@ -2837,19 +3073,30 @@ def admin_approve(
 ):
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if salon:
+        days_n = max(1, int(days))
         salon.status = "active"
         base = salon.subscription_expires_at or datetime.utcnow()
         if base < datetime.utcnow():
             base = datetime.utcnow()
-        salon.subscription_expires_at = base + timedelta(days=max(1, int(days)))
+        salon.subscription_expires_at = base + timedelta(days=days_n)
         for b in db.query(Salon).filter(Salon.parent_id == salon.id).all():
             b.status = "active"
         db.commit()
+        _admin_audit(
+            db,
+            action="approve_extend",
+            target_type="salon",
+            target_id=salon.id,
+            target_name=salon.name,
+            details=f"+{days_n} days → expires {salon.subscription_expires_at}",
+            ip=_client_ip(request),
+        )
     return RedirectResponse(url="/admin#salons", status_code=303)
 
 
 @app.post("/admin/suspend/{salon_id}")
 def admin_suspend(
+    request: Request,
     salon_id: int,
     admin=Depends(get_current_admin),
     db: Session = Depends(get_db),
@@ -2860,6 +3107,15 @@ def admin_suspend(
         for b in db.query(Salon).filter(Salon.parent_id == salon.id).all():
             b.status = "suspended"
         db.commit()
+        _admin_audit(
+            db,
+            action="suspend",
+            target_type="salon",
+            target_id=salon.id,
+            target_name=salon.name,
+            details="status=suspended (branches included)",
+            ip=_client_ip(request),
+        )
     return RedirectResponse(url="/admin#salons", status_code=303)
 
 

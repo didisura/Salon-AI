@@ -102,13 +102,17 @@
         {% if error %}
         <div class="alert-soft">
             <i class="fa-solid fa-circle-exclamation me-1"></i>
-            Invalid admin key. Please try again.
+            {% if error == 'rate' %}
+              Too many attempts. Wait a few minutes and try again.
+            {% else %}
+              Invalid credentials{% if totp_enabled %} or OTP{% endif %}. Please try again.
+            {% endif %}
         </div>
         {% endif %}
 
         <form action="/admin/login" method="post" autocomplete="off">
-            <div class="mb-4">
-                <label class="form-label" for="key">Admin secret key</label>
+            <div class="mb-3">
+                <label class="form-label" for="key">Admin secret key / password</label>
                 <input
                     type="password"
                     id="key"
@@ -118,6 +122,23 @@
                     placeholder="••••••••••••••••"
                     class="form-control"
                 >
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="otp">Authenticator code (2FA)</label>
+                <input
+                    type="text"
+                    id="otp"
+                    name="otp"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="8"
+                    autocomplete="one-time-code"
+                    placeholder="6-digit code (if enabled)"
+                    class="form-control"
+                >
+                <p style="font-size:0.75rem;color:var(--text-muted);margin:6px 0 0;">
+                    Leave blank if 2FA is not configured on the server.
+                </p>
             </div>
             <button type="submit" class="btn-accent">
                 <i class="fa-solid fa-lock me-2"></i> Authenticate

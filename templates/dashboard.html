@@ -2313,9 +2313,14 @@
                     <i class="fa-solid fa-link me-1"></i>
                     <span class="d-none d-md-inline" style="font-family:monospace;font-size:0.7rem;">/book/{{ loc.slug or loc.id }}</span>
                   </a>
-                  <button type="button" class="btn btn-outline-soft btn-sm"
+                  <button type="button" class="btn btn-outline-soft btn-sm btn-edit-location"
                           style="min-height:36px;padding:6px 10px;font-size:0.75rem"
-                          onclick="openEditLocation({{ loc.id }}, {{ (loc.location_name or '')|tojson }}, {{ (loc.address or '')|tojson }}, {{ (loc.name if loc.parent_id is none else '')|tojson }}, {{ 'true' if loc.parent_id is none else 'false' }})">
+                          data-id="{{ loc.id }}"
+                          data-place="{{ (loc.location_name or '')|e }}"
+                          data-address="{{ (loc.address or '')|e }}"
+                          data-brand="{{ (loc.name if loc.parent_id is none else '')|e }}"
+                          data-hq="{{ '1' if loc.parent_id is none else '0' }}"
+                          data-slug="{{ (loc.slug or loc.id)|e }}">
                     <i class="fa-solid fa-pen"></i>
                     <span data-lang-am>አርትዕ</span><span data-lang-en>Edit</span>
                   </button>
@@ -2409,7 +2414,7 @@
         <div class="modal fade" id="editLocationModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-              <form action="/update-location" method="post">
+              <form action="/update-location" method="post" id="editLocationForm" onsubmit="var b=document.getElementById('editBrandName'); if(b) b.removeAttribute('disabled'); return true;">
                 <div class="modal-header">
                   <h5 class="modal-title">
                     <span data-lang-am>ቦታ አርትዕ</span>
@@ -2440,6 +2445,17 @@
                     </label>
                     <input type="text" class="form-control" name="address" id="editLocAddress">
                   </div>
+                  <div class="mb-1 p-2 rounded-3" style="background:#F6ECE1;border:1px solid var(--border);">
+                    <div class="small text-muted mb-1">
+                      <span data-lang-am>የህዝብ ቀጠሮ ሊንክ (ይቀየራል)</span>
+                      <span data-lang-en>Public booking URL (will update)</span>
+                    </div>
+                    <code id="editLocSlugPreview" style="color:var(--accent);font-weight:700;font-size:0.85rem;">/book/…</code>
+                    <div class="small text-muted mt-1" style="font-size:0.72rem;">
+                      <span data-lang-am>HQም የቦታ ስም ይኖረው (Bole፣ CMC…) — ቅርንጫፎች እንደ /book/…-cmc ስለሚመስሉ።</span>
+                      <span data-lang-en>HQ must have a place name too (Bole, CMC…) so it matches branch URLs like /book/…-cmc.</span>
+                    </div>
+                  </div>
                 </div>
                 <div class="modal-footer">
                   <button type="button" class="btn btn-outline-soft" data-bs-dismiss="modal">
@@ -2462,12 +2478,13 @@
             var wrap = document.getElementById('editBrandWrap');
             var brand = document.getElementById('editBrandName');
             var el = document.getElementById('editLocationModal');
+            var preview = document.getElementById('editLocSlugPreview');
             if (!idEl || !nameEl || !el) {
               console.error('Edit location modal fields missing');
               alert('Edit form not ready. Please refresh the page.');
               return;
             }
-            idEl.value = id;
+            idEl.value = String(id);
             nameEl.value = placeName || '';
             if (addrEl) addrEl.value = address || '';
             var hq = (isHq === true || isHq === 'true' || isHq === 1 || isHq === '1');
@@ -2478,15 +2495,34 @@
                 if (b.indexOf(' — ') >= 0) b = b.split(' — ')[0].trim();
                 brand.value = b;
                 brand.removeAttribute('disabled');
+                brand.removeAttribute('readonly');
               } else {
                 wrap.style.display = 'none';
                 brand.value = '';
+                brand.setAttribute('disabled', 'disabled');
               }
             }
-            if (window.bootstrap) {
+            function slugifyPreview(s) {
+              return String(s || '').toLowerCase().trim()
+                .replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+            }
+            function updatePreview() {
+              if (!preview) return;
+              var place = (nameEl.value || '').trim() || 'place';
+              var brandVal = (brand && brand.value) ? brand.value.trim() : '';
+              if (hq) {
+                var src = (brandVal ? brandVal + ' ' : '') + place;
+                preview.textContent = '/book/' + (slugifyPreview(src) || '…');
+              } else {
+                preview.textContent = '/book/' + (slugifyPreview(place) || '…');
+              }
+            }
+            nameEl.oninput = updatePreview;
+            if (brand) brand.oninput = updatePreview;
+            updatePreview();
+            if (window.bootstrap && bootstrap.Modal) {
               bootstrap.Modal.getOrCreateInstance(el).show();
             } else {
-              // fallback if bootstrap not loaded yet
               el.classList.add('show');
               el.style.display = 'block';
               el.removeAttribute('aria-hidden');
@@ -2497,6 +2533,18 @@
             alert('Could not open edit form.');
           }
         }
+        document.addEventListener('click', function(ev) {
+          var btn = ev.target && ev.target.closest ? ev.target.closest('.btn-edit-location') : null;
+          if (!btn) return;
+          ev.preventDefault();
+          openEditLocation(
+            btn.getAttribute('data-id'),
+            btn.getAttribute('data-place') || '',
+            btn.getAttribute('data-address') || '',
+            btn.getAttribute('data-brand') || '',
+            btn.getAttribute('data-hq') === '1'
+          );
+        });
         function confirmDeleteLocation(form, name) {
           const en = document.documentElement.lang === 'en';
           const msg = en

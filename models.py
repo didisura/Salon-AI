@@ -442,3 +442,17 @@ class Waitlist(Base):
     @property
     def staff_name(self):
         return self.staff.name if self.staff else "Any"
+
+
+class AdminAuditLog(Base):
+    """Super-admin action trail (approve, suspend, login, etc.)."""
+    __tablename__ = "admin_audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String(80), nullable=False, index=True)
+    target_type = Column(String(40), nullable=True)
+    target_id = Column(Integer, nullable=True)
+    target_name = Column(String(200), nullable=True)
+    details = Column(Text, nullable=True)
+    ip = Column(String(60), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

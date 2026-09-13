@@ -634,6 +634,48 @@
             {% endif %}
         </section>
 
+
+            <!-- Audit log -->
+            <div class="section-title mt-4"><i class="fa-solid fa-clipboard-list"></i> Recent admin activity</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Action</th>
+                            <th>Target</th>
+                            <th>Details</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in audit_log or [] %}
+                        <tr>
+                            <td class="mono" data-label="When">
+                                {% if row.created_at %}
+                                  {{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at.strftime is defined else row.created_at }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td data-label="Action"><strong>{{ row.action }}</strong></td>
+                            <td data-label="Target">
+                                {% if row.target_name %}{{ row.target_name }}{% elif row.target_id %}#{{ row.target_id }}{% else %}—{% endif %}
+                            </td>
+                            <td class="mono" data-label="Details" style="max-width:280px;white-space:normal;">{{ row.details or '—' }}</td>
+                            <td class="mono" data-label="IP">{{ row.ip or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">
+                                <div class="empty-state" style="padding:28px;">
+                                    <p class="mb-0">No admin actions recorded yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
         <!-- ===== SALONS ===== -->
         <section class="panel" id="panel-salons">
             <div class="topbar">
