@@ -2,103 +2,839 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melkegna Super Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Melkegna HQ — Super Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-cream: #FAFAF8;
+            --sidebar-bg: #F3E9DC;
+            --card-bg: #FFFFFF;
+            --accent: #9C6B3F;
+            --accent-hover: #7E5530;
+            --text-dark: #2D2424;
+            --text-muted: #7A6E6E;
+            --border: #E3D3C0;
+            --green: #2E7D32;
+            --orange: #ED6C02;
+            --rose: #C62828;
+            --font: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', sans-serif;
+            --nav-h: 64px;
+            --sidebar-w: 260px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg-cream);
+            color: var(--text-dark);
+            font-family: var(--font);
+            min-height: 100vh;
+            margin: 0;
+        }
+        .wrapper { display: flex; min-height: 100vh; }
+
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 14px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .logo { text-align: center; margin-bottom: 22px; padding: 0 6px; }
+        .logo-mark {
+            width: 56px; height: 56px; margin: 0 auto 10px;
+            border-radius: 16px; background: #F5EDE3;
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .logo-mark i { color: var(--accent); font-size: 1.5rem; }
+        .logo h2 { font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--accent); letter-spacing: 0.3px; }
+        .logo small { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; }
+
+        .nav-section { margin-bottom: 18px; }
+        .nav-section-title {
+            font-size: 0.65rem; font-weight: 700; letter-spacing: 1.2px;
+            color: var(--text-muted); text-transform: uppercase;
+            padding: 0 12px 6px; margin: 0;
+        }
+        .nav-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+        .nav-menu a {
+            display: flex; align-items: center; gap: 11px;
+            padding: 10px 12px; border-radius: 11px;
+            color: var(--text-dark); text-decoration: none;
+            font-size: 0.88rem; font-weight: 500;
+            transition: all 0.15s ease;
+        }
+        .nav-menu a:hover { background: rgba(156,107,63,0.12); color: var(--accent); }
+        .nav-menu a.active {
+            background: var(--accent); color: #fff; font-weight: 600;
+            box-shadow: 0 3px 10px rgba(156,107,63,0.22);
+        }
+        .nav-menu a i { width: 18px; text-align: center; font-size: 0.95rem; }
+        .nav-badge {
+            margin-left: auto; background: #D32F2F; color: #fff;
+            font-size: 0.65rem; font-weight: 700; padding: 2px 7px;
+            border-radius: 50px; min-width: 20px; text-align: center;
+        }
+        .nav-menu a.active .nav-badge { background: rgba(255,255,255,0.25); }
+
+        .sidebar-footer {
+            margin-top: auto; padding-top: 14px;
+            border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .logout-link {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent); text-decoration: none; font-weight: 600;
+            padding: 8px 12px; font-size: 0.88rem; border-radius: 10px;
+        }
+        .logout-link:hover { background: rgba(156,107,63,0.1); }
+
+        /* ---------- Main ---------- */
+        .main-content {
+            flex: 1; padding: 24px 28px 48px;
+            overflow-y: auto; min-width: 0;
+        }
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 22px; flex-wrap: wrap; gap: 12px;
+        }
+        .topbar h1 { font-size: 1.55rem; font-weight: 700; margin: 0; }
+        .topbar .sub { color: var(--text-muted); font-size: 0.88rem; margin: 3px 0 0; }
+        .top-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #fff; border: 1px solid var(--border);
+            padding: 7px 14px; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+        }
+        .top-pill .dot {
+            width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46,125,50,0.45); }
+            70% { box-shadow: 0 0 0 8px rgba(46,125,50,0); }
+            100% { box-shadow: 0 0 0 0 rgba(46,125,50,0); }
+        }
+
+        /* ---------- Cards ---------- */
+        .card-soft {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+        @media (min-width: 992px) {
+            .metrics-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        }
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            transition: box-shadow 0.15s;
+        }
+        .metric-card:hover { box-shadow: 0 4px 16px rgba(156,107,63,0.08); }
+        .metric-card .label { color: var(--text-muted); font-size: 0.78rem; font-weight: 600; }
+        .metric-card .value { font-size: 1.45rem; font-weight: 700; margin-top: 4px; color: var(--text-dark); }
+        .metric-card .sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+        .icon-box {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+        }
+        .icon-rose { background: #F6ECE1; color: var(--accent); }
+        .icon-green { background: #E8F5E9; color: var(--green); }
+        .icon-orange { background: #FFF3E0; color: var(--orange); }
+        .icon-dark { background: #ECECEC; color: #3A3A3A; }
+        .icon-blue { background: #E3F2FD; color: #1565C0; }
+        .icon-purple { background: #F3E5F5; color: #7B1FA2; }
+
+        /* ---------- Section panels ---------- */
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .section-title {
+            font-size: 1.05rem; font-weight: 700; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-title i { color: var(--accent); }
+
+        /* ---------- Filters / chips ---------- */
+        .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .chip {
+            border: 1px solid var(--border); background: #fff;
+            color: var(--text-dark); font-weight: 600; font-size: 0.78rem;
+            padding: 7px 14px; border-radius: 999px; cursor: pointer;
+            transition: all 0.15s; text-decoration: none;
+        }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+        .chip.active {
+            background: var(--accent); border-color: var(--accent); color: #fff;
+            box-shadow: 0 3px 10px rgba(156,107,63,0.22);
+        }
+
+        /* ---------- Table ---------- */
+        .table-wrap {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+        }
+        .admin-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        .admin-table thead th {
+            background: #F9F4EE; color: var(--text-muted);
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.6px;
+            text-transform: uppercase; padding: 12px 14px;
+            border-bottom: 1px solid var(--border); text-align: left;
+            white-space: nowrap;
+        }
+        .admin-table tbody td {
+            padding: 13px 14px; border-bottom: 1px solid #F0E8DC;
+            vertical-align: middle;
+        }
+        .admin-table tbody tr:last-child td { border-bottom: none; }
+        .admin-table tbody tr:hover { background: #FDF9F5; }
+        .admin-table .name-cell { font-weight: 700; color: var(--text-dark); }
+        .admin-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; color: var(--text-muted); }
+
+        /* Status badges */
+        .badge-status {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 999px;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .badge-pending { background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }
+        .badge-active { background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9; }
+        .badge-suspended { background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2; }
+        .badge-expired { background: #ECECEC; color: #616161; border: 1px solid #E0E0E0; }
+
+        /* Buttons */
+        .btn-accent {
+            background: var(--accent); color: #fff; border: none;
+            font-weight: 600; padding: 8px 14px; border-radius: 10px;
+            font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;
+            transition: background 0.15s; cursor: pointer;
+        }
+        .btn-accent:hover { background: var(--accent-hover); color: #fff; }
+        .btn-outline-soft {
+            border: 1px solid var(--border); background: #fff; color: var(--text-dark);
+            font-weight: 600; border-radius: 10px; padding: 8px 14px; font-size: 0.8rem;
+            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-outline-soft:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-danger-soft {
+            border: 1px solid #FFCDD2; background: #FFEBEE; color: #C62828;
+            font-weight: 600; border-radius: 10px; padding: 8px 14px; font-size: 0.8rem;
+            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+        }
+        .btn-danger-soft:hover { background: #FFCDD2; }
+        .btn-sm { padding: 6px 11px; font-size: 0.75rem; border-radius: 8px; }
+
+        .days-input {
+            width: 58px; border: 1px solid var(--border); border-radius: 8px;
+            padding: 6px 8px; font-size: 0.8rem; text-align: center;
+            background: var(--bg-cream); font-weight: 600;
+        }
+        .days-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(156,107,63,0.12); }
+
+        .actions-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 48px 20px; color: var(--text-muted);
+        }
+        .empty-state i { font-size: 2.2rem; color: var(--border); margin-bottom: 12px; }
+
+        /* Placeholder panels */
+        .coming-soon {
+            text-align: center; padding: 60px 24px;
+            background: var(--card-bg); border: 1px dashed var(--border);
+            border-radius: 16px; color: var(--text-muted);
+        }
+        .coming-soon i { font-size: 2rem; color: var(--accent); opacity: 0.5; margin-bottom: 12px; }
+        .coming-soon h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 6px; }
+
+        /* Mobile */
+        .mobile-header {
+            display: none; background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 16px; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 1040;
+        }
+        .mobile-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin: 0; }
+        .burger {
+            background: #fff; border: 1px solid var(--border); border-radius: 10px;
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            color: var(--accent); cursor: pointer;
+        }
+        .sidebar-backdrop {
+            display: none; position: fixed; inset: 0; background: rgba(45,36,36,0.35);
+            z-index: 1045;
+        }
+        .sidebar-backdrop.show { display: block; }
+
+        @media (max-width: 991.98px) {
+            .sidebar {
+                position: fixed; left: 0; top: 0; z-index: 1050;
+                transform: translateX(-100%); transition: transform 0.25s ease;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .mobile-header { display: flex; }
+            .main-content { padding: 16px; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .metric-card .value { font-size: 1.2rem; }
+            .admin-table thead { display: none; }
+            .admin-table, .admin-table tbody, .admin-table tr, .admin-table td {
+                display: block; width: 100%;
+            }
+            .admin-table tr {
+                border-bottom: 1px solid var(--border);
+                padding: 12px 14px;
+            }
+            .admin-table td {
+                padding: 4px 0; border: none;
+                display: flex; justify-content: space-between; align-items: center;
+            }
+            .admin-table td::before {
+                content: attr(data-label);
+                font-weight: 600; color: var(--text-muted); font-size: 0.75rem;
+                padding-right: 10px;
+            }
+            .actions-cell { justify-content: flex-start; margin-top: 8px; }
+        }
+
+        /* Search */
+        .search-box {
+            position: relative; max-width: 280px; width: 100%;
+        }
+        .search-box input {
+            width: 100%; border: 1px solid var(--border); border-radius: 11px;
+            padding: 10px 14px 10px 38px; background: #fff;
+            font-size: 0.88rem; font-weight: 500;
+        }
+        .search-box input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
+        }
+        .search-box i {
+            position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); font-size: 0.9rem;
+        }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-6 md:p-12 font-sans">
-    
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight text-white">Melkegna Admin Portal</h1>
-                <p class="text-slate-400 text-sm mt-1">Manage salon accounts, approvals, and subscription extensions.</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-mono border border-slate-700">
-                    Super Admin Access
-                </span>
-                <a href="/admin/logout" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 transition-colors">
-                    Log out
-                </a>
-            </div>
+<body>
+
+<!-- Mobile header -->
+<div class="mobile-header">
+    <h2><i class="fa-solid fa-crown me-1"></i> Melkegna HQ</h2>
+    <button class="burger" type="button" onclick="toggleSidebar()" aria-label="Menu">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+<div class="wrapper">
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar" id="adminSidebar">
+        <div class="logo">
+            <div class="logo-mark"><i class="fa-solid fa-crown"></i></div>
+            <h2>Melkegna HQ</h2>
+            <small>Super Admin</small>
         </div>
 
-        <!-- Salons Table Container -->
-        <div class="bg-slate-800/80 border border-slate-700/60 rounded-xl shadow-2xl overflow-hidden backdrop-blur-sm">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
+        <div class="nav-section">
+            <p class="nav-section-title">Command</p>
+            <ul class="nav-menu">
+                <li><a href="#overview" class="nav-link active" data-panel="overview" onclick="showPanel('overview', this)">
+                    <i class="fa-solid fa-chart-pie"></i> Overview
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-section-title">Salons</p>
+            <ul class="nav-menu">
+                <li><a href="#salons" class="nav-link" data-panel="salons" data-filter="all" onclick="showPanel('salons', this, 'all')">
+                    <i class="fa-solid fa-store"></i> All salons
+                </a></li>
+                <li><a href="#salons" class="nav-link" data-panel="salons" data-filter="pending" onclick="showPanel('salons', this, 'pending')">
+                    <i class="fa-solid fa-hourglass-half"></i> Pending
+                    {% if stats.pending > 0 %}<span class="nav-badge">{{ stats.pending }}</span>{% endif %}
+                </a></li>
+                <li><a href="#salons" class="nav-link" data-panel="salons" data-filter="active" onclick="showPanel('salons', this, 'active')">
+                    <i class="fa-solid fa-circle-check"></i> Active
+                </a></li>
+                <li><a href="#salons" class="nav-link" data-panel="salons" data-filter="suspended" onclick="showPanel('salons', this, 'suspended')">
+                    <i class="fa-solid fa-ban"></i> Suspended
+                </a></li>
+                <li><a href="#salons" class="nav-link" data-panel="salons" data-filter="expired" onclick="showPanel('salons', this, 'expired')">
+                    <i class="fa-solid fa-clock"></i> Expired
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-section-title">Operations</p>
+            <ul class="nav-menu">
+                <li><a href="#bookings" class="nav-link" data-panel="bookings" onclick="showPanel('bookings', this)">
+                    <i class="fa-solid fa-calendar-check"></i> Bookings
+                </a></li>
+                <li><a href="#customers" class="nav-link" data-panel="customers" onclick="showPanel('customers', this)">
+                    <i class="fa-solid fa-users"></i> Customers
+                </a></li>
+                <li><a href="#payments" class="nav-link" data-panel="payments" onclick="showPanel('payments', this)">
+                    <i class="fa-solid fa-money-bill-wave"></i> Payments
+                </a></li>
+                <li><a href="#noshows" class="nav-link" data-panel="noshows" onclick="showPanel('noshows', this)">
+                    <i class="fa-solid fa-user-xmark"></i> No-shows
+                </a></li>
+                <li><a href="#waitlist" class="nav-link" data-panel="waitlist" onclick="showPanel('waitlist', this)">
+                    <i class="fa-solid fa-list-ul"></i> Waitlist
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-section-title">Business</p>
+            <ul class="nav-menu">
+                <li><a href="#subscriptions" class="nav-link" data-panel="subscriptions" onclick="showPanel('subscriptions', this)">
+                    <i class="fa-solid fa-credit-card"></i> Subscriptions
+                </a></li>
+                <li><a href="#revenue" class="nav-link" data-panel="revenue" onclick="showPanel('revenue', this)">
+                    <i class="fa-solid fa-chart-line"></i> Revenue
+                </a></li>
+                <li><a href="#growth" class="nav-link" data-panel="growth" onclick="showPanel('growth', this)">
+                    <i class="fa-solid fa-arrow-trend-up"></i> Growth
+                </a></li>
+                <li><a href="#branches" class="nav-link" data-panel="branches" onclick="showPanel('branches', this)">
+                    <i class="fa-solid fa-code-branch"></i> Branches
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-section-title">Support</p>
+            <ul class="nav-menu">
+                <li><a href="#issues" class="nav-link" data-panel="issues" onclick="showPanel('issues', this)">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Issues
+                </a></li>
+                <li><a href="#contact" class="nav-link" data-panel="contact" onclick="showPanel('contact', this)">
+                    <i class="fa-solid fa-envelope"></i> Contact requests
+                </a></li>
+                <li><a href="#verify" class="nav-link" data-panel="verify" onclick="showPanel('verify', this)">
+                    <i class="fa-solid fa-id-card"></i> Account verification
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-section-title">System</p>
+            <ul class="nav-menu">
+                <li><a href="#admins" class="nav-link" data-panel="admins" onclick="showPanel('admins', this)">
+                    <i class="fa-solid fa-user-shield"></i> Admin users
+                </a></li>
+                <li><a href="#audit" class="nav-link" data-panel="audit" onclick="showPanel('audit', this)">
+                    <i class="fa-solid fa-clipboard-list"></i> Audit log
+                </a></li>
+                <li><a href="#settings" class="nav-link" data-panel="settings" onclick="showPanel('settings', this)">
+                    <i class="fa-solid fa-gear"></i> Settings
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="/admin/logout" class="logout-link">
+                <i class="fa-solid fa-right-from-bracket"></i> Log out
+            </a>
+        </div>
+    </aside>
+
+    <!-- ========== MAIN ========== -->
+    <main class="main-content">
+
+        <!-- ===== OVERVIEW ===== -->
+        <section class="panel active" id="panel-overview">
+            <div class="topbar">
+                <div>
+                    <h1>Overview</h1>
+                    <p class="sub">Melkegna platform health at a glance</p>
+                </div>
+                <div class="top-pill"><span class="dot"></span> Live</div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Active salons</div>
+                            <div class="value">{{ stats.active }}</div>
+                            <div class="sub">of {{ stats.total_roots }} businesses</div>
+                        </div>
+                        <div class="icon-box icon-green"><i class="fa-solid fa-store"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Pending applications</div>
+                            <div class="value">{{ stats.pending }}</div>
+                            <div class="sub">awaiting approval</div>
+                        </div>
+                        <div class="icon-box icon-orange"><i class="fa-solid fa-hourglass-half"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Suspended</div>
+                            <div class="value">{{ stats.suspended }}</div>
+                            <div class="sub">currently blocked</div>
+                        </div>
+                        <div class="icon-box icon-dark"><i class="fa-solid fa-ban"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Expiring soon</div>
+                            <div class="value">{{ stats.expiring_soon }}</div>
+                            <div class="sub">within 14 days</div>
+                        </div>
+                        <div class="icon-box icon-rose"><i class="fa-solid fa-clock"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Total bookings</div>
+                            <div class="value">{{ stats.total_bookings }}</div>
+                            <div class="sub">all time</div>
+                        </div>
+                        <div class="icon-box icon-blue"><i class="fa-solid fa-calendar-check"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Today's bookings</div>
+                            <div class="value">{{ stats.today_bookings }}</div>
+                            <div class="sub">across platform</div>
+                        </div>
+                        <div class="icon-box icon-purple"><i class="fa-solid fa-calendar-day"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Booking value</div>
+                            <div class="value">{{ "{:,.0f}".format(stats.booking_value) }}</div>
+                            <div class="sub">ETB completed</div>
+                        </div>
+                        <div class="icon-box icon-green"><i class="fa-solid fa-coins"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Deposits collected</div>
+                            <div class="value">{{ "{:,.0f}".format(stats.deposits) }}</div>
+                            <div class="sub">ETB deposited</div>
+                        </div>
+                        <div class="icon-box icon-rose"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick pending list -->
+            {% if pending_salons %}
+            <div class="section-title"><i class="fa-solid fa-bolt"></i> Needs attention — pending approvals</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table">
                     <thead>
-                        <tr class="bg-slate-900/50 border-b border-slate-700/80 text-slate-400 text-xs uppercase tracking-wider">
-                            <th class="p-4">Salon Name</th>
-                            <th class="p-4">Owner</th>
-                            <th class="p-4">Phone</th>
-                            <th class="p-4">Status</th>
-                            <th class="p-4">Expires On</th>
-                            <th class="p-4 text-center">Actions</th>
+                        <tr>
+                            <th>Salon</th>
+                            <th>Owner</th>
+                            <th>Phone</th>
+                            <th>Registered</th>
+                            <th style="text-align:right">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700/50 text-sm">
-                        {% for salon in salons %}
-                        <tr class="hover:bg-slate-700/30 transition-colors">
-                            <td class="p-4 font-semibold text-white">{{ salon.name }}</td>
-                            <td class="p-4 text-slate-300">{{ salon.owner_name }}</td>
-                            <td class="p-4 text-slate-300 font-mono text-xs">{{ salon.phone }}</td>
-                            <td class="p-4">
-                                {% if salon.status == 'pending' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
-                                        Pending
-                                    </span>
-                                {% elif salon.status == 'active' %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
-                                        Active
-                                    </span>
-                                {% else %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase">
-                                        {{ salon.status }}
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td class="p-4 text-slate-300 font-mono text-xs">
-                                {{ salon.subscription_expires_at if salon.subscription_expires_at else 'N/A' }}
-                            </td>
-                            <td class="p-4">
-                                <div class="flex items-center justify-center gap-3">
-                                    <!-- Approve / Extend Form -->
-                                    <form action="/admin/approve/{{ salon.id }}" method="post" class="flex items-center gap-2">
-                                        <div class="relative flex items-center">
-                                            <input type="number" name="days" value="30" min="1" required 
-                                                   class="w-16 bg-slate-900 border border-slate-600 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-500 text-center">
-                                            <span class="text-[10px] text-slate-400 ml-1">days</span>
-                                        </div>
-                                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm">
-                                            Approve / Extend
-                                        </button>
-                                    </form>
-
-                                    <!-- Suspend Form -->
-                                    <form action="/admin/suspend/{{ salon.id }}" method="post">
-                                        <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm"
-                                                onclick="return confirm('Are you sure you want to suspend {{ salon.name }}?')">
-                                            Suspend
-                                        </button>
+                    <tbody>
+                        {% for s in pending_salons %}
+                        <tr>
+                            <td class="name-cell" data-label="Salon">{{ s.name }}</td>
+                            <td data-label="Owner">{{ s.owner_name }}</td>
+                            <td class="mono" data-label="Phone">{{ s.phone }}</td>
+                            <td class="mono" data-label="Registered">{{ s.created_at.strftime('%Y-%m-%d') if s.created_at else '—' }}</td>
+                            <td data-label="Action">
+                                <div class="actions-cell">
+                                    <form action="/admin/approve/{{ s.id }}" method="post" class="d-flex align-items-center gap-2">
+                                        <input type="number" name="days" value="30" min="1" class="days-input" title="Days">
+                                        <button type="submit" class="btn-accent btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
                                     </form>
                                 </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="p-8 text-center text-slate-500">
-                                No salons registered yet.
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
+            {% endif %}
 
+            <!-- Expiring soon -->
+            {% if expiring_salons %}
+            <div class="section-title"><i class="fa-solid fa-clock"></i> Expiring within 14 days</div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Salon</th>
+                            <th>Owner</th>
+                            <th>Expires</th>
+                            <th style="text-align:right">Extend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in expiring_salons %}
+                        <tr>
+                            <td class="name-cell" data-label="Salon">{{ s.name }}</td>
+                            <td data-label="Owner">{{ s.owner_name }}</td>
+                            <td class="mono" data-label="Expires">{{ s.subscription_expires_at.strftime('%Y-%m-%d') if s.subscription_expires_at else '—' }}</td>
+                            <td data-label="Extend">
+                                <div class="actions-cell">
+                                    <form action="/admin/approve/{{ s.id }}" method="post" class="d-flex align-items-center gap-2">
+                                        <input type="number" name="days" value="30" min="1" class="days-input">
+                                        <button type="submit" class="btn-accent btn-sm"><i class="fa-solid fa-plus"></i> Extend</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- ===== SALONS ===== -->
+        <section class="panel" id="panel-salons">
+            <div class="topbar">
+                <div>
+                    <h1>Salons</h1>
+                    <p class="sub">Approve, suspend, and manage every business account</p>
+                </div>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" id="salonSearch" placeholder="Search name, owner, phone…" oninput="filterSalons()">
+                </div>
+            </div>
+
+            <div class="filter-chips" id="salonChips">
+                <button type="button" class="chip active" data-filter="all" onclick="setSalonFilter('all', this)">All</button>
+                <button type="button" class="chip" data-filter="pending" onclick="setSalonFilter('pending', this)">Pending</button>
+                <button type="button" class="chip" data-filter="active" onclick="setSalonFilter('active', this)">Active</button>
+                <button type="button" class="chip" data-filter="suspended" onclick="setSalonFilter('suspended', this)">Suspended</button>
+                <button type="button" class="chip" data-filter="expired" onclick="setSalonFilter('expired', this)">Expired</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="admin-table" id="salonsTable">
+                    <thead>
+                        <tr>
+                            <th>Salon Name</th>
+                            <th>Owner</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Expires</th>
+                            <th>Branches</th>
+                            <th style="text-align:right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for salon in roots %}
+                        {% set st = (salon.status or 'pending')|lower %}
+                        {% set is_expired = salon.subscription_expires_at and salon.subscription_expires_at < now %}
+                        {% set row_status = 'expired' if is_expired and st == 'active' else st %}
+                        <tr class="salon-row" data-status="{{ row_status }}" data-search="{{ (salon.name ~ ' ' ~ salon.owner_name ~ ' ' ~ salon.phone)|lower }}">
+                            <td class="name-cell" data-label="Salon">
+                                {{ salon.name }}
+                                {% if salon.location_name %}<br><span class="mono" style="font-weight:500">{{ salon.location_name }}</span>{% endif %}
+                            </td>
+                            <td data-label="Owner">{{ salon.owner_name }}</td>
+                            <td class="mono" data-label="Phone">{{ salon.phone }}</td>
+                            <td data-label="Status">
+                                {% if row_status == 'pending' %}
+                                    <span class="badge-status badge-pending">Pending</span>
+                                {% elif row_status == 'active' %}
+                                    <span class="badge-status badge-active">Active</span>
+                                {% elif row_status == 'suspended' %}
+                                    <span class="badge-status badge-suspended">Suspended</span>
+                                {% else %}
+                                    <span class="badge-status badge-expired">{{ row_status|capitalize }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="mono" data-label="Expires">
+                                {{ salon.subscription_expires_at.strftime('%Y-%m-%d') if salon.subscription_expires_at else '—' }}
+                            </td>
+                            <td data-label="Branches">
+                                {% set bc = branch_counts.get(salon.id, 0) %}
+                                {% if bc > 0 %}
+                                    <span class="badge-status badge-active">{{ bc }} branch{{ 'es' if bc != 1 else '' }}</span>
+                                {% else %}
+                                    <span class="mono">—</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Actions">
+                                <div class="actions-cell">
+                                    <form action="/admin/approve/{{ salon.id }}" method="post" class="d-flex align-items-center gap-2">
+                                        <input type="number" name="days" value="30" min="1" class="days-input" title="Days to add">
+                                        <button type="submit" class="btn-accent btn-sm" title="Approve / Extend">
+                                            <i class="fa-solid fa-check"></i>
+                                            {% if st == 'pending' %}Approve{% else %}Extend{% endif %}
+                                        </button>
+                                    </form>
+                                    {% if st != 'suspended' %}
+                                    <form action="/admin/suspend/{{ salon.id }}" method="post" onsubmit="return confirm('Suspend {{ salon.name|e }}?')">
+                                        <button type="submit" class="btn-danger-soft btn-sm"><i class="fa-solid fa-ban"></i> Suspend</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-store-slash"></i>
+                                    <p>No salons registered yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== PLACEHOLDER PANELS ===== -->
+        {% set placeholders = [
+            ('bookings', 'calendar-check', 'Bookings', 'Platform-wide booking feed and filters will appear here.'),
+            ('customers', 'users', 'Customers', 'Cross-salon customer directory and search.'),
+            ('payments', 'money-bill-wave', 'Payments', 'Deposit proofs, payment methods, and reconciliation.'),
+            ('noshows', 'user-xmark', 'No-shows', 'No-show rates by salon and trends.'),
+            ('waitlist', 'list-ul', 'Waitlist', 'Global waitlist entries across locations.'),
+            ('subscriptions', 'credit-card', 'Subscriptions', 'Plan management, renewals, and billing history.'),
+            ('revenue', 'chart-line', 'Revenue', 'Platform GMV, commissions, and salon performance.'),
+            ('growth', 'arrow-trend-up', 'Growth', 'Signup funnel, activation, and retention metrics.'),
+            ('branches', 'code-branch', 'Branches', 'Multi-location tree view for every HQ.'),
+            ('issues', 'triangle-exclamation', 'Issues', 'Reported problems and incident tracker.'),
+            ('contact', 'envelope', 'Contact requests', 'Inbound messages from salon owners.'),
+            ('verify', 'id-card', 'Account verification', 'KYC / document review queue.'),
+            ('admins', 'user-shield', 'Admin users', 'Manage super-admin access and roles.'),
+            ('audit', 'clipboard-list', 'Audit log', 'Who approved, suspended, or extended accounts.'),
+            ('settings', 'gear', 'Settings', 'Platform defaults, feature flags, and secrets.'),
+        ] %}
+        {% for pid, icon, title, desc in placeholders %}
+        <section class="panel" id="panel-{{ pid }}">
+            <div class="topbar">
+                <div>
+                    <h1>{{ title }}</h1>
+                    <p class="sub">{{ desc }}</p>
+                </div>
+            </div>
+            <div class="coming-soon">
+                <i class="fa-solid fa-{{ icon }}"></i>
+                <h3>{{ title }}</h3>
+                <p>{{ desc }}</p>
+                <p class="mt-3 mb-0" style="font-size:0.8rem">This module is scaffolded — wire live data when ready.</p>
+            </div>
+        </section>
+        {% endfor %}
+
+    </main>
+</div>
+
+<script>
+function toggleSidebar() {
+    document.getElementById('adminSidebar').classList.toggle('open');
+    document.getElementById('sidebarBackdrop').classList.toggle('show');
+}
+
+function showPanel(id, el, filter) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('panel-' + id);
+    if (panel) panel.classList.add('active');
+
+    document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    if (id === 'salons' && filter) {
+        setSalonFilter(filter);
+    }
+
+    // close mobile sidebar
+    document.getElementById('adminSidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+
+    // hash for bookmarking
+    try { history.replaceState(null, '', '#' + id + (filter && filter !== 'all' ? '-' + filter : '')); } catch(e) {}
+}
+
+let currentFilter = 'all';
+
+function setSalonFilter(filter, chipEl) {
+    currentFilter = filter || 'all';
+    document.querySelectorAll('#salonChips .chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.filter === currentFilter);
+    });
+    // also highlight matching nav item
+    document.querySelectorAll('.nav-link[data-panel="salons"]').forEach(a => {
+        a.classList.toggle('active', (a.dataset.filter || 'all') === currentFilter);
+    });
+    filterSalons();
+}
+
+function filterSalons() {
+    const q = (document.getElementById('salonSearch')?.value || '').trim().toLowerCase();
+    document.querySelectorAll('#salonsTable .salon-row').forEach(row => {
+        const status = row.dataset.status || '';
+        const search = row.dataset.search || '';
+        const statusOk = currentFilter === 'all' || status === currentFilter;
+        const searchOk = !q || search.includes(q);
+        row.style.display = (statusOk && searchOk) ? '' : 'none';
+    });
+}
+
+// Deep-link on load
+(function() {
+    const hash = (location.hash || '').replace('#', '');
+    if (!hash) return;
+    const parts = hash.split('-');
+    const panel = parts[0];
+    const filter = parts[1] || 'all';
+    const link = document.querySelector('.nav-link[data-panel="' + panel + '"]' +
+        (panel === 'salons' ? '[data-filter="' + filter + '"]' : '')) ||
+        document.querySelector('.nav-link[data-panel="' + panel + '"]');
+    if (link) showPanel(panel, link, panel === 'salons' ? filter : undefined);
+})();
+</script>
 </body>
 </html>

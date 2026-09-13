@@ -1005,14 +1005,21 @@ async def update_location(
 
     if loc.parent_id is None:
         # HQ: optional brand rename
-        brand = (brand_name or "").strip() or loc.name
-        # Strip previous " — place" if any
+        brand = (brand_name or "").strip()
+        if not brand:
+            # Fall back to current name, strip any previous " — place" suffix
+            brand = (loc.name or "").strip()
         if " — " in brand:
             brand = brand.split(" — ")[0].strip()
+        if not brand:
+            brand = "Salon"
         loc.name = brand
         # Keep branch display names in sync: "Brand — Place"
         for b in db.query(Salon).filter(Salon.parent_id == loc.id).all():
-            b_place = (b.location_name or b.name or "").strip()
+            b_place = (b.location_name or "").strip()
+            if not b_place and b.name and " — " in (b.name or ""):
+                b_place = b.name.split(" — ", 1)[-1].strip()
+            b_place = b_place or "Branch"
             b.name = f"{brand} — {b_place}"
             try:
                 b.slug = _unique_slug(db, b.name, b.id)
@@ -1022,15 +1029,19 @@ async def update_location(
         # e.g. "Addis Beauty Spa Bole" → addis-beauty-spa-bole
         slug_source = f"{brand} {place}".strip() if place else brand
     else:
-        brand = (root.name or "").split(" — ")[0].strip() or root.name
+        brand = (root.name or "").split(" — ")[0].strip() or root.name or "Salon"
         loc.name = f"{brand} — {place}"
         slug_source = loc.name
 
     # Refresh slug for this location (HQ included → location-style URL)
     try:
-        loc.slug = _unique_slug(db, slug_source if loc.parent_id is None else loc.name, loc.id)
+        loc.slug = _unique_slug(db, slug_source, loc.id)
     except Exception:
-        pass
+        # Last-resort unique slug so booking URL never stays broken
+        try:
+            loc.slug = _unique_slug(db, f"salon-{loc.id}-{place}", loc.id)
+        except Exception:
+            pass
 
     db.commit()
     return RedirectResponse(url="/dashboard?tab=settings&location_updated=1", status_code=303)
@@ -1489,6 +1500,7 @@ async def reschedule_appointment(
     appointment_id: int = Form(...),
     appointment_time: str = Form(...),
     staff_id: Optional[int] = Form(None),
+    service_id: Optional[int] = Form(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
@@ -1502,13 +1514,51 @@ async def reschedule_appointment(
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=home&error=invalid_time", status_code=303)
 
-    if staff_id:
-        st = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    # Update service if provided and valid for this salon
+    if service_id is not None:
+        svc = db.query(Service).filter(
+            Service.id == service_id, Service.salon_id == salon.id
+        ).first()
+        if svc and getattr(svc, "is_active", 1) != 0:
+            appt.service_id = service_id
+            appt.service_name_snap = svc.name
+            party = max(1, int(appt.party_size or 1))
+            if getattr(svc, "is_package", 0):
+                appt.service_price_snap = svc.package_total(party)
+            else:
+                appt.service_price_snap = float(svc.price) if svc.price is not None else None
+
+    # Update staff if provided and valid
+    if staff_id is not None:
+        st = db.query(Staff).filter(
+            Staff.id == staff_id, Staff.salon_id == salon.id
+        ).first()
         if st:
+            # Ensure staff offers the (possibly new) service
+            if appt.service_id and not st.offers_service(appt.service_id):
+                return RedirectResponse(
+                    url="/dashboard?tab=home&error=staff_service_mismatch", status_code=303
+                )
             appt.staff_id = staff_id
 
     duration = _service_duration(db, appt.service_id) if appt.service_id else 30
     end_dt = appt_dt + timedelta(minutes=duration)
+
+    # Re-check staff hours + overlap with the final staff/service
+    staff_obj = (
+        db.query(Staff)
+        .filter(Staff.id == appt.staff_id, Staff.salon_id == salon.id)
+        .first()
+    )
+    if staff_obj:
+        allow_outside = False
+        if appt.service_id:
+            svc = db.query(Service).filter(Service.id == appt.service_id).first()
+            allow_outside = bool(svc and getattr(svc, "allow_outside_hours", 0))
+        if not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
+            return RedirectResponse(
+                url="/dashboard?tab=home&error=unavailable", status_code=303
+            )
     if _staff_has_overlap(db, salon.id, appt.staff_id, appt_dt, end_dt):
         return RedirectResponse(url="/dashboard?tab=home&error=conflict", status_code=303)
 
@@ -2498,18 +2548,13 @@ def privacy(request: Request):
 
 
 # ---------------------------------------------------------------------------
-# Super admin (minimal — keep your full admin if you already have it)
+# Super admin — Melkegna HQ command center
 # ---------------------------------------------------------------------------
 
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request, error: Optional[str] = None):
-    return templates.TemplateResponse(request, "admin_login.html", {"error": error}) if False else HTMLResponse(
-        """<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem">
-        <h1>Admin Login</h1>
-        <form method="post" action="/admin/login">
-          <label>Admin key <input type="password" name="key" required></label>
-          <button type="submit">Enter</button>
-        </form></body></html>"""
+    return templates.TemplateResponse(
+        request, "admin_login.html", {"error": error}
     )
 
 
@@ -2531,16 +2576,108 @@ def admin_logout():
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_dashboard(request: Request, db: Session = Depends(get_db), admin=Depends(get_current_admin)):
-    # Show roots primarily; include branch count
-    roots = db.query(Salon).filter(Salon.parent_id.is_(None)).order_by(Salon.created_at.desc()).all()
-    # Also list all for the table if template expects "salons"
-    salons = db.query(Salon).order_by(Salon.parent_id.nullsfirst() if False else Salon.id).all()
-    return templates.TemplateResponse(request, "admin.html", {"salons": salons, "roots": roots})
+def admin_dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    now = datetime.utcnow()
+    soon = now + timedelta(days=14)
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    today_end = today_start + timedelta(days=1)
+
+    roots = (
+        db.query(Salon)
+        .filter(Salon.parent_id.is_(None))
+        .order_by(Salon.created_at.desc())
+        .all()
+    )
+    salons = db.query(Salon).order_by(Salon.id).all()
+
+    # Branch counts per root
+    branch_counts: dict = {}
+    for s in salons:
+        if s.parent_id is not None:
+            branch_counts[s.parent_id] = branch_counts.get(s.parent_id, 0) + 1
+
+    def _status(s: Salon) -> str:
+        return (s.status or "pending").lower()
+
+    active = sum(1 for s in roots if _status(s) == "active")
+    pending = sum(1 for s in roots if _status(s) == "pending")
+    suspended = sum(1 for s in roots if _status(s) == "suspended")
+    expiring_soon = sum(
+        1
+        for s in roots
+        if _status(s) == "active"
+        and s.subscription_expires_at
+        and now <= s.subscription_expires_at <= soon
+    )
+
+    total_bookings = db.query(func.count(Appointment.id)).scalar() or 0
+    today_bookings = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.appointment_datetime >= today_start,
+            Appointment.appointment_datetime < today_end,
+        )
+        .scalar()
+    ) or 0
+
+    # Completed booking value (all-time)
+    completed = (
+        db.query(Appointment)
+        .filter(Appointment.status.in_([AppointmentStatus.completed, "Completed"]))
+        .all()
+    )
+    booking_value = float(sum(float(a.service_price or 0) for a in completed))
+    deposits = float(
+        sum(float(a.deposit_amount or 0) for a in completed if a.deposit_amount)
+    )
+
+    pending_salons = [s for s in roots if _status(s) == "pending"][:15]
+    expiring_salons = [
+        s
+        for s in roots
+        if _status(s) == "active"
+        and s.subscription_expires_at
+        and now <= s.subscription_expires_at <= soon
+    ][:15]
+
+    stats = {
+        "total_roots": len(roots),
+        "active": active,
+        "pending": pending,
+        "suspended": suspended,
+        "expiring_soon": expiring_soon,
+        "total_bookings": total_bookings,
+        "today_bookings": today_bookings,
+        "booking_value": booking_value,
+        "deposits": deposits,
+    }
+
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {
+            "salons": salons,
+            "roots": roots,
+            "stats": stats,
+            "pending_salons": pending_salons,
+            "expiring_salons": expiring_salons,
+            "branch_counts": branch_counts,
+            "now": now,
+        },
+    )
 
 
 @app.post("/admin/approve/{salon_id}")
-def admin_approve(salon_id: int, days: int = Form(30), admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+def admin_approve(
+    salon_id: int,
+    days: int = Form(30),
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if salon:
         salon.status = "active"
@@ -2548,22 +2685,25 @@ def admin_approve(salon_id: int, days: int = Form(30), admin=Depends(get_current
         if base < datetime.utcnow():
             base = datetime.utcnow()
         salon.subscription_expires_at = base + timedelta(days=max(1, int(days)))
-        # Activate branches too
         for b in db.query(Salon).filter(Salon.parent_id == salon.id).all():
             b.status = "active"
         db.commit()
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/admin#salons", status_code=303)
 
 
 @app.post("/admin/suspend/{salon_id}")
-def admin_suspend(salon_id: int, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+def admin_suspend(
+    salon_id: int,
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     salon = db.query(Salon).filter(Salon.id == salon_id).first()
     if salon:
         salon.status = "suspended"
         for b in db.query(Salon).filter(Salon.parent_id == salon.id).all():
             b.status = "suspended"
         db.commit()
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/admin#salons", status_code=303)
 
 
 if __name__ == "__main__":
