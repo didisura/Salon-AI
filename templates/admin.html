@@ -561,6 +561,26 @@
                         <div class="icon-box icon-rose"><i class="fa-solid fa-hand-holding-dollar"></i></div>
                     </div>
                 </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Paid branches</div>
+                            <div class="value">{{ stats.total_branches or 0 }}</div>
+                            <div class="sub">extra locations (billable)</div>
+                        </div>
+                        <div class="icon-box icon-orange"><i class="fa-solid fa-code-branch"></i></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="label">Multi-location HQs</div>
+                            <div class="value">{{ stats.multi_location_businesses or 0 }}</div>
+                            <div class="sub">businesses with branches</div>
+                        </div>
+                        <div class="icon-box icon-purple"><i class="fa-solid fa-building"></i></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Quick pending list -->
@@ -634,6 +654,85 @@
             {% endif %}
         </section>
 
+
+
+            <!-- Billable branches (pay-per-branch) -->
+            <div class="section-title mt-2"><i class="fa-solid fa-money-bill-wave"></i> Branch billing signals</div>
+            <p class="small text-muted mb-2">When a salon adds a branch or switches the dashboard to a branch, it shows here so you can charge them.</p>
+            <div class="table-wrap mb-4">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Signal</th>
+                            <th>Branch / HQ</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in branch_events or [] %}
+                        <tr>
+                            <td class="mono" data-label="When">
+                                {% if row.created_at %}
+                                  {{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at.strftime is defined else row.created_at }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td data-label="Signal">
+                                {% if row.action == 'branch_created' %}
+                                  <span class="badge-status badge-pending">New branch (bill)</span>
+                                {% else %}
+                                  <span class="badge-status badge-active">Branch in use</span>
+                                {% endif %}
+                            </td>
+                            <td class="name-cell" data-label="Branch">{{ row.target_name or '—' }}</td>
+                            <td class="mono" data-label="Details" style="max-width:320px;white-space:normal;font-size:0.78rem;">{{ row.details or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty-state" style="padding:24px;">
+                                    <p class="mb-0">No branch events yet. They appear when owners add or switch to a branch.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section-title"><i class="fa-solid fa-code-branch"></i> Recently added branches</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Branch</th>
+                            <th>Place</th>
+                            <th>HQ id</th>
+                            <th>Created</th>
+                            <th>Slug</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in recent_branches or [] %}
+                        <tr>
+                            <td class="name-cell" data-label="Branch">{{ b.name }}</td>
+                            <td data-label="Place">{{ b.location_name or '—' }}</td>
+                            <td class="mono" data-label="HQ">#{{ b.parent_id }}</td>
+                            <td class="mono" data-label="Created">{{ b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else '—' }}</td>
+                            <td class="mono" data-label="Slug">/book/{{ b.slug or b.id }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">
+                                <div class="empty-state" style="padding:24px;">
+                                    <p class="mb-0">No branches created yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
             <!-- Audit log -->
             <div class="section-title mt-4"><i class="fa-solid fa-clipboard-list"></i> Recent admin activity</div>

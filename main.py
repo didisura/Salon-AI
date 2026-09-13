@@ -1224,6 +1224,28 @@ async def switch_location(
     next_url = next or "/dashboard?tab=home"
     if not str(next_url).startswith("/"):
         next_url = "/dashboard?tab=home"
+
+    # Notify admin when owner starts using a branch (not HQ)
+    try:
+        loc = db.query(Salon).filter(Salon.id == int(location_id)).first()
+        root = db.query(Salon).filter(Salon.id == root_id).first()
+        if loc and loc.parent_id is not None:
+            _admin_audit(
+                db,
+                action="branch_in_use",
+                target_type="salon",
+                target_id=loc.id,
+                target_name=loc.name or loc.location_name,
+                details=(
+                    f"Owner switched dashboard to branch "
+                    f"'{loc.location_name or loc.name}' "
+                    f"(HQ: {root.name if root else root_id}, root_id={root_id})"
+                ),
+                ip=_client_ip(request),
+            )
+    except Exception:
+        pass
+
     resp = RedirectResponse(url=str(next_url), status_code=303)
     _set_auth_cookie(resp, "access_token", new_token)
     return resp
@@ -1231,6 +1253,7 @@ async def switch_location(
 
 @app.post("/add-location")
 async def add_location(
+    request: Request,
     location_name: str = Form(...),
     address: Optional[str] = Form(None),
     copy_services: Optional[str] = Form(None),
@@ -1306,6 +1329,27 @@ async def add_location(
             ))
 
     db.commit()
+
+    # Billable signal: owner added a paid branch — surface on admin HQ
+    try:
+        _admin_audit(
+            db,
+            action="branch_created",
+            target_type="salon",
+            target_id=branch.id,
+            target_name=branch.name,
+            details=(
+                f"NEW BRANCH (billable) · place={name} · "
+                f"HQ={brand} (id={root.id}) · phone={root.phone} · "
+                f"owner={root.owner_name} · "
+                f"copy_services={bool(copy_services in ('1','on','true','yes'))} · "
+                f"slug={branch.slug}"
+            ),
+            ip=_client_ip(request),
+        )
+    except Exception:
+        pass
+
     return RedirectResponse(
         url=f"/dashboard?tab=settings&location_added={branch.id}",
         status_code=303,
@@ -3029,7 +3073,7 @@ def admin_dashboard(
         rows = db.execute(
             sa_text(
                 "SELECT id, action, target_type, target_id, target_name, details, ip, created_at "
-                "FROM admin_audit_log ORDER BY id DESC LIMIT 40"
+                "FROM admin_audit_log ORDER BY id DESC LIMIT 50"
             )
         ).fetchall()
         for r in rows:
@@ -3046,6 +3090,19 @@ def admin_dashboard(
     except Exception:
         audit_rows = []
 
+    # Billable branch signals for admin (new branches + branch usage)
+    branch_events = [r for r in audit_rows if r.get("action") in ("branch_created", "branch_in_use")]
+    recent_branches = (
+        db.query(Salon)
+        .filter(Salon.parent_id.isnot(None))
+        .order_by(Salon.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    multi_loc_roots = sum(1 for rid, c in branch_counts.items() if c > 0)
+    stats["total_branches"] = sum(branch_counts.values())
+    stats["multi_location_businesses"] = multi_loc_roots
+
     return templates.TemplateResponse(
         request,
         "admin.html",
@@ -3058,6 +3115,8 @@ def admin_dashboard(
             "branch_counts": branch_counts,
             "now": now,
             "audit_log": audit_rows,
+            "branch_events": branch_events,
+            "recent_branches": recent_branches,
             "totp_enabled": bool(ADMIN_TOTP_SECRET),
         },
     )
