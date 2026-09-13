@@ -477,6 +477,22 @@ manager = ConnectionManager()
 
 @app.websocket("/ws/salon/{salon_id}")
 async def ws_salon(websocket: WebSocket, salon_id: int):
+    """Live events for a salon. Requires owner JWT; salon_id must be in their tree."""
+    auth = _salon_id_from_ws_cookie(websocket)
+    if not auth:
+        await websocket.close(code=4401)
+        return
+    active_id, root_id = auth
+    # Allow listening only to own tree (HQ or any branch the owner controls)
+    db = SessionLocal()
+    try:
+        allowed = get_salon_tree_ids(db, root_id)
+        if int(salon_id) not in allowed:
+            await websocket.close(code=4403)
+            return
+    finally:
+        db.close()
+
     await manager.connect(salon_id, websocket)
     try:
         while True:
@@ -627,12 +643,117 @@ def _locations_for(db: Session, salon: Salon) -> list:
     return rows
 
 
+
+# ---------------------------------------------------------------------------
+# Ownership / authorization guards (IDOR protection)
+# Every resource mutation MUST go through these — never trust client IDs alone.
+# ---------------------------------------------------------------------------
+
+class ForbiddenResource(Exception):
+    """Raised when a salon tries to touch another salon's row."""
+    pass
+
+
+def _owned_appointment(db: Session, appointment_id: int, salon_id: int):
+    """Return appointment only if it belongs to this salon; else None."""
+    return (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id, Appointment.salon_id == salon_id)
+        .first()
+    )
+
+
+def _owned_staff(db: Session, staff_id: int, salon_id: int):
+    return (
+        db.query(Staff)
+        .filter(Staff.id == staff_id, Staff.salon_id == salon_id)
+        .first()
+    )
+
+
+def _owned_service(db: Session, service_id: int, salon_id: int):
+    return (
+        db.query(Service)
+        .filter(Service.id == service_id, Service.salon_id == salon_id)
+        .first()
+    )
+
+
+def _owned_waitlist(db: Session, waitlist_id: int, salon_id: int):
+    return (
+        db.query(Waitlist)
+        .filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon_id)
+        .first()
+    )
+
+
+def _owned_gallery(db: Session, image_id: int, salon_id: int):
+    return (
+        db.query(GalleryImage)
+        .filter(GalleryImage.id == image_id, GalleryImage.salon_id == salon_id)
+        .first()
+    )
+
+
+def _owned_testimonial(db: Session, testimonial_id: int, salon_id: int):
+    return (
+        db.query(Testimonial)
+        .filter(Testimonial.id == testimonial_id, Testimonial.salon_id == salon_id)
+        .first()
+    )
+
+
+def _owned_dayoff(db: Session, dayoff_id: int, salon_id: int):
+    """Day-off belongs to staff that belongs to this salon."""
+    return (
+        db.query(StaffDayOff)
+        .join(Staff, Staff.id == StaffDayOff.staff_id)
+        .filter(StaffDayOff.id == dayoff_id, Staff.salon_id == salon_id)
+        .first()
+    )
+
+
+def _assert_location_in_tree(db: Session, location_id: int, root_id: int) -> bool:
+    """True if location_id is the root or a direct branch of root."""
+    return int(location_id) in get_salon_tree_ids(db, root_id)
+
+
+def _salon_id_from_ws_cookie(websocket) -> Optional[int]:
+    """Extract active_salon_id (or root sub) from access_token cookie on WS handshake."""
+    try:
+        cookie_header = websocket.headers.get("cookie") or ""
+        token = None
+        for part in cookie_header.split(";"):
+            part = part.strip()
+            if part.startswith("access_token="):
+                token = part[len("access_token="):]
+                break
+        if not token:
+            return None
+        from security import decode_access_token
+        payload = decode_access_token(token)
+        if not payload or "sub" not in payload:
+            return None
+        root_id = int(payload["sub"])
+        active_raw = payload.get("active_salon_id", root_id)
+        try:
+            active_id = int(active_raw)
+        except (TypeError, ValueError):
+            active_id = root_id
+        return active_id, root_id
+    except Exception:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Availability helpers
 # ---------------------------------------------------------------------------
 
-def _service_duration(db: Session, service_id: int) -> int:
-    svc = db.query(Service).filter(Service.id == service_id).first()
+def _service_duration(db: Session, service_id: int, salon_id: Optional[int] = None) -> int:
+    q = db.query(Service).filter(Service.id == service_id)
+    if salon_id is not None:
+        q = q.filter(Service.salon_id == salon_id)
+    svc = q.first()
     return int(svc.duration_minutes) if svc and svc.duration_minutes else 30
 
 
@@ -1461,13 +1582,13 @@ async def book_appointment(
     except ValueError:
         return RedirectResponse(url="/dashboard?tab=home&error=invalid_time", status_code=303)
 
-    duration = _service_duration(db, service_id)
-    end_dt = appt_dt + timedelta(minutes=duration)
-    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
-    staff_obj = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
-
+    svc = _owned_service(db, service_id, salon.id)
+    staff_obj = _owned_staff(db, staff_id, salon.id)
     if not staff_obj or not svc:
         return RedirectResponse(url="/dashboard?tab=home&error=invalid", status_code=303)
+
+    duration = _service_duration(db, service_id, salon_id=salon.id)
+    end_dt = appt_dt + timedelta(minutes=duration)
 
     allow_outside = bool(svc and getattr(svc, "allow_outside_hours", 0))
     if not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
@@ -1534,9 +1655,7 @@ async def update_appointment_status(
     db: Session = Depends(get_db),
     request: Request = None,
 ):
-    appt = db.query(Appointment).filter(
-        Appointment.id == appointment_id, Appointment.salon_id == salon.id
-    ).first()
+    appt = _owned_appointment(db, appointment_id, salon.id)
     if not appt:
         return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
 
@@ -1568,9 +1687,7 @@ async def reschedule_appointment(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    appt = db.query(Appointment).filter(
-        Appointment.id == appointment_id, Appointment.salon_id == salon.id
-    ).first()
+    appt = _owned_appointment(db, appointment_id, salon.id)
     if not appt:
         return RedirectResponse(url="/dashboard?tab=home", status_code=303)
     try:
@@ -1580,9 +1697,7 @@ async def reschedule_appointment(
 
     # Update service if provided and valid for this salon
     if service_id is not None:
-        svc = db.query(Service).filter(
-            Service.id == service_id, Service.salon_id == salon.id
-        ).first()
+        svc = _owned_service(db, service_id, salon.id)
         if svc and getattr(svc, "is_active", 1) != 0:
             appt.service_id = service_id
             appt.service_name_snap = svc.name
@@ -1594,9 +1709,7 @@ async def reschedule_appointment(
 
     # Update staff if provided and valid
     if staff_id is not None:
-        st = db.query(Staff).filter(
-            Staff.id == staff_id, Staff.salon_id == salon.id
-        ).first()
+        st = _owned_staff(db, staff_id, salon.id)
         if st:
             # Ensure staff offers the (possibly new) service
             if appt.service_id and not st.offers_service(appt.service_id):
@@ -1609,15 +1722,11 @@ async def reschedule_appointment(
     end_dt = appt_dt + timedelta(minutes=duration)
 
     # Re-check staff hours + overlap with the final staff/service
-    staff_obj = (
-        db.query(Staff)
-        .filter(Staff.id == appt.staff_id, Staff.salon_id == salon.id)
-        .first()
-    )
+    staff_obj = _owned_staff(db, appt.staff_id, salon.id) if appt.staff_id else None
     if staff_obj:
         allow_outside = False
         if appt.service_id:
-            svc = db.query(Service).filter(Service.id == appt.service_id).first()
+            svc = _owned_service(db, appt.service_id, salon.id)
             allow_outside = bool(svc and getattr(svc, "allow_outside_hours", 0))
         if not allow_outside and not _within_staff_hours(db, salon, staff_obj, appt_dt, end_dt):
             return RedirectResponse(
@@ -1684,7 +1793,7 @@ def delete_service(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
+    svc = _owned_service(db, service_id, salon.id)
     if not svc:
         return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
@@ -1735,7 +1844,7 @@ async def update_service(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    svc = db.query(Service).filter(Service.id == service_id, Service.salon_id == salon.id).first()
+    svc = _owned_service(db, service_id, salon.id)
     if svc:
         svc.name = (name or "").strip() or svc.name
         try:
@@ -1789,7 +1898,7 @@ async def update_staff_photo(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    staff = _owned_staff(db, staff_id, salon.id)
     if not staff:
         return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
     try:
@@ -1806,7 +1915,7 @@ def delete_staff(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    staff = _owned_staff(db, staff_id, salon.id)
     if not staff:
         return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
@@ -1840,7 +1949,7 @@ async def update_staff_services(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    staff = _owned_staff(db, staff_id, salon.id)
     if not staff:
         return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
@@ -1892,7 +2001,7 @@ async def update_staff_schedule(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    staff = _owned_staff(db, staff_id, salon.id)
     if not staff:
         return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
 
@@ -1933,7 +2042,7 @@ async def add_staff_dayoff(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.salon_id == salon.id).first()
+    staff = _owned_staff(db, staff_id, salon.id)
     if not staff:
         return RedirectResponse(url="/dashboard?tab=staff", status_code=303)
     d = _parse_date(off_date)
@@ -1956,12 +2065,7 @@ def delete_staff_dayoff(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    row = (
-        db.query(StaffDayOff)
-        .join(Staff, Staff.id == StaffDayOff.staff_id)
-        .filter(StaffDayOff.id == dayoff_id, Staff.salon_id == salon.id)
-        .first()
-    )
+    row = _owned_dayoff(db, dayoff_id, salon.id)
     if row:
         db.delete(row)
         db.commit()
@@ -1975,7 +2079,7 @@ async def convert_waitlist(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    entry = db.query(Waitlist).filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id).first()
+    entry = _owned_waitlist(db, waitlist_id, salon.id)
     if not entry:
         return RedirectResponse(url="/dashboard?tab=reserve", status_code=303)
     try:
@@ -2019,7 +2123,7 @@ def delete_waitlist(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    entry = db.query(Waitlist).filter(Waitlist.id == waitlist_id, Waitlist.salon_id == salon.id).first()
+    entry = _owned_waitlist(db, waitlist_id, salon.id)
     if entry:
         db.delete(entry)
         db.commit()
@@ -2118,9 +2222,7 @@ def delete_gallery_photo(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    img = db.query(GalleryImage).filter(
-        GalleryImage.id == image_id, GalleryImage.salon_id == salon.id
-    ).first()
+    img = _owned_gallery(db, image_id, salon.id)
     if img:
         db.delete(img)
         db.commit()
@@ -2166,9 +2268,7 @@ def toggle_testimonial_pin(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    t = db.query(Testimonial).filter(
-        Testimonial.id == testimonial_id, Testimonial.salon_id == salon.id
-    ).first()
+    t = _owned_testimonial(db, testimonial_id, salon.id)
     if t:
         t.is_pinned = 0 if t.is_pinned else 1
         db.commit()
@@ -2181,9 +2281,7 @@ def delete_testimonial(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    t = db.query(Testimonial).filter(
-        Testimonial.id == testimonial_id, Testimonial.salon_id == salon.id
-    ).first()
+    t = _owned_testimonial(db, testimonial_id, salon.id)
     if t:
         db.delete(t)
         db.commit()
@@ -2228,9 +2326,7 @@ def dismiss_payment_proof(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    appt = db.query(Appointment).filter(
-        Appointment.id == appointment_id, Appointment.salon_id == salon.id
-    ).first()
+    appt = _owned_appointment(db, appointment_id, salon.id)
     if appt:
         appt.payment_reviewed = 1
         db.commit()
@@ -2243,9 +2339,7 @@ def confirm_deposit_payment(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    appt = db.query(Appointment).filter(
-        Appointment.id == appointment_id, Appointment.salon_id == salon.id
-    ).first()
+    appt = _owned_appointment(db, appointment_id, salon.id)
     if appt:
         st = getattr(appt.status, "value", str(appt.status))
         if st in ("Pending Payment", "pending_payment", AppointmentStatus.pending_payment.value):
@@ -2564,9 +2658,8 @@ def public_booking_status(salon_ref: str, appointment_id: int, db: Session = Dep
     salon = _resolve_salon(db, salon_ref)
     if not salon:
         return JSONResponse({"ok": False, "status": "not_found"}, status_code=404)
-    appt = db.query(Appointment).filter(
-        Appointment.id == appointment_id, Appointment.salon_id == salon.id
-    ).first()
+    # IDOR guard: appointment must belong to THIS public salon only
+    appt = _owned_appointment(db, appointment_id, salon.id)
     if not appt:
         return JSONResponse({"ok": False, "status": "not_found"}, status_code=404)
     st = getattr(appt.status, "value", str(appt.status))
