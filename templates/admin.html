@@ -1116,197 +1116,174 @@
 
 
 
-        <!-- ===== NET PROFIT (HQ-only cost intelligence) ===== -->
+        <!-- ===== NET PROFIT ===== -->
         <section class="panel" id="panel-netprofit">
             <div class="topbar">
                 <div>
                     <h1>Net profit</h1>
-                    <p class="sub">Clean math · services × unit cost · monthly costs ÷ 30 × days</p>
+                    <p class="sub">One salon · one period · exact P&amp;L</p>
                 </div>
             </div>
 
             <!-- Controls -->
             <div class="card-soft mb-3">
                 <div class="row g-3 align-items-end">
-                    <div class="col-12 col-lg-5">
-                        <label class="form-label small text-muted fw-semibold mb-1">Date range</label>
-                        <div class="filter-chips mb-2" id="profitPeriodChips">
-                            <button type="button" class="chip" data-period="day" onclick="setProfitPeriod('day')">Today</button>
-                            <button type="button" class="chip" data-period="week" onclick="setProfitPeriod('week')">Week</button>
-                            <button type="button" class="chip active" data-period="month" onclick="setProfitPeriod('month')">Month</button>
-                            <button type="button" class="chip" data-period="custom" onclick="setProfitPeriod('custom')">Custom</button>
-                        </div>
-                        <div id="customDateRange" class="d-flex flex-wrap gap-2" style="display:none !important;">
-                            <input type="date" id="profitFrom" class="form-control form-control-sm" style="max-width:150px">
-                            <input type="date" id="profitTo" class="form-control form-control-sm" style="max-width:150px">
-                        </div>
-                        <div class="small text-muted mt-1" id="profitRangeLabel">—</div>
-                    </div>
-                    <div class="col-12 col-lg-4">
-                        <label class="form-label small text-muted fw-semibold mb-1">Salon / branch</label>
-                        <select id="costSalonSelect" class="form-select" onchange="onCostSalonChange()">
-                            <option value="">All locations</option>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small text-muted fw-semibold">Salon</label>
+                        <select id="npSalon" class="form-select">
+                            <option value="">Choose salon…</option>
                             {% for s in salons or [] %}
-                            <option value="{{ s.id }}">
-                                {{ s.name }}{% if s.location_name %} · {{ s.location_name }}{% endif %}{% if s.parent_id %} (branch){% endif %}
-                            </option>
+                            <option value="{{ s.id }}">{{ s.name }}{% if s.location_name %} · {{ s.location_name }}{% endif %}{% if s.parent_id %} (branch){% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-12 col-lg-3">
-                        <button type="button" class="btn-accent w-100" id="btnCalculateNet" onclick="calculateNetProfit()">
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small text-muted fw-semibold">From</label>
+                        <input type="date" id="npFrom" class="form-control">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small text-muted fw-semibold">To</label>
+                        <input type="date" id="npTo" class="form-control">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <button type="button" class="btn-accent w-100" id="npBtn" onclick="npRun()">
                             <i class="fa-solid fa-calculator"></i> Calculate
                         </button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Big result -->
-            <div class="card-soft mb-3" id="netResultCard" style="display:none;">
-                <div class="row align-items-center g-3">
-                    <div class="col-12 col-md-4 text-center text-md-start">
-                        <div class="small text-muted fw-semibold text-uppercase" style="letter-spacing:0.5px">Net profit</div>
-                        <div id="netResultValue" style="font-size:2.2rem;font-weight:700;line-height:1.2;color:var(--green)">—</div>
-                        <div class="small text-muted" id="netResultSub">—</div>
-                    </div>
-                    <div class="col-12 col-md-8">
-                        <div id="netMathSteps" style="font-size:0.88rem;line-height:1.7;font-family:ui-monospace,Menlo,monospace;color:var(--text-dark)"></div>
-                    </div>
+                <div class="filter-chips mt-3 mb-0">
+                    <button type="button" class="chip" onclick="npQuick(1)">Today</button>
+                    <button type="button" class="chip" onclick="npQuick(7)">Last 7 days</button>
+                    <button type="button" class="chip active" id="npChipMonth" onclick="npQuick('month')">This month</button>
+                    <button type="button" class="chip" onclick="npQuick(30)">Last 30 days</button>
                 </div>
             </div>
 
-            <!-- Services -->
-            <div class="section-title"><i class="fa-solid fa-scissors"></i> Services done</div>
-            <div class="table-wrap mb-4">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Done</th>
-                            <th>Unit cost</th>
-                            <th>COGS (done × unit)</th>
-                            <th>Revenue</th>
-                        </tr>
-                    </thead>
-                    <tbody id="svcBreakdownBody">
-                        <tr><td colspan="5"><div class="empty-state" style="padding:24px"><p class="mb-0">Press Calculate.</p></div></td></tr>
-                    </tbody>
-                    <tfoot id="svcBreakdownFoot" style="display:none">
-                        <tr style="background:#F9F4EE;font-weight:700">
-                            <td>Total</td>
-                            <td id="svcTotCount">0</td>
-                            <td></td>
-                            <td class="mono" id="svcTotCogs">0</td>
-                            <td class="mono" id="svcTotRev">0</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            <!-- Costs -->
-            <div class="section-title"><i class="fa-solid fa-receipt"></i> Monthly costs → prorated</div>
-            <div class="table-wrap mb-4">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th>Monthly</th>
-                            <th>× factor</th>
-                            <th>In this range</th>
-                            <th>Note</th>
-                        </tr>
-                    </thead>
-                    <tbody id="costBreakdownBody">
-                        <tr><td colspan="5"><div class="empty-state" style="padding:24px"><p class="mb-0">Press Calculate.</p></div></td></tr>
-                    </tbody>
-                    <tfoot id="costBreakdownFoot" style="display:none">
-                        <tr style="background:#F9F4EE;font-weight:700">
-                            <td>Total operating + salary</td>
-                            <td class="mono" id="costTotMonthly">0</td>
-                            <td id="costFactorCell">—</td>
-                            <td class="mono" id="costTotProrated">0</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            <!-- Per location -->
-            <div class="section-title"><i class="fa-solid fa-table"></i> Every location</div>
-            <div class="table-wrap mb-4">
-                <table class="admin-table" id="profitTable">
-                    <thead>
-                        <tr>
-                            <th>Salon</th>
-                            <th>Bookings</th>
-                            <th>Services</th>
-                            <th>Revenue</th>
-                            <th>COGS</th>
-                            <th>Costs</th>
-                            <th>Net</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="profitTableBody">
-                        <tr><td colspan="8"><div class="empty-state"><p>Press Calculate.</p></div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Capture -->
-            <div class="section-title"><i class="fa-solid fa-clipboard-list"></i> Log monthly costs</div>
-            <div class="card-soft mb-3">
-                <p class="small text-muted mb-2">Amounts are <strong>monthly</strong>. Calculate divides them by the range (days ÷ 30).</p>
-                <form action="/admin/expenses/add" method="post" class="row g-2 align-items-end" id="hqExpenseForm">
-                    <input type="hidden" name="salon_id" id="hqExpenseSalonId" value="">
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small text-muted mb-0">Category</label>
-                        <select name="category" class="form-select form-select-sm" required>
-                            <option value="rent">Rent / ኪራይ</option>
-                            <option value="staff_salary">Staff salary / ደመወዝ</option>
-                            <option value="water">Water / ውሃ</option>
-                            <option value="electricity">Electricity</option>
-                            <option value="generator">Generator / petrol</option>
-                            <option value="supplies">Supplies</option>
-                            <option value="marketing">Marketing</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small text-muted mb-0">Monthly ETB</label>
-                        <input type="number" step="1" min="0" name="amount" class="form-control form-control-sm" required placeholder="0">
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small text-muted mb-0">As of</label>
-                        <input type="date" name="expense_date" class="form-control form-control-sm" required
-                               value="{{ now.strftime('%Y-%m-%d') if now is defined else '' }}">
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small text-muted mb-0">Note</label>
-                        <input type="text" name="note" class="form-control form-control-sm" placeholder="Bole rent">
-                    </div>
-                    <div class="col-12 col-md-2">
-                        <button type="submit" class="btn-accent btn-sm w-100" onclick="return ensureSalonSelected()">
-                            <i class="fa-solid fa-plus"></i> Log
-                        </button>
-                    </div>
-                </form>
-                <div class="mt-3" id="hqExpensesList">
-                    <p class="small text-muted mb-0">Select a salon to edit costs.</p>
+            <!-- Empty state -->
+            <div id="npEmpty" class="card-soft mb-3">
+                <div class="empty-state" style="padding:36px">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                    <p class="mb-0">Pick a salon and a date range, then press <strong>Calculate</strong>.</p>
                 </div>
             </div>
 
-            <div class="row g-3">
-                <div class="col-12 col-lg-6">
-                    <div class="card-soft">
-                        <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-scissors"></i> Service unit cost</div>
-                        <div id="hqServicesCosts"><p class="small text-muted">Select a salon.</p></div>
+            <!-- Result -->
+            <div id="npResult" style="display:none">
+
+                <!-- Statement card -->
+                <div class="card-soft mb-3" style="border:2px solid var(--accent)">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                        <div>
+                            <div class="small text-muted fw-semibold text-uppercase" style="letter-spacing:0.5px">Profit &amp; loss</div>
+                            <div style="font-size:1.15rem;font-weight:700" id="npTitle">—</div>
+                            <div class="small text-muted" id="npPeriod">—</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted">Net profit</div>
+                            <div id="npNet" style="font-size:2rem;font-weight:700;color:var(--green)">—</div>
+                        </div>
                     </div>
+                    <table style="width:100%;font-size:0.92rem;border-collapse:collapse">
+                        <tr>
+                            <td style="padding:8px 0;color:var(--text-muted)">Revenue <span class="small">(completed bookings)</span></td>
+                            <td style="padding:8px 0;text-align:right;font-weight:600" class="mono" id="npRev">—</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 0;color:var(--text-muted)">Service costs (COGS)</td>
+                            <td style="padding:8px 0;text-align:right;font-weight:600;color:var(--rose)" class="mono" id="npCogs">—</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 0;color:var(--text-muted)">Operating costs <span class="small" id="npOpNote"></span></td>
+                            <td style="padding:8px 0;text-align:right;font-weight:600;color:var(--rose)" class="mono" id="npOp">—</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 0;color:var(--text-muted)">Staff salary <span class="small" id="npSalNote"></span></td>
+                            <td style="padding:8px 0;text-align:right;font-weight:600;color:var(--rose)" class="mono" id="npSal">—</td>
+                        </tr>
+                        <tr style="border-top:2px solid var(--border)">
+                            <td style="padding:12px 0 0;font-weight:700">Net profit</td>
+                            <td style="padding:12px 0 0;text-align:right;font-weight:700;font-size:1.1rem" class="mono" id="npNetRow">—</td>
+                        </tr>
+                    </table>
                 </div>
-                <div class="col-12 col-lg-6">
-                    <div class="card-soft">
-                        <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-users"></i> Staff monthly salary</div>
-                        <div id="hqStaffSalaries"><p class="small text-muted">Select a salon.</p></div>
+
+                <!-- Services -->
+                <div class="section-title"><i class="fa-solid fa-scissors"></i> Services done</div>
+                <div class="table-wrap mb-4">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Done</th>
+                                <th>Your unit cost</th>
+                                <th>Total cost</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="npSvcBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Fixed costs -->
+                <div class="section-title"><i class="fa-solid fa-receipt"></i> Monthly costs in this period</div>
+                <p class="small text-muted mb-2" id="npFactorLine">—</p>
+                <div class="table-wrap mb-4">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Monthly</th>
+                                <th>In this period</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="npCostBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Edit costs for this salon -->
+                <div class="section-title"><i class="fa-solid fa-pen"></i> Update costs for this salon</div>
+                <div class="card-soft mb-3">
+                    <form action="/admin/expenses/add" method="post" class="row g-2 align-items-end" id="npExpForm">
+                        <input type="hidden" name="salon_id" id="npExpSalonId" value="">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small text-muted mb-0">Category (monthly)</label>
+                            <select name="category" class="form-select form-select-sm" required>
+                                <option value="rent">Rent</option>
+                                <option value="staff_salary">Staff salary</option>
+                                <option value="water">Water</option>
+                                <option value="electricity">Electricity</option>
+                                <option value="generator">Generator / petrol</option>
+                                <option value="supplies">Supplies</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small text-muted mb-0">Monthly ETB</label>
+                            <input type="number" step="1" min="0" name="amount" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small text-muted mb-0">Date</label>
+                            <input type="date" name="expense_date" id="npExpDate" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small text-muted mb-0">Note</label>
+                            <input type="text" name="note" class="form-control form-control-sm" placeholder="optional">
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <button type="submit" class="btn-accent btn-sm w-100"><i class="fa-solid fa-plus"></i> Add</button>
+                        </div>
+                    </form>
+                    <div class="row g-3 mt-2">
+                        <div class="col-12 col-lg-6">
+                            <div class="small fw-semibold mb-1">Service unit costs</div>
+                            <div id="npUnitCosts"><p class="small text-muted mb-0">—</p></div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <div class="small fw-semibold mb-1">Staff monthly salaries</div>
+                            <div id="npStaffPay"><p class="small text-muted mb-0">—</p></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1590,531 +1567,294 @@ function filterSalons() {
 
 
 <script>
-/* ============================================================
-   NET PROFIT — clean client-side calculation
-   Formula:
-     days     = inclusive days in range
-     factor   = days / 30
-     revenue  = completed bookings in range
-     cogs     = Σ (service_count × unit_cost)
-     expenses = Σ (monthly expense × factor)   // rent, utilities, …
-     salary   = Σ (staff monthly_salary × factor)
-              + expenses categorized as staff_salary
-     net      = revenue − cogs − expenses − salary
-   ============================================================ */
+/* =========================================================
+   NET PROFIT — simple P&L for one salon + one date range
+   =========================================================
+   days   = inclusive days from → to
+   factor = days / 30
 
-let _profitPeriod = 'month';
+   revenue  = completed booking value in range
+   cogs     = sum( times_done × unit_cost ) for each service
+   op_costs = sum( monthly expense × factor )  excluding staff_salary
+   salary   = sum( staff monthly_salary × factor )
+            + staff_salary expenses × factor
+   net      = revenue - cogs - op_costs - salary
+   ========================================================= */
 
-function fmtETB(n) {
-    const v = Math.round(Number(n) || 0);
-    return v.toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ETB';
+function money(n) {
+    return Math.round(Number(n) || 0).toLocaleString() + ' ETB';
 }
-function fmtNum(n) {
-    return Math.round(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
-}
-function n(x) { return Number(x) || 0; }
+function num(n) { return Number(n) || 0; }
 
-function ensureSalonSelected() {
-    const id = document.getElementById('costSalonSelect')?.value;
-    if (!id) { alert('Select a salon / branch first'); return false; }
-    document.getElementById('hqExpenseSalonId').value = id;
-    return true;
+function npIso(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-function daysBetween(fromStr, toStr) {
-    if (!fromStr || !toStr) return 0;
-    const a = new Date(fromStr + 'T12:00:00');
-    const b = new Date(toStr + 'T12:00:00');
-    const ms = b - a;
-    if (isNaN(ms) || ms < 0) return 0;
-    return Math.floor(ms / 86400000) + 1;
+function npDays(from, to) {
+    if (!from || !to) return 0;
+    const a = new Date(from + 'T12:00:00');
+    const b = new Date(to + 'T12:00:00');
+    const d = Math.floor((b - a) / 86400000) + 1;
+    return d > 0 ? d : 0;
 }
 
-function isoLocal(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + day;
-}
-
-function resolveProfitRange() {
-    const today = new Date();
-    if (_profitPeriod === 'day') {
-        const t = isoLocal(today);
-        return { from: t, to: t, days: 1 };
+function npQuick(kind) {
+    const t = new Date();
+    const to = npIso(t);
+    let from;
+    if (kind === 'month') {
+        from = npIso(new Date(t.getFullYear(), t.getMonth(), 1));
+    } else {
+        const f = new Date(t);
+        f.setDate(f.getDate() - (Number(kind) - 1));
+        from = npIso(f);
     }
-    if (_profitPeriod === 'week') {
-        const to = isoLocal(today);
-        const fromD = new Date(today);
-        fromD.setDate(fromD.getDate() - 6);
-        return { from: isoLocal(fromD), to: to, days: 7 };
-    }
-    if (_profitPeriod === 'month') {
-        const to = isoLocal(today);
-        const fromD = new Date(today.getFullYear(), today.getMonth(), 1);
-        const from = isoLocal(fromD);
-        return { from, to, days: daysBetween(from, to) || 1 };
-    }
-    const from = document.getElementById('profitFrom')?.value || '';
-    const to = document.getElementById('profitTo')?.value || '';
-    return { from, to, days: daysBetween(from, to) || 1 };
+    document.getElementById('npFrom').value = from;
+    document.getElementById('npTo').value = to;
+    document.querySelectorAll('#panel-netprofit .filter-chips .chip').forEach(c => c.classList.remove('active'));
+    // soft highlight handled by caller chips via class on click target if needed
 }
 
-function setProfitPeriod(period) {
-    _profitPeriod = period || 'month';
-    document.querySelectorAll('#profitPeriodChips .chip').forEach(c => {
-        c.classList.toggle('active', c.dataset.period === _profitPeriod);
-    });
-    const box = document.getElementById('customDateRange');
-    if (box) {
-        if (_profitPeriod === 'custom') {
-            box.style.setProperty('display', 'flex', 'important');
-            const fromEl = document.getElementById('profitFrom');
-            const toEl = document.getElementById('profitTo');
-            if (fromEl && !fromEl.value) {
-                const t = new Date();
-                toEl.value = isoLocal(t);
-                const f = new Date(t);
-                f.setDate(f.getDate() - 6);
-                fromEl.value = isoLocal(f);
-            }
-        } else {
-            box.style.setProperty('display', 'none', 'important');
-        }
-    }
-    updateRangeLabel();
-}
-
-function updateRangeLabel() {
-    const r = resolveProfitRange();
-    const el = document.getElementById('profitRangeLabel');
-    if (!el) return;
-    if (!r.from || !r.to) { el.textContent = '—'; return; }
-    const factor = (r.days / 30).toFixed(4);
-    el.textContent = r.from + ' → ' + r.to + '  ·  ' + r.days + ' day' + (r.days === 1 ? '' : 's') +
-        '  ·  monthly × ' + factor;
-}
-
-async function safeJson(url) {
+async function npFetch(url) {
     try {
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        return await res.json();
-    } catch (e) {
-        return null;
-    }
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        return await r.json();
+    } catch (e) { return null; }
 }
 
-/** Core pure calculation from pieces */
-function computeNet({ revenue, services, expenses, staffMonthly, days }) {
-    const factor = days / 30;
-    let cogs = 0;
-    let svcRev = 0;
-    let svcCount = 0;
-    const serviceRows = (services || []).map(s => {
-        const count = n(s.count);
-        const unit = n(s.unit_cost != null ? s.unit_cost : s.cost_amount);
-        const lineCogs = n(s.cogs) || (count * unit);
-        const lineRev = n(s.revenue);
-        cogs += lineCogs;
-        svcRev += lineRev;
-        svcCount += count;
-        return {
-            name: s.name || s.service_name || 'Service',
-            count, unit_cost: unit, cogs: lineCogs, revenue: lineRev
-        };
-    });
-
-    let expMonthly = 0;
-    let salMonthly = 0;
-    const costRows = [];
-    (expenses || []).forEach(e => {
-        const monthly = n(e.monthly != null ? e.monthly : e.amount);
-        const cat = (e.category || 'other').toLowerCase();
-        const prorated = Math.round(monthly * factor);
-        const row = {
-            category: cat,
-            monthly,
-            factor,
-            prorated,
-            note: e.note || '',
-            is_salary: cat === 'staff_salary' || cat === 'salary'
-        };
-        costRows.push(row);
-        if (row.is_salary) salMonthly += monthly;
-        else expMonthly += monthly;
-    });
-    // staff list (from /salon-costs) adds to salary if not already in expenses
-    const staffExtra = n(staffMonthly);
-    if (staffExtra > 0) {
-        // only add if no staff_salary expense rows, or always add baseline staff
-        salMonthly += staffExtra;
-        costRows.push({
-            category: 'staff salary (baseline)',
-            monthly: staffExtra,
-            factor,
-            prorated: Math.round(staffExtra * factor),
-            note: 'from staff records',
-            is_salary: true
-        });
-    }
-
-    const expensesProrated = Math.round(expMonthly * factor);
-    const salaryProrated = Math.round(salMonthly * factor);
-    // if revenue from services missing, use passed revenue
-    const totalRevenue = n(revenue) || svcRev;
-    const net = totalRevenue - cogs - expensesProrated - salaryProrated;
-
-    return {
-        days, factor,
-        revenue: totalRevenue,
-        cogs,
-        expenses: expensesProrated,
-        salary: salaryProrated,
-        net,
-        serviceRows,
-        costRows,
-        svcCount,
-        expMonthly,
-        salMonthly
-    };
+function npInitDates() {
+    if (!document.getElementById('npFrom').value) npQuick('month');
+    const ed = document.getElementById('npExpDate');
+    if (ed && !ed.value) ed.value = npIso(new Date());
 }
 
-async function calculateNetProfit() {
-    updateRangeLabel();
-    const range = resolveProfitRange();
-    if (_profitPeriod === 'custom' && (!range.from || !range.to)) {
-        alert('Pick From and To dates');
-        return;
-    }
-    const salonId = document.getElementById('costSalonSelect')?.value || '';
-    const btn = document.getElementById('btnCalculateNet');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Calculating…';
-    }
+async function npRun() {
+    const salonId = document.getElementById('npSalon').value;
+    const from = document.getElementById('npFrom').value;
+    const to = document.getElementById('npTo').value;
+    if (!salonId) { alert('Choose a salon'); return; }
+    if (!from || !to) { alert('Choose From and To dates'); return; }
+    const days = npDays(from, to);
+    if (!days) { alert('Invalid date range'); return; }
 
-    const qs = new URLSearchParams({
-        period: _profitPeriod,
-        from: range.from,
-        to: range.to,
-        days: String(range.days)
-    });
-    if (salonId) qs.set('salon_id', salonId);
+    const btn = document.getElementById('npBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Calculating…';
 
-    // Parallel fetches
-    const profitP = safeJson('/admin/api/profit?' + qs.toString());
-    const expP = salonId ? safeJson('/admin/api/expenses/' + salonId) : Promise.resolve(null);
-    const costsP = salonId ? safeJson('/admin/api/salon-costs/' + salonId) : Promise.resolve(null);
+    const qs = new URLSearchParams({ from, to, days: String(days), salon_id: salonId, period: 'custom' });
 
-    const [profitData, expData, costsData] = await Promise.all([profitP, expP, costsP]);
-
-    try {
-        // ---- Build inputs for pure compute ----
-        let services = [];
-        let expenses = [];
-        let staffMonthly = 0;
-        let revenue = 0;
-        let salons = [];
-
-        if (profitData) {
-            salons = profitData.salons || [];
-            services = profitData.service_breakdown || [];
-            expenses = profitData.cost_breakdown || [];
-            revenue = n(profitData.totals && profitData.totals.revenue);
-            // if salon selected and API returned per-salon, prefer that
-            if (salonId && salons.length) {
-                const one = salons.find(s => String(s.salon_id) === String(salonId)) || salons[0];
-                if (one) {
-                    revenue = n(one.revenue) || revenue;
-                    if (!services.length) {
-                        services = one.service_breakdown || (one.service_counts || []).map(s => ({
-                            name: s.name || s.service_name,
-                            count: s.count || s.qty || 0,
-                            unit_cost: s.unit_cost || s.cost_amount || 0,
-                            cogs: s.cogs,
-                            revenue: s.revenue || 0
-                        }));
-                    }
-                    if (!expenses.length && one.cost_breakdown) expenses = one.cost_breakdown;
-                }
-            }
-            // aggregate services from all salons if still empty
-            if (!services.length && salons.length) {
-                const map = {};
-                salons.forEach(r => {
-                    (r.service_breakdown || r.service_counts || []).forEach(s => {
-                        const nm = s.name || s.service_name || '?';
-                        if (!map[nm]) map[nm] = { name: nm, count: 0, unit_cost: n(s.unit_cost || s.cost_amount), cogs: 0, revenue: 0 };
-                        map[nm].count += n(s.count || s.qty);
-                        map[nm].cogs += n(s.cogs) || (n(s.count || s.qty) * n(s.unit_cost || s.cost_amount));
-                        map[nm].revenue += n(s.revenue);
-                        if (s.unit_cost != null) map[nm].unit_cost = n(s.unit_cost);
-                    });
-                    revenue += n(r.revenue);
-                });
-                // if totals.revenue existed, prefer it (avoid double count)
-                if (profitData.totals && profitData.totals.revenue != null) {
-                    revenue = n(profitData.totals.revenue);
-                }
-                services = Object.values(map);
-            }
-        }
-
-        // Enrich from live expense + staff APIs when a salon is selected
-        if (salonId && expData && Array.isArray(expData.expenses)) {
-            expenses = expData.expenses.map(e => ({
-                category: e.category,
-                monthly: e.amount,
-                amount: e.amount,
-                note: e.note || '',
-                date: e.date
-            }));
-        }
-        if (salonId && costsData && costsData.ok) {
-            // merge unit costs into services
-            const unitMap = {};
-            (costsData.services || []).forEach(s => { unitMap[s.id] = n(s.cost_amount); unitMap[s.name] = n(s.cost_amount); });
-            services = services.map(s => {
-                const unit = unitMap[s.service_id] != null ? unitMap[s.service_id]
-                    : (unitMap[s.name] != null ? unitMap[s.name] : n(s.unit_cost || s.cost_amount));
-                return { ...s, unit_cost: unit };
-            });
-            // if no service rows from profit API, still show unit costs with 0 count
-            if (!services.length && (costsData.services || []).length) {
-                services = costsData.services.map(s => ({
-                    name: s.name, count: 0, unit_cost: n(s.cost_amount), cogs: 0, revenue: 0
-                }));
-            }
-            staffMonthly = (costsData.staff || []).reduce((sum, st) => sum + n(st.monthly_salary), 0);
-        }
-
-        // If API already gave fully prorated totals and no detail, still recompute when we have pieces
-        const result = computeNet({
-            revenue,
-            services,
-            expenses,
-            staffMonthly,
-            days: range.days
-        });
-
-        // Prefer API net only if we have zero detail to recompute
-        if (profitData && profitData.totals && !services.length && !expenses.length && !staffMonthly) {
-            const t = profitData.totals;
-            result.revenue = n(t.revenue);
-            result.cogs = n(t.cogs);
-            result.expenses = n(t.expenses);
-            result.salary = n(t.staff_salary != null ? t.staff_salary : t.staff_salary_baseline);
-            result.net = n(t.net_profit != null ? t.net_profit : (result.revenue - result.cogs - result.expenses - result.salary));
-        }
-
-        renderNetResult(result, range, salonId);
-        renderServiceTable(result);
-        renderCostTable(result);
-        renderSalonTable(salons, range.days, salonId);
-
-        if (salonId) onCostSalonChange();
-    } catch (err) {
-        console.error(err);
-        const body = document.getElementById('profitTableBody');
-        if (body) body.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Calculation error. Check console / API.</p></div></td></tr>';
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Calculate';
-        }
-    }
-}
-
-function renderNetResult(r, range, salonId) {
-    const card = document.getElementById('netResultCard');
-    const val = document.getElementById('netResultValue');
-    const sub = document.getElementById('netResultSub');
-    const steps = document.getElementById('netMathSteps');
-    if (card) card.style.display = 'block';
-    if (val) {
-        val.textContent = fmtETB(r.net);
-        val.style.color = r.net >= 0 ? 'var(--green)' : 'var(--rose)';
-    }
-    if (sub) {
-        const name = salonId
-            ? (document.getElementById('costSalonSelect')?.selectedOptions[0]?.text || 'Salon').trim()
-            : 'All locations';
-        sub.textContent = name + ' · ' + range.from + ' → ' + range.to;
-    }
-    if (steps) {
-        steps.innerHTML =
-            'Revenue (completed)     ' + fmtETB(r.revenue) + '<br>' +
-            '− COGS (services)       ' + fmtETB(r.cogs) + '<br>' +
-            '− Operating costs       ' + fmtETB(r.expenses) + '  <span style="color:var(--text-muted)">(monthly × ' + r.factor.toFixed(4) + ')</span><br>' +
-            '− Staff salary          ' + fmtETB(r.salary) + '  <span style="color:var(--text-muted)">(monthly × ' + r.factor.toFixed(4) + ')</span><br>' +
-            '<strong style="border-top:1px solid var(--border);display:inline-block;margin-top:4px;padding-top:4px">= Net profit            ' + fmtETB(r.net) + '</strong>';
-    }
-}
-
-function renderServiceTable(r) {
-    const body = document.getElementById('svcBreakdownBody');
-    const foot = document.getElementById('svcBreakdownFoot');
-    if (!body) return;
-    if (!r.serviceRows.length) {
-        body.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:24px"><p class="mb-0">No services in this range (or API did not return counts).</p></div></td></tr>';
-        if (foot) foot.style.display = 'none';
-        return;
-    }
-    body.innerHTML = r.serviceRows.map(s =>
-        '<tr>' +
-        '<td class="name-cell">' + s.name + '</td>' +
-        '<td><strong>' + s.count + '</strong></td>' +
-        '<td class="mono">' + fmtETB(s.unit_cost) + '</td>' +
-        '<td class="mono">' + fmtETB(s.cogs) + '</td>' +
-        '<td class="mono">' + (s.revenue ? fmtETB(s.revenue) : '—') + '</td>' +
-        '</tr>'
-    ).join('');
-    if (foot) {
-        foot.style.display = '';
-        document.getElementById('svcTotCount').textContent = fmtNum(r.svcCount);
-        document.getElementById('svcTotCogs').textContent = fmtETB(r.cogs);
-        document.getElementById('svcTotRev').textContent = fmtETB(r.serviceRows.reduce((a, s) => a + n(s.revenue), 0));
-    }
-}
-
-function renderCostTable(r) {
-    const body = document.getElementById('costBreakdownBody');
-    const foot = document.getElementById('costBreakdownFoot');
-    if (!body) return;
-    if (!r.costRows.length) {
-        body.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:24px"><p class="mb-0">No monthly costs logged. Add rent / salary / utilities below.</p></div></td></tr>';
-        if (foot) foot.style.display = 'none';
-        return;
-    }
-    body.innerHTML = r.costRows.map(c =>
-        '<tr>' +
-        '<td class="name-cell" style="text-transform:capitalize">' + c.category.replace(/_/g, ' ') +
-        (c.is_salary ? ' <span class="badge-status badge-pending" style="font-size:0.65rem">salary</span>' : '') + '</td>' +
-        '<td class="mono">' + fmtETB(c.monthly) + '</td>' +
-        '<td class="mono">× ' + c.factor.toFixed(4) + '</td>' +
-        '<td class="mono" style="font-weight:700">' + fmtETB(c.prorated) + '</td>' +
-        '<td class="mono">' + (c.note || '—') + '</td>' +
-        '</tr>'
-    ).join('');
-    if (foot) {
-        foot.style.display = '';
-        document.getElementById('costTotMonthly').textContent = fmtETB(r.expMonthly + r.salMonthly);
-        document.getElementById('costFactorCell').textContent = '× ' + r.factor.toFixed(4);
-        document.getElementById('costTotProrated').textContent = fmtETB(r.expenses + r.salary);
-    }
-}
-
-function renderSalonTable(salons, days, focusId) {
-    const body = document.getElementById('profitTableBody');
-    if (!body) return;
-    if (!salons || !salons.length) {
-        body.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No location rows from API.</p></div></td></tr>';
-        return;
-    }
-    const factor = days / 30;
-    body.innerHTML = salons.map(r => {
-        const net = n(r.net_profit);
-        const col = net >= 0 ? 'var(--green)' : 'var(--rose)';
-        const label = r.location_name ? (r.name + ' · ' + r.location_name) : r.name;
-        let svc = '—';
-        const sc = r.service_counts || r.service_breakdown || [];
-        if (sc.length) {
-            svc = sc.map(s => (s.name || s.service_name || '?') + ' <strong>' + n(s.count || s.qty) + '</strong>').join(' · ');
-        }
-        const costs = n(r.expenses) + n(r.staff_salary_baseline || r.staff_salary);
-        return '<tr' + (focusId && String(r.salon_id) === String(focusId) ? ' style="background:#FDF9F5"' : '') + '>' +
-            '<td class="name-cell">' + label + '</td>' +
-            '<td>' + n(r.completed_bookings) + '</td>' +
-            '<td style="font-size:0.78rem">' + svc + '</td>' +
-            '<td class="mono">' + fmtETB(r.revenue) + '</td>' +
-            '<td class="mono">' + fmtETB(r.cogs) + '</td>' +
-            '<td class="mono">' + fmtETB(costs) + '</td>' +
-            '<td class="mono" style="font-weight:700;color:' + col + '">' + fmtETB(net) + '</td>' +
-            '<td><button type="button" class="btn-outline-soft btn-sm" onclick="selectSalonForCosts(' + r.salon_id + ')">Focus</button></td>' +
-            '</tr>';
-    }).join('');
-}
-
-async function loadProfit() { return calculateNetProfit(); }
-
-function selectSalonForCosts(id) {
-    const sel = document.getElementById('costSalonSelect');
-    if (sel) sel.value = String(id);
-    document.getElementById('hqExpenseSalonId').value = String(id);
-    onCostSalonChange();
-    calculateNetProfit();
-    document.getElementById('netResultCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-async function onCostSalonChange() {
-    const id = document.getElementById('costSalonSelect')?.value;
-    document.getElementById('hqExpenseSalonId').value = id || '';
-    const expBox = document.getElementById('hqExpensesList');
-    const svcBox = document.getElementById('hqServicesCosts');
-    const stBox = document.getElementById('hqStaffSalaries');
-    if (!id) {
-        if (expBox) expBox.innerHTML = '<p class="small text-muted mb-0">Select a salon to edit costs.</p>';
-        if (svcBox) svcBox.innerHTML = '<p class="small text-muted">Select a salon.</p>';
-        if (stBox) stBox.innerHTML = '<p class="small text-muted">Select a salon.</p>';
-        return;
-    }
-    const range = resolveProfitRange();
-    const factor = range.days / 30;
-
-    const [ed, cd] = await Promise.all([
-        safeJson('/admin/api/expenses/' + id),
-        safeJson('/admin/api/salon-costs/' + id)
+    // Load profit snapshot + live costs in parallel
+    const [profit, expenses, costs] = await Promise.all([
+        npFetch('/admin/api/profit?' + qs.toString()),
+        npFetch('/admin/api/expenses/' + salonId),
+        npFetch('/admin/api/salon-costs/' + salonId)
     ]);
 
-    if (expBox) {
-        const list = (ed && ed.expenses) || [];
-        if (!list.length) {
-            expBox.innerHTML = '<p class="small text-muted mb-0">No costs logged yet.</p>';
-        } else {
-            expBox.innerHTML = '<table class="admin-table"><thead><tr><th>Date</th><th>Category</th><th>Monthly</th><th>In range</th><th>Note</th><th></th></tr></thead><tbody>' +
-                list.map(e => {
-                    const monthly = n(e.amount);
-                    const prorated = Math.round(monthly * factor);
-                    return '<tr><td class="mono">' + (e.date || '') + '</td>' +
-                        '<td style="text-transform:capitalize">' + (e.category || '').replace(/_/g, ' ') + '</td>' +
-                        '<td class="mono">' + fmtETB(monthly) + '</td>' +
-                        '<td class="mono" style="font-weight:600">' + fmtETB(prorated) + '</td>' +
-                        '<td>' + (e.note || '—') + '</td>' +
-                        '<td><form method="post" action="/admin/expenses/delete" onsubmit="return confirm(\'Delete?\')">' +
-                        '<input type="hidden" name="expense_id" value="' + e.id + '">' +
-                        '<button class="btn-danger-soft btn-sm" type="submit">✕</button></form></td></tr>';
-                }).join('') + '</tbody></table>';
+    const factor = days / 30;
+    const salonName = document.getElementById('npSalon').selectedOptions[0]?.text?.trim() || 'Salon';
+
+    // ----- Services -----
+    // Prefer API service_breakdown for this salon; fall back to unit costs with 0 count
+    let services = [];
+    if (profit) {
+        if (Array.isArray(profit.service_breakdown) && profit.service_breakdown.length) {
+            services = profit.service_breakdown;
+        } else if (Array.isArray(profit.salons)) {
+            const row = profit.salons.find(s => String(s.salon_id) === String(salonId)) || profit.salons[0];
+            if (row) {
+                services = row.service_breakdown || (row.service_counts || []).map(s => ({
+                    name: s.name || s.service_name,
+                    count: s.count || s.qty || 0,
+                    unit_cost: s.unit_cost || s.cost_amount || 0,
+                    cogs: s.cogs,
+                    revenue: s.revenue || 0
+                }));
+            }
         }
     }
-    if (svcBox && cd && cd.ok) {
-        const services = cd.services || [];
-        svcBox.innerHTML = services.length ? services.map(s =>
+    // Attach unit costs from salon-costs if missing
+    const unitByName = {};
+    const unitById = {};
+    if (costs && costs.ok) {
+        (costs.services || []).forEach(s => {
+            unitByName[s.name] = num(s.cost_amount);
+            unitById[s.id] = num(s.cost_amount);
+        });
+    }
+    services = (services || []).map(s => {
+        const unit = unitById[s.service_id] != null ? unitById[s.service_id]
+            : (unitByName[s.name || s.service_name] != null ? unitByName[s.name || s.service_name]
+            : num(s.unit_cost != null ? s.unit_cost : s.cost_amount));
+        const count = num(s.count != null ? s.count : s.qty);
+        const cogs = num(s.cogs) || (count * unit);
+        return {
+            name: s.name || s.service_name || 'Service',
+            count,
+            unit_cost: unit,
+            cogs,
+            revenue: num(s.revenue)
+        };
+    });
+
+    // ----- Revenue -----
+    let revenue = 0;
+    if (profit && profit.totals && profit.totals.revenue != null && (!profit.salons || profit.salons.length <= 1)) {
+        revenue = num(profit.totals.revenue);
+    } else if (profit && Array.isArray(profit.salons)) {
+        const row = profit.salons.find(s => String(s.salon_id) === String(salonId));
+        revenue = row ? num(row.revenue) : num(profit.totals && profit.totals.revenue);
+    }
+    // if still 0, sum service revenues
+    if (!revenue) revenue = services.reduce((a, s) => a + s.revenue, 0);
+
+    const cogs = services.reduce((a, s) => a + s.cogs, 0);
+
+    // ----- Monthly costs -----
+    // Live expenses API is authoritative for what YOU logged
+    let costLines = [];
+    if (expenses && Array.isArray(expenses.expenses)) {
+        costLines = expenses.expenses.map(e => ({
+            category: (e.category || 'other').toLowerCase(),
+            monthly: num(e.amount),
+            note: e.note || '',
+            id: e.id,
+            date: e.date
+        }));
+    } else if (profit && profit.cost_breakdown) {
+        costLines = profit.cost_breakdown.map(e => ({
+            category: (e.category || 'other').toLowerCase(),
+            monthly: num(e.monthly != null ? e.monthly : e.amount),
+            note: e.note || ''
+        }));
+    }
+
+    // Staff baseline from salon-costs (if not already covered by staff_salary expenses)
+    let staffBaseline = 0;
+    if (costs && costs.ok) {
+        staffBaseline = (costs.staff || []).reduce((a, st) => a + num(st.monthly_salary), 0);
+    }
+    const hasSalaryExpense = costLines.some(c => c.category === 'staff_salary' || c.category === 'salary');
+    if (staffBaseline > 0 && !hasSalaryExpense) {
+        costLines.push({
+            category: 'staff_salary',
+            monthly: staffBaseline,
+            note: 'from staff records'
+        });
+    }
+
+    let opMonthly = 0;
+    let salMonthly = 0;
+    const costRows = costLines.map(c => {
+        const prorated = Math.round(c.monthly * factor);
+        const isSal = c.category === 'staff_salary' || c.category === 'salary';
+        if (isSal) salMonthly += c.monthly;
+        else opMonthly += c.monthly;
+        return { ...c, prorated, isSal };
+    });
+
+    const op = Math.round(opMonthly * factor);
+    const salary = Math.round(salMonthly * factor);
+    const net = revenue - cogs - op - salary;
+
+    // ----- Render -----
+    document.getElementById('npEmpty').style.display = 'none';
+    document.getElementById('npResult').style.display = 'block';
+    document.getElementById('npExpSalonId').value = salonId;
+
+    document.getElementById('npTitle').textContent = salonName;
+    document.getElementById('npPeriod').textContent = from + ' → ' + to + ' · ' + days + ' day' + (days === 1 ? '' : 's');
+
+    const netEl = document.getElementById('npNet');
+    const netRow = document.getElementById('npNetRow');
+    netEl.textContent = money(net);
+    netRow.textContent = money(net);
+    netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--rose)';
+    netRow.style.color = net >= 0 ? 'var(--green)' : 'var(--rose)';
+
+    document.getElementById('npRev').textContent = money(revenue);
+    document.getElementById('npCogs').textContent = '− ' + money(cogs);
+    document.getElementById('npOp').textContent = '− ' + money(op);
+    document.getElementById('npSal').textContent = '− ' + money(salary);
+    document.getElementById('npOpNote').textContent = '(monthly × ' + factor.toFixed(3) + ')';
+    document.getElementById('npSalNote').textContent = '(monthly × ' + factor.toFixed(3) + ')';
+    document.getElementById('npFactorLine').textContent =
+        'Monthly costs × ' + factor.toFixed(4) + '  (= ' + days + ' ÷ 30)';
+
+    // Services table
+    const svcBody = document.getElementById('npSvcBody');
+    if (!services.length) {
+        svcBody.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:20px"><p class="mb-0">No completed services in this range.</p></div></td></tr>';
+    } else {
+        svcBody.innerHTML = services.map(s =>
+            '<tr>' +
+            '<td class="name-cell">' + s.name + '</td>' +
+            '<td><strong>' + s.count + '</strong></td>' +
+            '<td class="mono">' + money(s.unit_cost) + '</td>' +
+            '<td class="mono">' + money(s.cogs) + '</td>' +
+            '<td class="mono">' + (s.revenue ? money(s.revenue) : '—') + '</td>' +
+            '</tr>'
+        ).join('') +
+        '<tr style="background:#F9F4EE;font-weight:700">' +
+        '<td>Total</td><td>' + services.reduce((a,s)=>a+s.count,0) + '</td><td></td>' +
+        '<td class="mono">' + money(cogs) + '</td>' +
+        '<td class="mono">' + money(services.reduce((a,s)=>a+s.revenue,0)) + '</td></tr>';
+    }
+
+    // Costs table
+    const costBody = document.getElementById('npCostBody');
+    if (!costRows.length) {
+        costBody.innerHTML = '<tr><td colspan="4"><div class="empty-state" style="padding:20px"><p class="mb-0">No monthly costs logged yet. Add rent, salary, utilities below.</p></div></td></tr>';
+    } else {
+        costBody.innerHTML = costRows.map(c =>
+            '<tr>' +
+            '<td class="name-cell" style="text-transform:capitalize">' + c.category.replace(/_/g,' ') +
+            (c.isSal ? ' <span class="badge-status badge-pending" style="font-size:0.65rem">salary</span>' : '') + '</td>' +
+            '<td class="mono">' + money(c.monthly) + '</td>' +
+            '<td class="mono" style="font-weight:700">' + money(c.prorated) + '</td>' +
+            '<td class="mono">' + (c.note || '—') + '</td>' +
+            '</tr>'
+        ).join('') +
+        '<tr style="background:#F9F4EE;font-weight:700">' +
+        '<td>Total</td><td class="mono">' + money(opMonthly + salMonthly) + '</td>' +
+        '<td class="mono">' + money(op + salary) + '</td><td></td></tr>';
+    }
+
+    // Unit cost + staff editors
+    const unitBox = document.getElementById('npUnitCosts');
+    const staffBox = document.getElementById('npStaffPay');
+    if (costs && costs.ok) {
+        const svcs = costs.services || [];
+        unitBox.innerHTML = svcs.length ? svcs.map(s =>
             '<form method="post" action="/admin/service-cost" class="d-flex gap-2 align-items-center mb-2 flex-wrap">' +
             '<input type="hidden" name="service_id" value="' + s.id + '">' +
-            '<span style="min-width:120px;font-weight:600;font-size:0.85rem">' + s.name +
-            ' <span class="text-muted fw-normal">(' + n(s.price).toLocaleString() + ')</span></span>' +
-            '<input type="number" step="1" min="0" name="cost_amount" value="' + n(s.cost_amount) +
-            '" class="form-control form-control-sm" style="width:110px" placeholder="Unit cost">' +
-            '<button type="submit" class="btn-outline-soft btn-sm">Save</button></form>'
-        ).join('') : '<p class="small text-muted">No services.</p>';
-    }
-    if (stBox && cd && cd.ok) {
-        const staff = cd.staff || [];
-        stBox.innerHTML = staff.length ? staff.map(st =>
+            '<span style="min-width:110px;font-size:0.85rem;font-weight:600">' + s.name + '</span>' +
+            '<input type="number" min="0" step="1" name="cost_amount" value="' + num(s.cost_amount) + '" class="form-control form-control-sm" style="width:100px">' +
+            '<button class="btn-outline-soft btn-sm" type="submit">Save</button></form>'
+        ).join('') : '<p class="small text-muted mb-0">No services.</p>';
+
+        const staff = costs.staff || [];
+        staffBox.innerHTML = staff.length ? staff.map(st =>
             '<form method="post" action="/admin/staff-salary" class="d-flex gap-2 align-items-center mb-2 flex-wrap">' +
             '<input type="hidden" name="staff_id" value="' + st.id + '">' +
-            '<span style="min-width:120px;font-weight:600;font-size:0.85rem">' + st.name + '</span>' +
-            '<input type="number" step="1" min="0" name="monthly_salary" value="' + n(st.monthly_salary) +
-            '" class="form-control form-control-sm" style="width:130px" placeholder="Monthly">' +
-            '<button type="submit" class="btn-outline-soft btn-sm">Save</button></form>'
-        ).join('') : '<p class="small text-muted">No staff.</p>';
+            '<span style="min-width:110px;font-size:0.85rem;font-weight:600">' + st.name + '</span>' +
+            '<input type="number" min="0" step="1" name="monthly_salary" value="' + num(st.monthly_salary) + '" class="form-control form-control-sm" style="width:110px">' +
+            '<button class="btn-outline-soft btn-sm" type="submit">Save</button></form>'
+        ).join('') : '<p class="small text-muted mb-0">No staff.</p>';
+    } else {
+        unitBox.innerHTML = '<p class="small text-muted mb-0">Could not load services.</p>';
+        staffBox.innerHTML = '<p class="small text-muted mb-0">Could not load staff.</p>';
     }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Calculate';
+    document.getElementById('npResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-const _prevShow = window.showPanel;
+// Hook panel open
+const _npPrevShow = window.showPanel;
 window.showPanel = function(id, el, filter) {
-    if (typeof _prevShow === 'function') _prevShow(id, el, filter);
+    if (typeof _npPrevShow === 'function') _npPrevShow(id, el, filter);
     else {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         const panel = document.getElementById('panel-' + id);
@@ -2124,9 +1864,13 @@ window.showPanel = function(id, el, filter) {
         document.getElementById('adminSidebar')?.classList.remove('open');
         document.getElementById('sidebarBackdrop')?.classList.remove('show');
     }
-    if (id === 'netprofit') updateRangeLabel();
+    if (id === 'netprofit') npInitDates();
 };
+
+// Default dates on first paint if panel is active
+document.addEventListener('DOMContentLoaded', npInitDates);
 </script>
+
 
 </body>
 
