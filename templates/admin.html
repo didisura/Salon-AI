@@ -1644,68 +1644,146 @@ async function npRun() {
 
     const qs = new URLSearchParams({ from, to, days: String(days), salon_id: salonId, period: 'custom' });
 
-    // Load profit snapshot + live costs in parallel
-    const [profit, expenses, costs] = await Promise.all([
+    // Load profit + costs + bookings (for service counts) in parallel
+    const bookingsQs = new URLSearchParams({ salon_id: salonId, from, to, status: 'Completed' });
+    const [profit, expenses, costs, bookingsA, bookingsB] = await Promise.all([
         npFetch('/admin/api/profit?' + qs.toString()),
         npFetch('/admin/api/expenses/' + salonId),
-        npFetch('/admin/api/salon-costs/' + salonId)
+        npFetch('/admin/api/salon-costs/' + salonId),
+        npFetch('/admin/api/bookings?' + bookingsQs.toString()),
+        npFetch('/admin/api/salon/' + salonId + '/bookings?' + new URLSearchParams({ from, to }).toString())
     ]);
 
     const factor = days / 30;
     const salonName = document.getElementById('npSalon').selectedOptions[0]?.text?.trim() || 'Salon';
 
-    // ----- Services -----
-    // Prefer API service_breakdown for this salon; fall back to unit costs with 0 count
+    // Unit costs from salon-costs (authoritative for "your unit cost")
+    const unitByName = {};
+    const unitById = {};
+    const nameById = {};
+    if (costs && costs.ok) {
+        (costs.services || []).forEach(s => {
+            unitByName[String(s.name || '').toLowerCase()] = num(s.cost_amount);
+            unitById[s.id] = num(s.cost_amount);
+            nameById[s.id] = s.name;
+        });
+    }
+
+    function resolveUnit(s) {
+        const sid = s.service_id != null ? s.service_id : s.id;
+        const nm = (s.name || s.service_name || nameById[sid] || '').toLowerCase();
+        if (sid != null && unitById[sid] != null) return unitById[sid];
+        if (nm && unitByName[nm] != null) return unitByName[nm];
+        return num(s.unit_cost != null ? s.unit_cost : s.cost_amount);
+    }
+
+    /** Turn any list of booking-like rows into service aggregates */
+    function aggregateFromBookings(list) {
+        if (!Array.isArray(list) || !list.length) return [];
+        const map = {};
+        list.forEach(b => {
+            // skip non-completed if status present
+            const st = String(b.status || b.booking_status || '').toLowerCase();
+            if (st && !['completed', 'complete', 'done', 'finished'].includes(st) && st !== '') {
+                // allow empty status; only skip clear non-completed
+                if (['cancelled', 'canceled', 'no-show', 'noshow', 'pending', 'confirmed', 'booked'].includes(st)) {
+                    if (st !== 'completed' && st !== 'complete') return;
+                }
+            }
+            const sid = b.service_id != null ? b.service_id : null;
+            const rawName = b.service_name || b.service || b.name || nameById[sid] || 'Service';
+            const key = sid != null ? 'id:' + sid : 'n:' + String(rawName).toLowerCase();
+            if (!map[key]) {
+                map[key] = {
+                    name: rawName,
+                    service_id: sid,
+                    count: 0,
+                    revenue: 0,
+                    unit_cost: 0
+                };
+            }
+            map[key].count += 1;
+            map[key].revenue += num(b.price != null ? b.price : b.amount);
+            map[key].unit_cost = resolveUnit({ service_id: sid, name: rawName, unit_cost: b.cost_amount || b.unit_cost });
+        });
+        return Object.values(map).map(s => ({
+            name: s.name,
+            service_id: s.service_id,
+            count: s.count,
+            unit_cost: s.unit_cost,
+            cogs: s.count * s.unit_cost,
+            revenue: s.revenue
+        }));
+    }
+
+    function normalizeServiceList(list) {
+        if (!Array.isArray(list) || !list.length) return [];
+        return list.map(s => {
+            const count = num(s.count != null ? s.count : s.qty);
+            const unit = resolveUnit(s);
+            const cogs = num(s.cogs) || (count * unit);
+            return {
+                name: s.name || s.service_name || 'Service',
+                service_id: s.service_id != null ? s.service_id : s.id,
+                count,
+                unit_cost: unit,
+                cogs,
+                revenue: num(s.revenue)
+            };
+        }).filter(s => s.count > 0 || s.cogs > 0 || s.revenue > 0);
+    }
+
+    // ----- Services: try every shape until we get counts -----
     let services = [];
+
+    // 1) profit.service_breakdown / services / service_counts
     if (profit) {
-        if (Array.isArray(profit.service_breakdown) && profit.service_breakdown.length) {
-            services = profit.service_breakdown;
-        } else if (Array.isArray(profit.salons)) {
-            const row = profit.salons.find(s => String(s.salon_id) === String(salonId)) || profit.salons[0];
-            if (row) {
-                services = row.service_breakdown || (row.service_counts || []).map(s => ({
-                    name: s.name || s.service_name,
-                    count: s.count || s.qty || 0,
-                    unit_cost: s.unit_cost || s.cost_amount || 0,
-                    cogs: s.cogs,
-                    revenue: s.revenue || 0
-                }));
+        services = normalizeServiceList(
+            profit.service_breakdown || profit.services || profit.service_counts || []
+        );
+    }
+
+    // 2) profit.salons[this].*
+    if (!services.length && profit && Array.isArray(profit.salons)) {
+        const row = profit.salons.find(s => String(s.salon_id) === String(salonId) || String(s.id) === String(salonId))
+            || profit.salons[0];
+        if (row) {
+            services = normalizeServiceList(
+                row.service_breakdown || row.services || row.service_counts || []
+            );
+            // bookings nested on salon row
+            if (!services.length) {
+                services = aggregateFromBookings(row.bookings || row.completed_bookings_list || []);
             }
         }
     }
-    // Attach unit costs from salon-costs if missing
-    const unitByName = {};
-    const unitById = {};
-    if (costs && costs.ok) {
-        (costs.services || []).forEach(s => {
-            unitByName[s.name] = num(s.cost_amount);
-            unitById[s.id] = num(s.cost_amount);
-        });
+
+    // 3) profit.bookings
+    if (!services.length && profit) {
+        services = aggregateFromBookings(profit.bookings || profit.completed_bookings || []);
     }
-    services = (services || []).map(s => {
-        const unit = unitById[s.service_id] != null ? unitById[s.service_id]
-            : (unitByName[s.name || s.service_name] != null ? unitByName[s.name || s.service_name]
-            : num(s.unit_cost != null ? s.unit_cost : s.cost_amount));
-        const count = num(s.count != null ? s.count : s.qty);
-        const cogs = num(s.cogs) || (count * unit);
-        return {
-            name: s.name || s.service_name || 'Service',
-            count,
-            unit_cost: unit,
-            cogs,
-            revenue: num(s.revenue)
-        };
-    });
+
+    // 4) dedicated bookings APIs
+    if (!services.length) {
+        const rawBookings =
+            (bookingsA && (bookingsA.bookings || bookingsA.items || bookingsA.data || (Array.isArray(bookingsA) ? bookingsA : null))) ||
+            (bookingsB && (bookingsB.bookings || bookingsB.items || bookingsB.data || (Array.isArray(bookingsB) ? bookingsB : null))) ||
+            [];
+        services = aggregateFromBookings(rawBookings);
+    }
+
+    // 5) Last resort: if salon-costs has services and profit has only totals,
+    //    we cannot invent counts — leave empty (COGS stays 0) but keep unit map ready
 
     // ----- Revenue -----
     let revenue = 0;
-    if (profit && profit.totals && profit.totals.revenue != null && (!profit.salons || profit.salons.length <= 1)) {
-        revenue = num(profit.totals.revenue);
-    } else if (profit && Array.isArray(profit.salons)) {
-        const row = profit.salons.find(s => String(s.salon_id) === String(salonId));
-        revenue = row ? num(row.revenue) : num(profit.totals && profit.totals.revenue);
+    if (profit && Array.isArray(profit.salons)) {
+        const row = profit.salons.find(s => String(s.salon_id) === String(salonId) || String(s.id) === String(salonId));
+        if (row && row.revenue != null) revenue = num(row.revenue);
     }
-    // if still 0, sum service revenues
+    if (!revenue && profit && profit.totals && profit.totals.revenue != null) {
+        revenue = num(profit.totals.revenue);
+    }
     if (!revenue) revenue = services.reduce((a, s) => a + s.revenue, 0);
 
     const cogs = services.reduce((a, s) => a + s.cogs, 0);
@@ -1784,7 +1862,12 @@ async function npRun() {
     // Services table
     const svcBody = document.getElementById('npSvcBody');
     if (!services.length) {
-        svcBody.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:20px"><p class="mb-0">No completed services in this range.</p></div></td></tr>';
+        const hint = revenue > 0
+            ? 'Revenue is ' + money(revenue) + ' but the API did not return service counts. ' +
+              'Backend must include service_breakdown (name, count) or bookings on /admin/api/profit so COGS can be calculated. ' +
+              'Unit costs below still save correctly.'
+            : 'No completed services in this range.';
+        svcBody.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:20px"><p class="mb-0">' + hint + '</p></div></td></tr>';
     } else {
         svcBody.innerHTML = services.map(s =>
             '<tr>' +
