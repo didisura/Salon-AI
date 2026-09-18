@@ -1121,20 +1121,20 @@
             <div class="topbar">
                 <div>
                     <h1>Net profit</h1>
-                    <p class="sub">You capture costs in person · salons never see this · Premium leverage</p>
+                    <p class="sub">Pick a range · see services done · costs prorated · net in one tap</p>
                 </div>
             </div>
 
-            <!-- Period + custom date range -->
+            <!-- STEP 1: Date range -->
             <div class="card-soft mb-3">
+                <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-calendar-days"></i> 1 · Date range</div>
                 <div class="d-flex flex-wrap align-items-end gap-3">
                     <div>
-                        <label class="form-label small text-muted fw-semibold mb-1">Quick period</label>
                         <div class="filter-chips mb-0" id="profitPeriodChips">
                             <button type="button" class="chip" data-period="day" onclick="setProfitPeriod('day')">Today</button>
                             <button type="button" class="chip" data-period="week" onclick="setProfitPeriod('week')">This week</button>
                             <button type="button" class="chip active" data-period="month" onclick="setProfitPeriod('month')">This month</button>
-                            <button type="button" class="chip" data-period="custom" onclick="setProfitPeriod('custom')">Custom range</button>
+                            <button type="button" class="chip" data-period="custom" onclick="setProfitPeriod('custom')">Custom</button>
                         </div>
                     </div>
                     <div id="customDateRange" class="d-flex flex-wrap align-items-end gap-2" style="display:none !important;">
@@ -1146,52 +1146,96 @@
                             <label class="form-label small text-muted mb-0">To</label>
                             <input type="date" id="profitTo" class="form-control form-control-sm" style="min-width:140px">
                         </div>
-                        <button type="button" class="btn-accent btn-sm" onclick="loadProfit()">
-                            <i class="fa-solid fa-filter"></i> Apply range
-                        </button>
                     </div>
-                    <div class="ms-auto">
-                        <span class="small text-muted" id="profitRangeLabel">—</span>
+                    <div class="ms-auto text-end">
+                        <div class="small text-muted" id="profitRangeLabel">—</div>
+                        <div class="small text-muted" id="profitDaysLabel"></div>
                     </div>
                 </div>
                 <p class="small text-muted mb-0 mt-2">
-                    <strong>Proration:</strong> Rent, staff salary, and other monthly costs are stored as monthly amounts.
-                    For any date range they are scaled as <code>monthly × (days in range ÷ 30)</code>.
-                    COGS uses actual service counts in the range × unit cost.
+                    Monthly costs (rent, salary, utilities) → prorated as <code>monthly × (days ÷ 30)</code>.
+                    Service costs → <code>unit cost × how many times done</code> in this range.
                 </p>
             </div>
 
-            <div class="card-soft mb-3" style="font-size:0.84rem;line-height:1.55;color:var(--text-muted)">
-                <strong style="color:var(--text-dark)">Psychology play</strong> —
-                Your team visits the salon, learns rent / salaries / utilities / generator fuel.
-                You enter costs here. Owners only see booking magic; <em>you</em> see true net profit.
-                That insight is the Premium story: “We know if your salon is actually making money.”
-                <br><code style="color:var(--text-dark)">Net = Revenue − COGS − Prorated expenses − Prorated staff salary</code>
-            </div>
-
-            <div class="metrics-grid" id="profitTotals">
-                <div class="metric-card">
-                    <div class="label">Platform revenue</div>
-                    <div class="value" id="ptRevenue">—</div>
-                    <div class="sub">Completed bookings in range</div>
-                </div>
-                <div class="metric-card">
-                    <div class="label">COGS</div>
-                    <div class="value" id="ptCogs">—</div>
-                    <div class="sub">Service unit cost × counts</div>
-                </div>
-                <div class="metric-card">
-                    <div class="label">Operating expenses</div>
-                    <div class="value" id="ptExp">—</div>
-                    <div class="sub">Monthly costs prorated</div>
-                </div>
-                <div class="metric-card">
-                    <div class="label">Net profit</div>
-                    <div class="value" id="ptNet" style="color:var(--green)">—</div>
-                    <div class="sub">After all costs</div>
+            <!-- STEP 2: Salon -->
+            <div class="card-soft mb-3">
+                <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-store"></i> 2 · Salon / branch</div>
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <select id="costSalonSelect" class="form-select" onchange="onCostSalonChange()">
+                            <option value="">All locations (platform totals)</option>
+                            {% for s in salons or [] %}
+                            <option value="{{ s.id }}">
+                                {{ s.name }}{% if s.location_name %} · {{ s.location_name }}{% endif %}{% if s.parent_id %} (branch){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <button type="button" class="btn-accent w-100" id="btnCalculateNet" onclick="calculateNetProfit()">
+                            <i class="fa-solid fa-calculator"></i> Calculate net profit
+                        </button>
+                    </div>
                 </div>
             </div>
 
+            <!-- RESULT: Big clean net -->
+            <div class="card-soft mb-3" id="netResultCard" style="display:none;border:2px solid var(--accent);">
+                <div class="text-center py-2">
+                    <div class="label text-muted" style="font-size:0.8rem;font-weight:600;letter-spacing:0.6px;text-transform:uppercase">Your net profit</div>
+                    <div id="netResultValue" style="font-size:2.4rem;font-weight:700;margin:6px 0;color:var(--green)">—</div>
+                    <div class="small text-muted" id="netResultSub">—</div>
+                    <div class="d-flex flex-wrap justify-content-center gap-3 mt-3" style="font-size:0.85rem">
+                        <span>Revenue <strong id="nrRev">—</strong></span>
+                        <span class="text-muted">−</span>
+                        <span>COGS <strong id="nrCogs">—</strong></span>
+                        <span class="text-muted">−</span>
+                        <span>Expenses <strong id="nrExp">—</strong></span>
+                        <span class="text-muted">−</span>
+                        <span>Salary <strong id="nrSal">—</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BREAKDOWN: Services done -->
+            <div class="section-title"><i class="fa-solid fa-scissors"></i> Services done in range</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table" id="svcBreakdownTable">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Times done</th>
+                            <th>Unit cost</th>
+                            <th>COGS total</th>
+                            <th>Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody id="svcBreakdownBody">
+                        <tr><td colspan="5"><div class="empty-state" style="padding:28px"><p class="mb-0">Tap <strong>Calculate net profit</strong> to load service counts.</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- BREAKDOWN: Monthly costs prorated -->
+            <div class="section-title"><i class="fa-solid fa-receipt"></i> Your costs (monthly → prorated to range)</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table" id="costBreakdownTable">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Monthly amount</th>
+                            <th>Prorated to range</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody id="costBreakdownBody">
+                        <tr><td colspan="4"><div class="empty-state" style="padding:28px"><p class="mb-0">Rent, utilities, staff salary and other logged costs appear here after calculate.</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Platform table (all salons) -->
             <div class="section-title"><i class="fa-solid fa-table"></i> Every location</div>
             <div class="table-wrap mb-4">
                 <table class="admin-table" id="profitTable">
@@ -1203,42 +1247,25 @@
                             <th>Services (counts)</th>
                             <th>Revenue</th>
                             <th>COGS</th>
-                            <th>Expenses (prorated)</th>
-                            <th>Salary (prorated)</th>
+                            <th>Expenses</th>
+                            <th>Salary</th>
                             <th>Net</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody id="profitTableBody">
-                        <tr><td colspan="10"><div class="empty-state"><p>Open this tab to load…</p></div></td></tr>
+                        <tr><td colspan="10"><div class="empty-state"><p>Calculate to load every location.</p></div></td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- HQ cost capture -->
+            <!-- Capture costs -->
             <div class="section-title"><i class="fa-solid fa-clipboard-list"></i> Capture costs (after your visit)</div>
             <div class="card-soft mb-3">
-                <div class="row g-3 align-items-end">
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small text-muted fw-semibold mb-1">Salon / branch</label>
-                        <select id="costSalonSelect" class="form-select" onchange="onCostSalonChange()">
-                            <option value="">Select location…</option>
-                            {% for s in salons or [] %}
-                            <option value="{{ s.id }}">
-                                {{ s.name }}{% if s.location_name %} · {{ s.location_name }}{% endif %}{% if s.parent_id %} (branch){% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <hr class="my-3" style="border-color:var(--border)">
-
                 <p class="small text-muted mb-2">
-                    Enter <strong>monthly</strong> amounts for rent, salary, utilities, etc. Net profit will automatically
-                    divide them by the selected date range (days ÷ 30).
+                    Enter <strong>monthly</strong> amounts. Net profit divides them by the date range automatically.
+                    Select a salon above first.
                 </p>
-
                 <form action="/admin/expenses/add" method="post" class="row g-2 align-items-end" id="hqExpenseForm">
                     <input type="hidden" name="salon_id" id="hqExpenseSalonId" value="">
                     <div class="col-12 col-md-3">
@@ -1255,7 +1282,7 @@
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
-                        <label class="form-label small text-muted mb-0">Monthly amount (ETB)</label>
+                        <label class="form-label small text-muted mb-0">Monthly (ETB)</label>
                         <input type="number" step="1" min="0" name="amount" class="form-control form-control-sm" required placeholder="0">
                     </div>
                     <div class="col-6 col-md-2">
@@ -1264,7 +1291,7 @@
                                value="{{ now.strftime('%Y-%m-%d') if now is defined else '' }}">
                     </div>
                     <div class="col-12 col-md-3">
-                        <label class="form-label small text-muted mb-0">Note (from visit)</label>
+                        <label class="form-label small text-muted mb-0">Note</label>
                         <input type="text" name="note" class="form-control form-control-sm" placeholder="e.g. Bole rent Aug">
                     </div>
                     <div class="col-12 col-md-2">
@@ -1273,24 +1300,23 @@
                         </button>
                     </div>
                 </form>
-
                 <div class="mt-3" id="hqExpensesList">
-                    <p class="small text-muted mb-0">Select a salon to see logged costs.</p>
+                    <p class="small text-muted mb-0">Select a salon to see & edit logged costs.</p>
                 </div>
             </div>
 
             <div class="row g-3">
                 <div class="col-12 col-lg-6">
                     <div class="card-soft">
-                        <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-scissors"></i> Service COGS (unit cost)</div>
-                        <p class="small text-muted">Product cost <em>per service</em> — multiplied by how many times that service was completed in the date range.</p>
+                        <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-scissors"></i> Service unit COGS</div>
+                        <p class="small text-muted">Cost per one service — multiplied by times done in range.</p>
                         <div id="hqServicesCosts"><p class="small text-muted">Select a salon first.</p></div>
                     </div>
                 </div>
                 <div class="col-12 col-lg-6">
                     <div class="card-soft">
                         <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-users"></i> Staff monthly salary</div>
-                        <p class="small text-muted">Baseline monthly pay — prorated as monthly × (days in range ÷ 30).</p>
+                        <p class="small text-muted">Baseline monthly pay — prorated to range.</p>
                         <div id="hqStaffSalaries"><p class="small text-muted">Select a salon first.</p></div>
                     </div>
                 </div>
@@ -1576,6 +1602,7 @@ function filterSalons() {
 
 <script>
 let _profitPeriod = 'month';
+let _lastProfitData = null;
 
 function fmtETB(n) {
     return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ETB';
@@ -1588,7 +1615,6 @@ function ensureSalonSelected() {
     return true;
 }
 
-/** Days inclusive between YYYY-MM-DD strings (local). */
 function daysBetween(fromStr, toStr) {
     if (!fromStr || !toStr) return 0;
     const a = new Date(fromStr + 'T00:00:00');
@@ -1598,7 +1624,6 @@ function daysBetween(fromStr, toStr) {
     return Math.floor(ms / 86400000) + 1;
 }
 
-/** Resolve from/to for current period selection. */
 function resolveProfitRange() {
     const today = new Date();
     const iso = (d) => {
@@ -1623,7 +1648,6 @@ function resolveProfitRange() {
         const days = daysBetween(iso(fromD), to);
         return { from: iso(fromD), to: to, days: days || 1 };
     }
-    // custom
     const from = document.getElementById('profitFrom')?.value || '';
     const to = document.getElementById('profitTo')?.value || '';
     const days = daysBetween(from, to) || 1;
@@ -1639,7 +1663,6 @@ function setProfitPeriod(period) {
     if (customBox) {
         if (_profitPeriod === 'custom') {
             customBox.style.setProperty('display', 'flex', 'important');
-            // default last 7 days if empty
             const fromEl = document.getElementById('profitFrom');
             const toEl = document.getElementById('profitTo');
             if (fromEl && !fromEl.value) {
@@ -1652,50 +1675,53 @@ function setProfitPeriod(period) {
             }
         } else {
             customBox.style.setProperty('display', 'none', 'important');
-            loadProfit();
         }
-    } else {
-        loadProfit();
+    }
+    updateRangeLabel();
+}
+
+function updateRangeLabel() {
+    const range = resolveProfitRange();
+    const label = document.getElementById('profitRangeLabel');
+    const daysLabel = document.getElementById('profitDaysLabel');
+    if (label) {
+        label.textContent = range.from && range.to
+            ? (range.from + ' → ' + range.to)
+            : '—';
+    }
+    if (daysLabel) {
+        daysLabel.textContent = range.days
+            ? (range.days + ' day' + (range.days === 1 ? '' : 's') + ' · monthly costs × ' + (range.days / 30).toFixed(3))
+            : '';
     }
 }
 
 /**
- * Expected API: GET /admin/api/profit?period=...&from=YYYY-MM-DD&to=YYYY-MM-DD&days=N
+ * Main action: Calculate net profit
+ * API: GET /admin/api/profit?period=&from=&to=&days=&salon_id=
  *
- * Response shape (per salon):
+ * Expected response:
  * {
  *   totals: { revenue, cogs, expenses, staff_salary, net_profit, days },
- *   salons: [{
- *     salon_id, name, location_name, is_branch,
- *     completed_bookings, revenue, cogs, expenses, staff_salary_baseline, net_profit,
- *     service_counts: [{ name, count }]   // e.g. [{name:"Haircut", count:23}, ...]
- *   }]
+ *   service_breakdown: [{ name, count, unit_cost, cogs, revenue }],
+ *   cost_breakdown: [{ category, monthly, prorated, note }],
+ *   salons: [{ salon_id, name, location_name, is_branch, completed_bookings,
+ *              revenue, cogs, expenses, staff_salary_baseline, net_profit,
+ *              service_counts: [{name, count}],
+ *              service_breakdown, cost_breakdown }]
  * }
- *
- * Backend should:
- * - Revenue / COGS from completed bookings in [from, to]
- * - COGS = sum(unit_cost_amount × count) for each service
- * - expenses & staff_salary_baseline = monthly totals × (days / 30)
- * - net = revenue - cogs - expenses - staff_salary_baseline
  */
-async function loadProfit() {
+async function calculateNetProfit() {
+    updateRangeLabel();
     const range = resolveProfitRange();
     if (_profitPeriod === 'custom' && (!range.from || !range.to)) {
         alert('Pick From and To dates');
         return;
     }
-    document.querySelectorAll('#profitPeriodChips .chip').forEach(c => {
-        c.classList.toggle('active', c.dataset.period === _profitPeriod);
-    });
-    const label = document.getElementById('profitRangeLabel');
-    if (label) {
-        label.textContent = range.from && range.to
-            ? (range.from + ' → ' + range.to + ' · ' + range.days + ' day' + (range.days === 1 ? '' : 's') + ' · monthly ÷ 30 × ' + range.days)
-            : '—';
-    }
 
-    const body = document.getElementById('profitTableBody');
-    if (body) body.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>Loading…</p></div></td></tr>';
+    const salonId = document.getElementById('costSalonSelect')?.value || '';
+    const btn = document.getElementById('btnCalculateNet');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Calculating…'; }
 
     const qs = new URLSearchParams({
         period: _profitPeriod,
@@ -1703,62 +1729,171 @@ async function loadProfit() {
         to: range.to || '',
         days: String(range.days || 1)
     });
+    if (salonId) qs.set('salon_id', salonId);
+
+    const body = document.getElementById('profitTableBody');
+    const svcBody = document.getElementById('svcBreakdownBody');
+    const costBody = document.getElementById('costBreakdownBody');
+    if (body) body.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>Loading…</p></div></td></tr>';
+    if (svcBody) svcBody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>Loading…</p></div></td></tr>';
+    if (costBody) costBody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>Loading…</p></div></td></tr>';
 
     try {
         const res = await fetch('/admin/api/profit?' + qs.toString());
         const data = await res.json();
-        const t = data.totals || {};
-        const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = fmtETB(v); };
-        set('ptRevenue', t.revenue);
-        set('ptCogs', t.cogs);
-        set('ptExp', t.expenses);
-        set('ptNet', t.net_profit);
-        const netEl = document.getElementById('ptNet');
-        if (netEl) netEl.style.color = (t.net_profit || 0) >= 0 ? 'var(--green)' : 'var(--rose)';
+        _lastProfitData = data;
 
-        const rows = data.salons || [];
-        if (!body) return;
-        if (!rows.length) {
-            body.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>No data yet for this range.</p></div></td></tr>';
-            return;
+        // Big net result
+        const t = data.totals || {};
+        const net = Number(t.net_profit || 0);
+        const card = document.getElementById('netResultCard');
+        const val = document.getElementById('netResultValue');
+        const sub = document.getElementById('netResultSub');
+        if (card) card.style.display = 'block';
+        if (val) {
+            val.textContent = fmtETB(net);
+            val.style.color = net >= 0 ? 'var(--green)' : 'var(--rose)';
         }
-        body.innerHTML = rows.map(r => {
-            const net = Number(r.net_profit || 0);
-            const col = net >= 0 ? 'var(--green)' : 'var(--rose)';
-            const type = r.is_branch ? 'Branch' : 'HQ';
-            const label = r.location_name ? (r.name + ' · ' + r.location_name) : r.name;
-            // Service counts: "Haircut 23 · Color 17 · ..."
-            let svcHtml = '—';
-            const sc = r.service_counts || r.services || [];
-            if (Array.isArray(sc) && sc.length) {
-                svcHtml = sc.map(s => {
-                    const nm = s.name || s.service_name || '?';
-                    const cnt = s.count != null ? s.count : (s.qty != null ? s.qty : 0);
-                    return '<span class="mono" style="white-space:nowrap">' + nm + ' <strong>' + cnt + '</strong></span>';
-                }).join(' · ');
-            }
-            return '<tr>' +
-                '<td class="name-cell">' + label + '</td>' +
-                '<td>' + type + '</td>' +
-                '<td>' + (r.completed_bookings || 0) + '</td>' +
-                '<td style="max-width:260px;font-size:0.78rem;line-height:1.45">' + svcHtml + '</td>' +
-                '<td class="mono">' + fmtETB(r.revenue) + '</td>' +
-                '<td class="mono">' + fmtETB(r.cogs) + '</td>' +
-                '<td class="mono">' + fmtETB(r.expenses) + '</td>' +
-                '<td class="mono">' + fmtETB(r.staff_salary_baseline) + '</td>' +
-                '<td class="mono" style="font-weight:700;color:' + col + '">' + fmtETB(net) + '</td>' +
-                '<td><button type="button" class="btn-outline-soft btn-sm" onclick="selectSalonForCosts(' + r.salon_id + ')">Costs</button></td>' +
-                '</tr>';
-        }).join('');
+        if (sub) {
+            const name = salonId
+                ? (document.getElementById('costSalonSelect').selectedOptions[0]?.text || 'Selected salon')
+                : 'All locations';
+            sub.textContent = name.trim() + ' · ' + range.from + ' → ' + range.to + ' (' + range.days + ' days)';
+        }
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmtETB(v); };
+        setTxt('nrRev', t.revenue);
+        setTxt('nrCogs', t.cogs);
+        setTxt('nrExp', t.expenses);
+        setTxt('nrSal', t.staff_salary != null ? t.staff_salary : t.staff_salary_baseline);
+
+        // Service breakdown: Service A done 23 × cost = COGS
+        renderServiceBreakdown(data.service_breakdown || aggregateServicesFromSalons(data.salons || []));
+
+        // Cost breakdown: rent, utility, staff salary…
+        renderCostBreakdown(data.cost_breakdown || [], range.days);
+
+        // All locations table
+        renderSalonRows(data.salons || []);
+
+        // If a salon is selected, also refresh cost capture panels
+        if (salonId) onCostSalonChange();
     } catch (e) {
         if (body) body.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>API error — check /admin/api/profit</p></div></td></tr>';
+        if (svcBody) svcBody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>Could not load services.</p></div></td></tr>';
+        if (costBody) costBody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>Could not load costs.</p></div></td></tr>';
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Calculate net profit';
+        }
     }
 }
 
+function aggregateServicesFromSalons(salons) {
+    const map = {};
+    (salons || []).forEach(r => {
+        const list = r.service_breakdown || r.service_counts || [];
+        list.forEach(s => {
+            const nm = s.name || s.service_name || '?';
+            if (!map[nm]) map[nm] = { name: nm, count: 0, unit_cost: s.unit_cost || s.cost_amount || 0, cogs: 0, revenue: 0 };
+            map[nm].count += Number(s.count || s.qty || 0);
+            map[nm].cogs += Number(s.cogs != null ? s.cogs : (map[nm].unit_cost * Number(s.count || 0)));
+            map[nm].revenue += Number(s.revenue || 0);
+            if (s.unit_cost != null) map[nm].unit_cost = s.unit_cost;
+        });
+    });
+    return Object.values(map);
+}
+
+function renderServiceBreakdown(rows) {
+    const body = document.getElementById('svcBreakdownBody');
+    if (!body) return;
+    if (!rows || !rows.length) {
+        body.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:28px"><p class="mb-0">No completed services in this range.</p></div></td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(s => {
+        const count = Number(s.count || s.qty || 0);
+        const unit = Number(s.unit_cost != null ? s.unit_cost : (s.cost_amount || 0));
+        const cogs = Number(s.cogs != null ? s.cogs : (unit * count));
+        const rev = Number(s.revenue || 0);
+        return '<tr>' +
+            '<td class="name-cell">' + (s.name || s.service_name || '—') + '</td>' +
+            '<td><strong>' + count + '</strong></td>' +
+            '<td class="mono">' + fmtETB(unit) + '</td>' +
+            '<td class="mono">' + fmtETB(cogs) + '</td>' +
+            '<td class="mono">' + (rev ? fmtETB(rev) : '—') + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function renderCostBreakdown(rows, days) {
+    const body = document.getElementById('costBreakdownBody');
+    if (!body) return;
+    const factor = (days || 1) / 30;
+    if (!rows || !rows.length) {
+        body.innerHTML = '<tr><td colspan="4"><div class="empty-state" style="padding:28px"><p class="mb-0">No monthly costs logged yet. Add rent / salary / utilities below.</p></div></td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(c => {
+        const monthly = Number(c.monthly != null ? c.monthly : (c.amount || 0));
+        const prorated = Number(c.prorated != null ? c.prorated : Math.round(monthly * factor));
+        const cat = (c.category || 'other').replace(/_/g, ' ');
+        return '<tr>' +
+            '<td class="name-cell" style="text-transform:capitalize">' + cat + '</td>' +
+            '<td class="mono">' + fmtETB(monthly) + '</td>' +
+            '<td class="mono" style="font-weight:700">' + fmtETB(prorated) + '</td>' +
+            '<td class="mono">' + (c.note || '—') + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function renderSalonRows(rows) {
+    const body = document.getElementById('profitTableBody');
+    if (!body) return;
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>No data yet for this range.</p></div></td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(r => {
+        const net = Number(r.net_profit || 0);
+        const col = net >= 0 ? 'var(--green)' : 'var(--rose)';
+        const type = r.is_branch ? 'Branch' : 'HQ';
+        const label = r.location_name ? (r.name + ' · ' + r.location_name) : r.name;
+        let svcHtml = '—';
+        const sc = r.service_counts || r.service_breakdown || [];
+        if (Array.isArray(sc) && sc.length) {
+            svcHtml = sc.map(s => {
+                const nm = s.name || s.service_name || '?';
+                const cnt = s.count != null ? s.count : (s.qty != null ? s.qty : 0);
+                return '<span class="mono" style="white-space:nowrap">' + nm + ' <strong>' + cnt + '</strong></span>';
+            }).join(' · ');
+        }
+        return '<tr>' +
+            '<td class="name-cell">' + label + '</td>' +
+            '<td>' + type + '</td>' +
+            '<td>' + (r.completed_bookings || 0) + '</td>' +
+            '<td style="max-width:260px;font-size:0.78rem;line-height:1.45">' + svcHtml + '</td>' +
+            '<td class="mono">' + fmtETB(r.revenue) + '</td>' +
+            '<td class="mono">' + fmtETB(r.cogs) + '</td>' +
+            '<td class="mono">' + fmtETB(r.expenses) + '</td>' +
+            '<td class="mono">' + fmtETB(r.staff_salary_baseline) + '</td>' +
+            '<td class="mono" style="font-weight:700;color:' + col + '">' + fmtETB(net) + '</td>' +
+            '<td><button type="button" class="btn-outline-soft btn-sm" onclick="selectSalonForCosts(' + r.salon_id + ')">Focus</button></td>' +
+            '</tr>';
+    }).join('');
+}
+
+// Back-compat alias
+async function loadProfit() { return calculateNetProfit(); }
+
 function selectSalonForCosts(id) {
     const sel = document.getElementById('costSalonSelect');
-    if (sel) { sel.value = String(id); onCostSalonChange(); }
-    document.getElementById('hqExpenseForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (sel) { sel.value = String(id); }
+    document.getElementById('hqExpenseSalonId').value = String(id);
+    onCostSalonChange();
+    calculateNetProfit();
+    document.getElementById('netResultCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function onCostSalonChange() {
@@ -1773,7 +1908,8 @@ async function onCostSalonChange() {
         if (stBox) stBox.innerHTML = '<p class="small text-muted">Select a salon first.</p>';
         return;
     }
-    // expenses (monthly amounts you already logged)
+    const range = resolveProfitRange();
+    const factor = (range.days || 1) / 30;
     try {
         const er = await fetch('/admin/api/expenses/' + id);
         const ed = await er.json();
@@ -1781,18 +1917,16 @@ async function onCostSalonChange() {
         if (!list.length) {
             expBox.innerHTML = '<p class="small text-muted mb-0">No costs logged yet for this location.</p>';
         } else {
-            const range = resolveProfitRange();
-            const factor = (range.days || 1) / 30;
             expBox.innerHTML =
-                '<p class="small text-muted mb-2">Amounts below are <strong>monthly</strong>. For current range (' +
-                range.days + ' days) prorated ≈ monthly × ' + factor.toFixed(3) + '.</p>' +
-                '<table class="admin-table"><thead><tr><th>Date</th><th>Category</th><th>Monthly</th><th>Prorated (' + range.days + 'd)</th><th>Note</th><th></th></tr></thead><tbody>' +
+                '<p class="small text-muted mb-2">Monthly amounts · current range ' + range.days +
+                ' days · factor ' + factor.toFixed(3) + '</p>' +
+                '<table class="admin-table"><thead><tr><th>Date</th><th>Category</th><th>Monthly</th><th>Prorated</th><th>Note</th><th></th></tr></thead><tbody>' +
                 list.map(e => {
                     const monthly = Number(e.amount || 0);
                     const prorated = Math.round(monthly * factor);
                     return '<tr>' +
                         '<td class="mono">' + (e.date || '') + '</td>' +
-                        '<td>' + e.category + '</td>' +
+                        '<td style="text-transform:capitalize">' + (e.category || '').replace(/_/g, ' ') + '</td>' +
                         '<td class="mono">' + fmtETB(monthly) + '</td>' +
                         '<td class="mono" style="font-weight:600">' + fmtETB(prorated) + '</td>' +
                         '<td>' + (e.note || '—') + '</td>' +
@@ -1805,7 +1939,6 @@ async function onCostSalonChange() {
     } catch (e) {
         expBox.innerHTML = '<p class="small text-muted">Could not load expenses.</p>';
     }
-    // services + staff
     try {
         const cr = await fetch('/admin/api/salon-costs/' + id);
         const cd = await cr.json();
@@ -1848,7 +1981,9 @@ window.showPanel = function(id, el, filter) {
         document.getElementById('adminSidebar')?.classList.remove('open');
         document.getElementById('sidebarBackdrop')?.classList.remove('show');
     }
-    if (id === 'netprofit') loadProfit();
+    if (id === 'netprofit') {
+        updateRangeLabel();
+    }
 };
 </script>
 </body>
