@@ -21,6 +21,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from database import Base, engine, get_db, SessionLocal
 from models import (
@@ -2518,9 +2519,11 @@ async def settings_deposit(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    salon.deposit_enabled = 1 if deposit_enabled in ("1", "on", "true", "yes") else 0
+    """Turn deposit requirement ON/OFF for this salon."""
+    salon.deposit_enabled = 1 if (deposit_enabled or "").lower() in ("1", "on", "true", "yes") else 0
+    db.add(salon)
     db.commit()
-    return RedirectResponse(url="/dashboard?tab=settings", status_code=303)
+    return RedirectResponse(url="/dashboard?tab=settings&deposit_saved=1", status_code=303)
 
 
 @app.post("/settings/payment-methods")
@@ -2531,17 +2534,36 @@ async def settings_payment_methods(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    """
+    Save payment methods.
+    HTML form must use repeated fields:
+      name="method_names"
+      name="method_accounts"
+      name="method_notes"
+    """
     methods = []
-    for i, name in enumerate(method_names):
-        name = (name or "").strip()
+    n = max(len(method_names or []), len(method_accounts or []), len(method_notes or []))
+    for i in range(n):
+        name = (method_names[i] if i < len(method_names) else "").strip()
         if not name:
             continue
-        account = method_accounts[i].strip() if i < len(method_accounts) else ""
-        notes = method_notes[i].strip() if i < len(method_notes) else ""
-        methods.append({"name": name, "account": account, "instructions": notes})
+        account = (method_accounts[i] if i < len(method_accounts) else "").strip()
+        notes = (method_notes[i] if i < len(method_notes) else "").strip()
+        methods.append({
+            "name": name,
+            "account": account,
+            "instructions": notes,
+        })
+
     salon.payment_methods = methods
+    # Critical: make SQLAlchemy detect JSON/TEXT mutation
+    try:
+        flag_modified(salon, "payment_methods")
+    except Exception:
+        pass
+    db.add(salon)
     db.commit()
-    return RedirectResponse(url="/dashboard?tab=settings", status_code=303)
+    return RedirectResponse(url="/dashboard?tab=settings&payments_saved=1", status_code=303)
 
 
 @app.post("/dismiss-payment-proof")

@@ -2911,9 +2911,15 @@
                     <span data-lang-en>Optionally require a deposit when customers book online. Set the amount per service on the Services tab.</span>
                 </p>
 
+                {% if request.query_params.get('deposit_saved') %}
+                <div class="alert alert-success py-2 small mb-2">
+                    <span data-lang-am>✓ የቅድሚያ ክፍያ ቅንብር ተቀምጧል</span>
+                    <span data-lang-en>✓ Deposit setting saved</span>
+                </div>
+                {% endif %}
                 <form action="/settings/deposit" method="post" class="d-flex align-items-center gap-3 flex-wrap mb-3 p-3 rounded-3" style="border:1px solid var(--border);background:#fff;">
                     <label class="form-check m-0">
-                        <input type="checkbox" name="deposit_enabled" value="1" class="form-check-input"
+                        <input type="checkbox" name="deposit_enabled" value="on" class="form-check-input"
                                {% if salon.deposit_enabled %}checked{% endif %}
                                onchange="this.form.submit()">
                         <span class="form-check-label fw-semibold">
@@ -2930,6 +2936,12 @@
                     </span>
                 </form>
 
+                {% if request.query_params.get('payments_saved') %}
+                <div class="alert alert-success py-2 small mb-2">
+                    <span data-lang-am>✓ የክፍያ ዘዴዎች ተቀምጠዋል</span>
+                    <span data-lang-en>✓ Payment methods saved</span>
+                </div>
+                {% endif %}
                 <form action="/settings/payment-methods" method="post" class="p-3 rounded-3" style="border:1px solid var(--border);background:#faf8f5;">
                     <label class="form-label small text-muted fw-semibold">
                         <span data-lang-am>የክፍያ ዘዴዎች (Telebirr, CBE, Awash, አቢሲኒያ…)</span>
@@ -4208,5 +4220,44 @@ function openReschedule(id, name, dateStr, timeHM, staffId, serviceId) {
 document.getElementById('rescheduleServiceSelect')?.addEventListener('change', filterRescheduleStaffByService);
 </script>
 
+
+<script>
+/* ========== FIXED: Add payment method row (was missing) ========== */
+function addPaymentMethodRow() {
+    var list = document.getElementById('paymentMethodsList');
+    if (!list) return;
+    var row = document.createElement('div');
+    row.className = 'row g-2 mb-2 payment-method-row';
+    row.innerHTML =
+        '<div class="col-12 col-md-3">' +
+        '  <input type="text" name="method_names" class="form-control form-control-sm" placeholder="Name" value="">' +
+        '</div>' +
+        '<div class="col-12 col-md-4">' +
+        '  <input type="text" name="method_accounts" class="form-control form-control-sm" placeholder="Account / phone" value="">' +
+        '</div>' +
+        '<div class="col-10 col-md-4">' +
+        '  <input type="text" name="method_notes" class="form-control form-control-sm" placeholder="Note (optional)" value="">' +
+        '</div>' +
+        '<div class="col-2 col-md-1 d-flex align-items-center">' +
+        '  <button type="button" class="btn btn-sm btn-outline-soft" onclick="this.closest(\'.payment-method-row\').remove()" title="Remove">✕</button>' +
+        '</div>';
+    list.appendChild(row);
+    var first = row.querySelector('input');
+    if (first) first.focus();
+}
+if (typeof window.copyText !== 'function') {
+    window.copyText = function(text, btn) {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(function() {
+            if (btn) {
+                var prev = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+                setTimeout(function(){ btn.innerHTML = prev; }, 1200);
+            }
+        }).catch(function(){});
+    };
+}
+</script>
 </body>
+
 </html>
