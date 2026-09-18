@@ -831,17 +831,45 @@
             <span data-lang-am>ስራዎቻችን</span>
             <span data-lang-en>Our work</span>
         </div>
+        {# Only show category chips that exist on THIS salon's gallery photos #}
+        {% set _cat_meta = {
+            'hair': ('ፀጉር', 'Hair'),
+            'nails': ('ጥፍር', 'Nails'),
+            'pedicure': ('ጥፍር', 'Nails'),
+            'manicure': ('ጥፍር', 'Nails'),
+            'makeup': ('ሜካፕ', 'Makeup'),
+            'facial': ('ፊት', 'Facial'),
+            'spa': ('ስፓ', 'Spa'),
+            'massage': ('ስፓ', 'Spa'),
+            'barber': ('ባርበር', 'Barber'),
+            'other': ('ሌላ', 'Other')
+        } %}
+        {% set ns = namespace(used=[]) %}
+        {% for g in gallery %}
+          {% set c = (g.category or 'other')|lower %}
+          {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
+          {% if c == 'massage' %}{% set c = 'spa' %}{% endif %}
+          {% if c not in ns.used %}{% set ns.used = ns.used + [c] %}{% endif %}
+        {% endfor %}
         <div class="cat-row" id="catFilters">
-            <button type="button" class="cat-chip active" data-cat="all">All</button>
-            <button type="button" class="cat-chip" data-cat="hair">Hair</button>
-            <button type="button" class="cat-chip" data-cat="nails">Nails</button>
-            <button type="button" class="cat-chip" data-cat="facial">Facial</button>
-            <button type="button" class="cat-chip" data-cat="massage">Massage</button>
-            <button type="button" class="cat-chip" data-cat="other">Other</button>
+            <button type="button" class="cat-chip active" data-cat="all">
+                <span data-lang-am>ሁሉም</span>
+                <span data-lang-en>All</span>
+            </button>
+            {% for c in ns.used %}
+              {% set meta = _cat_meta.get(c, ('ሌላ', 'Other')) %}
+              <button type="button" class="cat-chip" data-cat="{{ c }}">
+                <span data-lang-am>{{ meta[0] }}</span>
+                <span data-lang-en>{{ meta[1] }}</span>
+              </button>
+            {% endfor %}
         </div>
         <div class="gallery-row" id="galleryScroll">
             {% for g in gallery %}
-            <div class="g-tile" data-cat="{{ g.category or 'other' }}" onclick="openLightbox('{{ g.image_url }}')">
+              {% set c = (g.category or 'other')|lower %}
+              {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
+              {% if c == 'massage' %}{% set c = 'spa' %}{% endif %}
+            <div class="g-tile" data-cat="{{ c }}" onclick="openLightbox('{{ g.image_url }}')">
                 <img src="{{ g.image_url }}" alt="" loading="lazy">
                 {% if g.caption %}<span class="badge">{{ g.caption }}</span>{% endif %}
             </div>
@@ -1543,7 +1571,11 @@ document.querySelectorAll('#catFilters .cat-chip').forEach(chip => {
         chip.classList.add('active');
         const cat = chip.dataset.cat;
         document.querySelectorAll('#galleryScroll .g-tile').forEach(t => {
-            t.classList.toggle('hidden', cat !== 'all' && t.dataset.cat !== cat && !(cat === 'nails' && ['manicure','pedicure','nails'].includes(t.dataset.cat)));
+            const tc = (t.dataset.cat || 'other').toLowerCase();
+            const match = cat === 'all' || tc === cat ||
+                (cat === 'nails' && ['nails','manicure','pedicure'].includes(tc)) ||
+                (cat === 'spa' && ['spa','massage'].includes(tc));
+            t.classList.toggle('hidden', !match);
         });
     });
 });

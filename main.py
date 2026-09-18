@@ -27,6 +27,7 @@ from database import Base, engine, get_db, SessionLocal
 from models import (
     Salon, Service, Staff, StaffDayOff, Appointment, Waitlist,
     AppointmentStatus, GalleryImage, Testimonial, MediaAsset,
+    Expense, EXPENSE_CATEGORIES,
 )
 from security import (
     hash_password,
@@ -3324,6 +3325,405 @@ def admin_suspend(
             ip=_client_ip(request),
         )
     return RedirectResponse(url="/admin#salons", status_code=303)
+
+
+
+# --- Net profit / expenses (see profit_module.py for full routes) ---
+def _ensure_expense_columns():
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+    try:
+        tables = inspector.get_table_names()
+    except Exception:
+        return
+    if "expenses" not in tables:
+        if dialect == "postgresql":
+            ddl = """CREATE TABLE IF NOT EXISTS expenses (
+                id SERIAL PRIMARY KEY,
+                salon_id INTEGER NOT NULL,
+                category VARCHAR(40) NOT NULL DEFAULT 'other',
+                amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+                expense_date DATE NOT NULL,
+                note VARCHAR(400),
+                staff_id INTEGER,
+                is_recurring INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )"""
+        else:
+            ddl = """CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                salon_id INTEGER NOT NULL,
+                category VARCHAR(40) NOT NULL DEFAULT 'other',
+                amount REAL NOT NULL DEFAULT 0,
+                expense_date DATE NOT NULL,
+                note VARCHAR(400),
+                staff_id INTEGER,
+                is_recurring INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )"""
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    ntype = "NUMERIC(12,2)" if dialect == "postgresql" else "REAL"
+    try:
+        svc_cols = [c["name"] for c in inspector.get_columns("services")]
+        if svc_cols and "cost_amount" not in svc_cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE services ADD COLUMN cost_amount {ntype} DEFAULT 0"))
+    except Exception:
+        pass
+    try:
+        st_cols = [c["name"] for c in inspector.get_columns("staff")]
+        if st_cols and "monthly_salary" not in st_cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE staff ADD COLUMN monthly_salary {ntype} DEFAULT 0"))
+    except Exception:
+        pass
+
+_ensure_expense_columns()
+
+
+# ---------------------------------------------------------------------------
+# Net profit routes — full helpers live in profit_module.py
+# For a single-file deploy, keep these endpoints + _salon_profit helpers.
+# ---------------------------------------------------------------------------
+try:
+    from profit_module import (  # if you keep profit_module.py beside main
+        _ensure_expense_columns as _pmc_ensure,
+        _salon_profit,
+        _platform_profit_rows,
+    )
+except Exception:
+    _salon_profit = None
+    _platform_profit_rows = None
+
+@app.post("/expenses/add")
+async def expenses_add(
+    category: str = Form("other"),
+    amount: float = Form(...),
+    expense_date: str = Form(...),
+    note: Optional[str] = Form(None),
+    staff_id: Optional[int] = Form(None),
+    is_recurring: Optional[str] = Form(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime as dt
+    try:
+        d = dt.strptime((expense_date or "")[:10], "%Y-%m-%d").date()
+    except Exception:
+        d = date.today()
+    cat = (category or "other").strip().lower()[:40]
+    allowed = {k for k, _ in EXPENSE_CATEGORIES}
+    if cat not in allowed:
+        cat = "other"
+    row = Expense(
+        salon_id=salon.id,
+        category=cat,
+        amount=max(0.0, float(amount or 0)),
+        expense_date=d,
+        note=(note or "")[:400] or None,
+        staff_id=int(staff_id) if staff_id else None,
+        is_recurring=1 if (is_recurring or "").lower() in ("1", "on", "true", "yes") else 0,
+    )
+    db.add(row)
+    db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings&expense_saved=1", status_code=303)
+
+
+@app.post("/expenses/delete")
+async def expenses_delete(
+    expense_id: int = Form(...),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    row = db.query(Expense).filter(Expense.id == expense_id, Expense.salon_id == salon.id).first()
+    if row:
+        db.delete(row)
+        db.commit()
+    return RedirectResponse(url="/dashboard?tab=settings&expense_deleted=1", status_code=303)
+
+
+@app.get("/admin/api/profit")
+def admin_api_profit(
+    period: str = "month",
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Platform net profit per location. period=day|week|month"""
+    if period not in ("day", "week", "month"):
+        period = "month"
+    # Inline minimal calculator so admin works even without importing profit_module helpers
+    today = date.today()
+    if period == "day":
+        start = datetime.combine(today, datetime.min.time())
+        end = start + timedelta(days=1)
+    elif period == "week":
+        start_d = today - timedelta(days=today.weekday())
+        start = datetime.combine(start_d, datetime.min.time())
+        end = start + timedelta(days=7)
+    else:
+        start = datetime.combine(today.replace(day=1), datetime.min.time())
+        end = datetime(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
+
+    start_d, end_d = start.date(), end.date()
+    completed = [AppointmentStatus.completed, "Completed", "completed"]
+    salons = db.query(Salon).order_by(Salon.id).all()
+    rows = []
+    for s in salons:
+        appts = (
+            db.query(Appointment)
+            .filter(
+                Appointment.salon_id == s.id,
+                Appointment.appointment_datetime >= start,
+                Appointment.appointment_datetime < end,
+                Appointment.status.in_(completed),
+            )
+            .all()
+        )
+        revenue = sum(float(a.service_price or 0) for a in appts)
+        cogs = 0.0
+        for a in appts:
+            party = max(1, int(a.party_size or 1))
+            if a.service is not None:
+                cogs += float(getattr(a.service, "cost_amount", 0) or 0) * party
+        exp_q = db.query(Expense).filter(
+            Expense.salon_id == s.id,
+            Expense.expense_date >= start_d,
+            Expense.expense_date < end_d,
+        )
+        expenses = float(sum(float(e.amount or 0) for e in exp_q.all()))
+        staff = db.query(Staff).filter(Staff.salon_id == s.id).all()
+        monthly = float(sum(float(getattr(st, "monthly_salary", 0) or 0) for st in staff))
+        if period == "day":
+            salary = monthly / 30.0
+        elif period == "week":
+            salary = monthly / 30.0 * 7
+        else:
+            salary = monthly
+        net = revenue - cogs - expenses - salary
+        rows.append({
+            "salon_id": s.id,
+            "name": s.name,
+            "location_name": s.location_name,
+            "parent_id": s.parent_id,
+            "is_branch": bool(s.parent_id),
+            "status": s.status,
+            "period": period,
+            "revenue": round(revenue, 2),
+            "cogs": round(cogs, 2),
+            "expenses": round(expenses, 2),
+            "staff_salary_baseline": round(salary, 2),
+            "net_profit": round(net, 2),
+            "completed_bookings": len(appts),
+        })
+    totals = {
+        "revenue": round(sum(r["revenue"] for r in rows), 2),
+        "cogs": round(sum(r["cogs"] for r in rows), 2),
+        "expenses": round(sum(r["expenses"] for r in rows), 2),
+        "staff_salary_baseline": round(sum(r["staff_salary_baseline"] for r in rows), 2),
+        "net_profit": round(sum(r["net_profit"] for r in rows), 2),
+    }
+    return JSONResponse({"period": period, "totals": totals, "salons": rows})
+
+
+
+
+# ---------------------------------------------------------------------------
+# HQ-only cost entry (psychology: you own the P&L, not the salon)
+# ---------------------------------------------------------------------------
+
+@app.post("/admin/expenses/add")
+async def admin_expenses_add(
+    request: Request,
+    salon_id: int = Form(...),
+    category: str = Form("other"),
+    amount: float = Form(...),
+    expense_date: str = Form(...),
+    note: Optional[str] = Form(None),
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if not salon:
+        return RedirectResponse(url="/admin#netprofit", status_code=303)
+    from datetime import datetime as dt
+    try:
+        d = dt.strptime((expense_date or "")[:10], "%Y-%m-%d").date()
+    except Exception:
+        d = date.today()
+    cat = (category or "other").strip().lower()[:40]
+    try:
+        allowed = {k for k, _ in EXPENSE_CATEGORIES}
+    except Exception:
+        allowed = {"rent", "staff_salary", "water", "electricity", "generator", "supplies", "marketing", "other"}
+    if cat not in allowed:
+        cat = "other"
+    row = Expense(
+        salon_id=salon.id,
+        category=cat,
+        amount=max(0.0, float(amount or 0)),
+        expense_date=d,
+        note=(note or "")[:400] or None,
+        is_recurring=0,
+    )
+    db.add(row)
+    db.commit()
+    try:
+        _admin_audit(
+            db,
+            action="expense_added",
+            target_type="salon",
+            target_id=salon.id,
+            target_name=salon.name,
+            details=f"{cat} {float(amount or 0):.0f} ETB on {d}",
+            ip=_client_ip(request),
+        )
+    except Exception:
+        pass
+    return RedirectResponse(url=f"/admin#netprofit", status_code=303)
+
+
+@app.post("/admin/expenses/delete")
+async def admin_expenses_delete(
+    request: Request,
+    expense_id: int = Form(...),
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    row = db.query(Expense).filter(Expense.id == expense_id).first()
+    if row:
+        sid, cat, amt = row.salon_id, row.category, float(row.amount or 0)
+        db.delete(row)
+        db.commit()
+        try:
+            _admin_audit(
+                db,
+                action="expense_deleted",
+                target_type="salon",
+                target_id=sid,
+                details=f"removed {cat} {amt:.0f} ETB",
+                ip=_client_ip(request),
+            )
+        except Exception:
+            pass
+    return RedirectResponse(url="/admin#netprofit", status_code=303)
+
+
+@app.get("/admin/api/expenses/{salon_id}")
+def admin_api_expenses(
+    salon_id: int,
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(Expense)
+        .filter(Expense.salon_id == salon_id)
+        .order_by(Expense.expense_date.desc(), Expense.id.desc())
+        .limit(100)
+        .all()
+    )
+    return JSONResponse({
+        "salon_id": salon_id,
+        "expenses": [
+            {
+                "id": e.id,
+                "category": e.category,
+                "amount": float(e.amount or 0),
+                "date": e.expense_date.isoformat() if e.expense_date else None,
+                "note": e.note or "",
+            }
+            for e in rows
+        ],
+    })
+
+
+@app.post("/admin/service-cost")
+async def admin_set_service_cost(
+    request: Request,
+    service_id: int = Form(...),
+    cost_amount: float = Form(0),
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """HQ sets COGS on a service without salon touching it."""
+    svc = db.query(Service).filter(Service.id == service_id).first()
+    if svc:
+        svc.cost_amount = max(0.0, float(cost_amount or 0))
+        db.add(svc)
+        db.commit()
+        try:
+            _admin_audit(
+                db,
+                action="service_cost_set",
+                target_type="service",
+                target_id=svc.id,
+                target_name=svc.name,
+                details=f"cost_amount={svc.cost_amount}",
+                ip=_client_ip(request),
+            )
+        except Exception:
+            pass
+    return RedirectResponse(url="/admin#netprofit", status_code=303)
+
+
+@app.post("/admin/staff-salary")
+async def admin_set_staff_salary(
+    request: Request,
+    staff_id: int = Form(...),
+    monthly_salary: float = Form(0),
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    st = db.query(Staff).filter(Staff.id == staff_id).first()
+    if st:
+        st.monthly_salary = max(0.0, float(monthly_salary or 0))
+        db.add(st)
+        db.commit()
+        try:
+            _admin_audit(
+                db,
+                action="staff_salary_set",
+                target_type="staff",
+                target_id=st.id,
+                target_name=st.name,
+                details=f"monthly_salary={st.monthly_salary}",
+                ip=_client_ip(request),
+            )
+        except Exception:
+            pass
+    return RedirectResponse(url="/admin#netprofit", status_code=303)
+
+
+@app.get("/admin/api/salon-costs/{salon_id}")
+def admin_api_salon_costs(
+    salon_id: int,
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Services + staff for HQ to set cost/salary without salon UI."""
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if not salon:
+        return JSONResponse({"ok": False}, status_code=404)
+    services = db.query(Service).filter(Service.salon_id == salon_id).order_by(Service.name).all()
+    staff = db.query(Staff).filter(Staff.salon_id == salon_id).order_by(Staff.name).all()
+    return JSONResponse({
+        "ok": True,
+        "salon": {"id": salon.id, "name": salon.name, "location_name": salon.location_name},
+        "services": [
+            {"id": s.id, "name": s.name, "price": float(s.price or 0),
+             "cost_amount": float(getattr(s, "cost_amount", 0) or 0)}
+            for s in services
+        ],
+        "staff": [
+            {"id": st.id, "name": st.name,
+             "monthly_salary": float(getattr(st, "monthly_salary", 0) or 0)}
+            for st in staff
+        ],
+    })
 
 
 if __name__ == "__main__":

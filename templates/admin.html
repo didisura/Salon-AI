@@ -421,6 +421,9 @@
                 <li><a href="#revenue" class="nav-link" data-panel="revenue" onclick="showPanel('revenue', this)">
                     <i class="fa-solid fa-chart-line"></i> Revenue
                 </a></li>
+                <li><a href="#netprofit" class="nav-link" data-panel="netprofit" onclick="showPanel('netprofit', this)">
+                    <i class="fa-solid fa-scale-balanced"></i> Net profit
+                </a></li>
                 <li><a href="#growth" class="nav-link" data-panel="growth" onclick="showPanel('growth', this)">
                     <i class="fa-solid fa-arrow-trend-up"></i> Growth
                 </a></li>
@@ -1111,6 +1114,154 @@
             </div>
         </section>
 
+
+
+        <!-- ===== NET PROFIT (HQ-only cost intelligence) ===== -->
+        <section class="panel" id="panel-netprofit">
+            <div class="topbar">
+                <div>
+                    <h1>Net profit</h1>
+                    <p class="sub">You capture costs in person · salons never see this · Premium leverage</p>
+                </div>
+                <div class="filter-chips" id="profitPeriodChips">
+                    <button type="button" class="chip" data-period="day" onclick="loadProfit('day')">Today</button>
+                    <button type="button" class="chip" data-period="week" onclick="loadProfit('week')">This week</button>
+                    <button type="button" class="chip active" data-period="month" onclick="loadProfit('month')">This month</button>
+                </div>
+            </div>
+
+            <div class="card-soft mb-3" style="font-size:0.84rem;line-height:1.55;color:var(--text-muted)">
+                <strong style="color:var(--text-dark)">Psychology play</strong> —
+                Your team visits the salon, learns rent / salaries / utilities / generator fuel.
+                You enter costs here. Owners only see booking magic; <em>you</em> see true net profit.
+                That insight is the Premium story: “We know if your salon is actually making money.”
+                <br><code style="color:var(--text-dark)">Net = Revenue − COGS − Expenses − Staff salary baseline</code>
+            </div>
+
+            <div class="metrics-grid" id="profitTotals">
+                <div class="metric-card">
+                    <div class="label">Platform revenue</div>
+                    <div class="value" id="ptRevenue">—</div>
+                    <div class="sub">Completed bookings</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">COGS</div>
+                    <div class="value" id="ptCogs">—</div>
+                    <div class="sub">Service cost amounts</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Operating expenses</div>
+                    <div class="value" id="ptExp">—</div>
+                    <div class="sub">Logged by HQ</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Net profit</div>
+                    <div class="value" id="ptNet" style="color:var(--green)">—</div>
+                    <div class="sub">After all costs</div>
+                </div>
+            </div>
+
+            <div class="section-title"><i class="fa-solid fa-table"></i> Every location</div>
+            <div class="table-wrap mb-4">
+                <table class="admin-table" id="profitTable">
+                    <thead>
+                        <tr>
+                            <th>Salon / branch</th>
+                            <th>Type</th>
+                            <th>Bookings</th>
+                            <th>Revenue</th>
+                            <th>COGS</th>
+                            <th>Expenses</th>
+                            <th>Salary base</th>
+                            <th>Net</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="profitTableBody">
+                        <tr><td colspan="9"><div class="empty-state"><p>Open this tab to load…</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- HQ cost capture -->
+            <div class="section-title"><i class="fa-solid fa-clipboard-list"></i> Capture costs (after your visit)</div>
+            <div class="card-soft mb-3">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small text-muted fw-semibold mb-1">Salon / branch</label>
+                        <select id="costSalonSelect" class="form-select" onchange="onCostSalonChange()">
+                            <option value="">Select location…</option>
+                            {% for s in salons or [] %}
+                            <option value="{{ s.id }}">
+                                {{ s.name }}{% if s.location_name %} · {{ s.location_name }}{% endif %}{% if s.parent_id %} (branch){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-3" style="border-color:var(--border)">
+
+                <form action="/admin/expenses/add" method="post" class="row g-2 align-items-end" id="hqExpenseForm">
+                    <input type="hidden" name="salon_id" id="hqExpenseSalonId" value="">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small text-muted mb-0">Category</label>
+                        <select name="category" class="form-select form-select-sm" required>
+                            <option value="rent">Rent / ኪራይ</option>
+                            <option value="staff_salary">Staff salary / ደመወዝ</option>
+                            <option value="water">Water / ውሃ</option>
+                            <option value="electricity">Electricity</option>
+                            <option value="generator">Generator / petrol</option>
+                            <option value="supplies">Supplies / products</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small text-muted mb-0">Amount (ETB)</label>
+                        <input type="number" step="1" min="0" name="amount" class="form-control form-control-sm" required placeholder="0">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small text-muted mb-0">Date</label>
+                        <input type="date" name="expense_date" class="form-control form-control-sm" required
+                               value="{{ now.strftime('%Y-%m-%d') if now is defined else '' }}">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small text-muted mb-0">Note (from visit)</label>
+                        <input type="text" name="note" class="form-control form-control-sm" placeholder="e.g. Bole rent Aug">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn-accent btn-sm w-100" onclick="return ensureSalonSelected()">
+                            <i class="fa-solid fa-plus"></i> Log cost
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-3" id="hqExpensesList">
+                    <p class="small text-muted mb-0">Select a salon to see logged costs.</p>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-12 col-lg-6">
+                    <div class="card-soft">
+                        <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-scissors"></i> Service COGS</div>
+                        <p class="small text-muted">Product cost per service — you set after asking the owner.</p>
+                        <div id="hqServicesCosts"><p class="small text-muted">Select a salon first.</p></div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <div class="card-soft">
+                        <div class="section-title mb-2" style="font-size:0.95rem"><i class="fa-solid fa-users"></i> Staff monthly salary</div>
+                        <p class="small text-muted">Baseline pay — prorated into day/week/month net.</p>
+                        <div id="hqStaffSalaries"><p class="small text-muted">Select a salon first.</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+
         <!-- ===== REVENUE ===== -->
         <section class="panel" id="panel-revenue">
             <div class="topbar">
@@ -1384,5 +1535,152 @@ function filterSalons() {
     if (link) showPanel(panel, link, panel === 'salons' ? filter : undefined);
 })();
 </script>
+
+
+<script>
+let _profitPeriod = 'month';
+
+function fmtETB(n) {
+    return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ETB';
+}
+
+function ensureSalonSelected() {
+    const id = document.getElementById('costSalonSelect')?.value;
+    if (!id) { alert('Select a salon / branch first'); return false; }
+    document.getElementById('hqExpenseSalonId').value = id;
+    return true;
+}
+
+async function loadProfit(period) {
+    _profitPeriod = period || 'month';
+    document.querySelectorAll('#profitPeriodChips .chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.period === _profitPeriod);
+    });
+    const body = document.getElementById('profitTableBody');
+    if (body) body.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>Loading…</p></div></td></tr>';
+    try {
+        const res = await fetch('/admin/api/profit?period=' + encodeURIComponent(_profitPeriod));
+        const data = await res.json();
+        const t = data.totals || {};
+        const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = fmtETB(v); };
+        set('ptRevenue', t.revenue); set('ptCogs', t.cogs); set('ptExp', t.expenses); set('ptNet', t.net_profit);
+        const netEl = document.getElementById('ptNet');
+        if (netEl) netEl.style.color = (t.net_profit || 0) >= 0 ? 'var(--green)' : 'var(--rose)';
+
+        const rows = data.salons || [];
+        if (!body) return;
+        if (!rows.length) {
+            body.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>No data yet.</p></div></td></tr>';
+            return;
+        }
+        body.innerHTML = rows.map(r => {
+            const net = Number(r.net_profit || 0);
+            const col = net >= 0 ? 'var(--green)' : 'var(--rose)';
+            const type = r.is_branch ? 'Branch' : 'HQ';
+            const label = r.location_name ? (r.name + ' · ' + r.location_name) : r.name;
+            return '<tr>' +
+                '<td class="name-cell">' + label + '</td>' +
+                '<td>' + type + '</td>' +
+                '<td>' + (r.completed_bookings || 0) + '</td>' +
+                '<td class="mono">' + fmtETB(r.revenue) + '</td>' +
+                '<td class="mono">' + fmtETB(r.cogs) + '</td>' +
+                '<td class="mono">' + fmtETB(r.expenses) + '</td>' +
+                '<td class="mono">' + fmtETB(r.staff_salary_baseline) + '</td>' +
+                '<td class="mono" style="font-weight:700;color:' + col + '">' + fmtETB(net) + '</td>' +
+                '<td><button type="button" class="btn-outline-soft btn-sm" onclick="selectSalonForCosts(' + r.salon_id + ')">Costs</button></td>' +
+                '</tr>';
+        }).join('');
+    } catch (e) {
+        if (body) body.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>API error — check /admin/api/profit</p></div></td></tr>';
+    }
+}
+
+function selectSalonForCosts(id) {
+    const sel = document.getElementById('costSalonSelect');
+    if (sel) { sel.value = String(id); onCostSalonChange(); }
+    document.getElementById('hqExpenseForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function onCostSalonChange() {
+    const id = document.getElementById('costSalonSelect')?.value;
+    document.getElementById('hqExpenseSalonId').value = id || '';
+    const expBox = document.getElementById('hqExpensesList');
+    const svcBox = document.getElementById('hqServicesCosts');
+    const stBox = document.getElementById('hqStaffSalaries');
+    if (!id) {
+        if (expBox) expBox.innerHTML = '<p class="small text-muted mb-0">Select a salon to see logged costs.</p>';
+        if (svcBox) svcBox.innerHTML = '<p class="small text-muted">Select a salon first.</p>';
+        if (stBox) stBox.innerHTML = '<p class="small text-muted">Select a salon first.</p>';
+        return;
+    }
+    // expenses
+    try {
+        const er = await fetch('/admin/api/expenses/' + id);
+        const ed = await er.json();
+        const list = ed.expenses || [];
+        if (!list.length) {
+            expBox.innerHTML = '<p class="small text-muted mb-0">No costs logged yet for this location.</p>';
+        } else {
+            expBox.innerHTML = '<table class="admin-table"><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>' +
+                list.map(e => '<tr>' +
+                    '<td class="mono">' + (e.date || '') + '</td>' +
+                    '<td>' + e.category + '</td>' +
+                    '<td class="mono">' + fmtETB(e.amount) + '</td>' +
+                    '<td>' + (e.note || '—') + '</td>' +
+                    '<td><form method="post" action="/admin/expenses/delete" onsubmit="return confirm(\'Delete this cost?\')">' +
+                    '<input type="hidden" name="expense_id" value="' + e.id + '">' +
+                    '<button class="btn-danger-soft btn-sm" type="submit">✕</button></form></td>' +
+                    '</tr>').join('') + '</tbody></table>';
+        }
+    } catch (e) {
+        expBox.innerHTML = '<p class="small text-muted">Could not load expenses.</p>';
+    }
+    // services + staff
+    try {
+        const cr = await fetch('/admin/api/salon-costs/' + id);
+        const cd = await cr.json();
+        if (!cd.ok) return;
+        const services = cd.services || [];
+        const staff = cd.staff || [];
+        svcBox.innerHTML = services.length ? services.map(s =>
+            '<form method="post" action="/admin/service-cost" class="d-flex gap-2 align-items-center mb-2 flex-wrap">' +
+            '<input type="hidden" name="service_id" value="' + s.id + '">' +
+            '<span style="min-width:120px;font-weight:600;font-size:0.85rem">' + s.name +
+            ' <span class="text-muted fw-normal">(' + Number(s.price).toLocaleString() + ')</span></span>' +
+            '<input type="number" step="1" min="0" name="cost_amount" value="' + (s.cost_amount || 0) +
+            '" class="form-control form-control-sm" style="width:110px" placeholder="Cost">' +
+            '<button type="submit" class="btn-outline-soft btn-sm">Save</button></form>'
+        ).join('') : '<p class="small text-muted">No services.</p>';
+
+        stBox.innerHTML = staff.length ? staff.map(st =>
+            '<form method="post" action="/admin/staff-salary" class="d-flex gap-2 align-items-center mb-2 flex-wrap">' +
+            '<input type="hidden" name="staff_id" value="' + st.id + '">' +
+            '<span style="min-width:120px;font-weight:600;font-size:0.85rem">' + st.name + '</span>' +
+            '<input type="number" step="1" min="0" name="monthly_salary" value="' + (st.monthly_salary || 0) +
+            '" class="form-control form-control-sm" style="width:130px" placeholder="Monthly">' +
+            '<button type="submit" class="btn-outline-soft btn-sm">Save</button></form>'
+        ).join('') : '<p class="small text-muted">No staff.</p>';
+    } catch (e) {
+        svcBox.innerHTML = '<p class="small text-muted">Load error.</p>';
+        stBox.innerHTML = '<p class="small text-muted">Load error.</p>';
+    }
+}
+
+const _prevShow = window.showPanel;
+window.showPanel = function(id, el, filter) {
+    if (typeof _prevShow === 'function') _prevShow(id, el, filter);
+    else {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        const panel = document.getElementById('panel-' + id);
+        if (panel) panel.classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('adminSidebar')?.classList.remove('open');
+        document.getElementById('sidebarBackdrop')?.classList.remove('show');
+    }
+    if (id === 'netprofit') loadProfit(_profitPeriod);
+};
+</script>
 </body>
+
 </html>

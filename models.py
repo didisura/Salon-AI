@@ -1,3 +1,6 @@
+"""
+Melkegna models — includes Net Profit / Expenses tracking.
+"""
 import enum
 import datetime
 
@@ -47,6 +50,19 @@ class AppointmentStatusType(TypeDecorator):
             return AppointmentStatus.confirmed
 
 
+# Fixed expense categories used across the platform
+EXPENSE_CATEGORIES = (
+    ("rent", "Rent / የቤት ኪራይ"),
+    ("staff_salary", "Staff salary / የሰራተኛ ደመወዝ"),
+    ("water", "Water / ውሃ"),
+    ("electricity", "Electricity / ኤሌክትሪክ"),
+    ("generator", "Generator / petrol / ጄኔሬተር"),
+    ("supplies", "Supplies / products / እቃዎች"),
+    ("marketing", "Marketing / ማስታወቂያ"),
+    ("other", "Other / ሌላ"),
+)
+
+
 class Salon(Base):
     __tablename__ = "salons"
 
@@ -71,11 +87,8 @@ class Salon(Base):
     deposit_enabled = Column(Integer, nullable=False, default=0)
     payment_methods = Column(JSON, nullable=True)
 
-    # --- Multi-branch ---
-    # parent_id IS NULL  → root / HQ / independent salon
-    # parent_id set      → branch of that HQ
     parent_id = Column(Integer, ForeignKey("salons.id"), nullable=True, index=True)
-    location_name = Column(String(80), nullable=True)  # e.g. "Bole", "CMC"
+    location_name = Column(String(80), nullable=True)
 
     parent = relationship(
         "Salon",
@@ -100,10 +113,7 @@ class Salon(Base):
         cascade="all, delete-orphan",
         order_by="GalleryImage.id",
     )
-
-    # ------------------------------------------------------------------
-    # Branch helpers
-    # ------------------------------------------------------------------
+    expenses = relationship("Expense", back_populates="salon", cascade="all, delete-orphan")
 
     @property
     def is_root(self) -> bool:
@@ -115,18 +125,15 @@ class Salon(Base):
 
     @property
     def display_location(self) -> str:
-        """Short label for the location switcher."""
         return (self.location_name or self.name or "").strip() or f"#{self.id}"
 
     @property
     def brand_name(self) -> str:
-        """Parent business / HQ name for branding."""
         if self.parent_id and self.parent is not None:
             return self.parent.name
         return self.name
 
     def root_salon(self):
-        """Walk up to the HQ / root node (guards against cycles)."""
         node = self
         seen = set()
         while getattr(node, "parent_id", None) and getattr(node, "parent", None) is not None:
@@ -137,7 +144,6 @@ class Salon(Base):
         return node
 
     def effective_payment_methods(self):
-        """Branch uses own list if set; otherwise inherit from root."""
         own = self.payment_methods
         if own:
             return own
@@ -146,12 +152,7 @@ class Salon(Base):
         return []
 
     def effective_deposit_enabled(self) -> bool:
-        """Use this location's flag (copied from HQ on create if requested)."""
         return bool(self.deposit_enabled)
-
-    # ------------------------------------------------------------------
-    # Existing helpers
-    # ------------------------------------------------------------------
 
     @property
     def working_days_set(self) -> set:
@@ -185,6 +186,36 @@ class Salon(Base):
     @property
     def deposit_on(self) -> bool:
         return bool(self.deposit_enabled)
+
+
+class Expense(Base):
+    """
+    Operating cost logged by a salon / branch.
+    Categories: rent, staff_salary, water, electricity, generator, supplies, marketing, other
+    """
+    __tablename__ = "expenses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
+    category = Column(String(40), nullable=False, index=True, default="other")
+    amount = Column(Numeric(12, 2), nullable=False, default=0)
+    expense_date = Column(Date, nullable=False, index=True)
+    note = Column(String(400), nullable=True)
+    # Optional link to a staff member (for salary rows)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=True)
+    # If 1, treat as monthly recurring baseline (admin can still filter by date)
+    is_recurring = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    salon = relationship("Salon", back_populates="expenses")
+    staff = relationship("Staff")
+
+    @property
+    def category_label(self) -> str:
+        for key, label in EXPENSE_CATEGORIES:
+            if key == self.category:
+                return label
+        return self.category or "Other"
 
 
 class GalleryImage(Base):
@@ -234,6 +265,8 @@ class Service(Base):
     price = Column(Numeric(10, 2), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
+    # Cost to deliver one unit of this service (products, consumables) — for net profit COGS
+    cost_amount = Column(Numeric(10, 2), nullable=True, default=0)
 
     is_package = Column(Integer, nullable=False, default=0)
     min_people = Column(Integer, nullable=True, default=1)
@@ -281,6 +314,8 @@ class Staff(Base):
     working_days = Column(String(20), nullable=True)
     day_hours = Column(JSON, nullable=True)
     service_ids = Column(JSON, nullable=True)
+    # Optional monthly salary baseline (ETB) — also can log via Expense
+    monthly_salary = Column(Numeric(12, 2), nullable=True, default=0)
 
     salon = relationship("Salon", back_populates="staff_members")
     day_offs = relationship(
@@ -445,7 +480,6 @@ class Waitlist(Base):
 
 
 class AdminAuditLog(Base):
-    """Super-admin action trail (approve, suspend, login, etc.)."""
     __tablename__ = "admin_audit_log"
 
     id = Column(Integer, primary_key=True, index=True)
