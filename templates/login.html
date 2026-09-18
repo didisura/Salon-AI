@@ -157,6 +157,77 @@
   .footer-links{font-size:.78rem;}
   .footer-links a{color:var(--muted); text-decoration:none; font-weight:500;}
   .footer-links a:hover{color:var(--accent-dark); text-decoration:underline;}
+
+  /* ===== login form (on this page) ===== */
+  .login-section{
+    max-width:480px; margin:0 auto; padding:72px 24px 40px;
+  }
+  .login-section .login-card{
+    background:#fff; border:1px solid var(--line); border-radius:24px;
+    padding:32px 28px 28px; box-shadow:0 20px 50px rgba(46,32,19,.10);
+  }
+  .login-section .login-title{
+    font-family:'Fraunces',serif; font-weight:600; font-size:1.45rem;
+    color:var(--brown); margin-bottom:6px;
+  }
+  .login-section .login-sub{
+    font-size:.9rem; color:var(--muted); line-height:1.5; margin-bottom:22px;
+  }
+  .login-section .field{margin-bottom:16px;}
+  .login-section .field label{
+    display:block; font-size:.78rem; font-weight:700; color:var(--muted); margin-bottom:7px;
+  }
+  .login-section .input-wrap{
+    display:flex; align-items:center; gap:10px; background:var(--field);
+    border:1.5px solid var(--line); border-radius:14px; padding:0 14px; min-height:52px;
+    transition:border-color .15s, background .15s, box-shadow .15s;
+  }
+  .login-section .input-wrap:focus-within{
+    border-color:var(--brown); background:#fff;
+    box-shadow:0 0 0 4px rgba(166,124,67,.12);
+  }
+  .login-section .input-wrap svg{flex:none; color:var(--muted);}
+  .login-section .input-wrap input{
+    flex:1; border:none; outline:none; background:transparent;
+    font-size:.96rem; color:var(--ink); padding:14px 0; min-width:0; font-family:inherit;
+  }
+  .login-section .input-wrap input::placeholder{color:#B8AA97;}
+  .login-section .eye-toggle{
+    flex:none; border:none; background:transparent; color:var(--muted);
+    padding:6px; display:flex; cursor:pointer; border-radius:8px;
+  }
+  .login-section .eye-toggle:hover{color:var(--ink);}
+  .login-section .btn-login{
+    width:100%; min-height:52px; border:none; border-radius:14px;
+    background:var(--brown); color:#fff; font-weight:700; font-size:1rem;
+    cursor:pointer; margin-top:6px; font-family:inherit;
+    transition:background .15s;
+  }
+  .login-section .btn-login:hover{background:var(--brown-dark);}
+  .login-section .alert{
+    border-radius:12px; font-size:.84rem; padding:12px 14px; margin-bottom:16px;
+    line-height:1.5;
+  }
+  .login-section .alert-bad{background:#FBEDEA; color:#B5473F;}
+  .login-section .alert-ok{background:#EAF3EA; color:#2F6B34;}
+  .login-section .alt-link{
+    text-align:center; font-size:.9rem; color:var(--muted); margin-top:20px;
+  }
+  .login-section .alt-link a{
+    color:var(--brown); font-weight:700; text-decoration:none;
+    border-bottom:1.5px solid var(--line);
+  }
+  .login-section .alt-link a:hover{border-color:var(--brown);}
+  .login-section .support-mini{
+    text-align:center; font-size:.8rem; color:var(--muted); margin-top:18px; line-height:1.7;
+  }
+  .login-section .support-mini a{color:var(--accent-dark); font-weight:700; text-decoration:none;}
+  html{scroll-behavior:smooth;}
+  #login:target .login-card,
+  #login.highlight .login-card{
+    box-shadow:0 0 0 3px var(--accent), 0 20px 50px rgba(46,32,19,.12);
+  }
+
   /* ===== i18n ===== */
   [data-lang-en]{display:none;}
   html[lang="en"] [data-lang-am]{display:none !important;}
@@ -189,8 +260,8 @@
       <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
         <span id="langLabel">EN</span>
       </button>
-      <a class="btn-ghost-sm" href="/login" data-lang-am>ግባ</a>
-      <a class="btn-ghost-sm" href="/login" data-lang-en>Log in</a>
+      <a class="btn-ghost-sm" href="#login" data-lang-am>ግባ</a>
+      <a class="btn-ghost-sm" href="#login" data-lang-en>Log in</a>
     </div>
   </div>
   <div class="hero">
@@ -209,7 +280,7 @@
             <span data-lang-am>አካውንት ይክፈቱ</span>
             <span data-lang-en>Create your account</span>
           </a>
-          <a class="btn-outline-lg" href="/login">
+          <a class="btn-outline-lg" href="#login">
             <span data-lang-am>አካውንት አለኝ</span>
             <span data-lang-en>I have an account</span>
           </a>
@@ -358,12 +429,90 @@
         <span data-lang-am>አካውንት ይክፈቱ</span>
         <span data-lang-en>Create your account</span>
       </a>
-      <a class="btn-outline-lg" href="/login">
+      <a class="btn-outline-lg" href="#login">
         <span data-lang-am>ግባ</span>
         <span data-lang-en>Log in</span>
       </a>
     </div>
   </div>
+  
+  <!-- ========== LOGIN FORM ========== -->
+  <section id="login" class="login-section" aria-label="Login">
+    <div class="login-card">
+      <h2 class="login-title">
+        <span data-lang-am>ወደ መለያዎ ይግቡ</span>
+        <span data-lang-en>Sign in to your account</span>
+      </h2>
+      <p class="login-sub">
+        <span data-lang-am>ስልክ ቁጥርዎን እና የይለፍ ቃልዎን ያስገቡ።</span>
+        <span data-lang-en>Enter your phone number and password to continue.</span>
+      </p>
+
+      {% if error == 'invalid' %}
+      <div class="alert alert-bad" role="alert">
+        <span data-lang-am>ስልክ ቁጥር ወይም የይለፍ ቃል ትክክል አይደለም።</span>
+        <span data-lang-en>Phone number or password is incorrect.</span>
+      </div>
+      {% endif %}
+      {% if error == 'rate_limited' %}
+      <div class="alert alert-bad" role="alert">
+        <span data-lang-am>በጣም ብዙ ሙከራ። ትንሽ ቆይተው እንደገና ይሞክሩ።</span>
+        <span data-lang-en>Too many attempts. Please wait a moment and try again.</span>
+      </div>
+      {% endif %}
+      {% if registered or request.query_params.get('registered') %}
+      <div class="alert alert-ok" role="status">
+        <span data-lang-am>ተመዝግበዋል! አሁን ይግቡ።</span>
+        <span data-lang-en>Registered! You can log in now.</span>
+      </div>
+      {% endif %}
+
+      <form action="/login" method="post" novalidate>
+        <div class="field">
+          <label for="loginPhone">
+            <span data-lang-am>ስልክ ቁጥር</span>
+            <span data-lang-en>Phone number</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <input type="tel" id="loginPhone" name="phone" required placeholder="09XXXXXXXX" pattern="0[0-9]{9}" inputmode="numeric" autocomplete="tel">
+          </div>
+        </div>
+        <div class="field">
+          <label for="loginPassword">
+            <span data-lang-am>የይለፍ ቃል</span>
+            <span data-lang-en>Password</span>
+          </label>
+          <div class="input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <input type="password" name="password" id="loginPassword" required placeholder="••••••••" autocomplete="current-password">
+            <button type="button" class="eye-toggle" data-target="loginPassword" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn-login">
+          <span data-lang-am>ግባ</span>
+          <span data-lang-en>Log in</span>
+        </button>
+      </form>
+
+      <p class="alt-link">
+        <span data-lang-am>አካውንት የለዎትም? <a href="/register">ይመዝገቡ</a></span>
+        <span data-lang-en>No account? <a href="/register">Register</a></span>
+      </p>
+      <p class="support-mini">
+        <span data-lang-am>ድጋፍ</span>
+        <span data-lang-en>Support</span>
+        ·
+        <a href="tel:0946332194">0946332194</a>
+        ·
+        <a href="tel:0955157398">0955157398</a>
+      </p>
+    </div>
+  </section>
+
+
   <footer>
     <p class="footer-support">
       <span data-lang-am>የደንበኛ ድጋፍ /</span>
@@ -393,6 +542,39 @@
       var label = document.getElementById('langLabel');
       if (label) label.textContent = saved === 'am' ? 'EN' : 'አማ';
     })();
+
+    // Show/hide password
+    document.querySelectorAll('.eye-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    });
+
+    // When user taps Log in (#login) — scroll and focus phone field
+    function goToLoginForm() {
+      var sec = document.getElementById('login');
+      if (!sec) return;
+      sec.classList.add('highlight');
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(function () {
+        var phone = document.getElementById('loginPhone');
+        if (phone) phone.focus();
+      }, 400);
+    }
+    // Links with href="#login"
+    document.querySelectorAll('a[href="#login"]').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        history.replaceState(null, '', '#login');
+        goToLoginForm();
+      });
+    });
+    // If page opened as /login or /#login or ?error=...
+    if (location.hash === '#login' || /\/login\/?$/.test(location.pathname) || location.search.indexOf('error=') !== -1 || location.search.indexOf('registered') !== -1) {
+      setTimeout(goToLoginForm, 100);
+    }
   </script>
 </body>
 </html>
