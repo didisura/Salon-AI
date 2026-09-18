@@ -552,7 +552,7 @@
       });
     });
 
-    // When user taps Log in (#login) — scroll and focus phone field
+    // Scroll to login form ONLY when user taps Log in (or lands with #login / login errors)
     function goToLoginForm() {
       var sec = document.getElementById('login');
       if (!sec) return;
@@ -563,7 +563,8 @@
         if (phone) phone.focus();
       }, 400);
     }
-    // Links with href="#login"
+
+    // "Log in" buttons → scroll down to form
     document.querySelectorAll('a[href="#login"]').forEach(function (a) {
       a.addEventListener('click', function (e) {
         e.preventDefault();
@@ -571,10 +572,32 @@
         goToLoginForm();
       });
     });
-    // If page opened as /login or /#login or ?error=...
-    if (location.hash === '#login' || /\/login\/?$/.test(location.pathname) || location.search.indexOf('error=') !== -1 || location.search.indexOf('registered') !== -1) {
-      setTimeout(goToLoginForm, 100);
-    }
+
+    // Homepage (melkegna.com /) always starts at TOP — never auto-scroll on first load
+    // Only jump to form if: #login in URL, or login error / registered message
+    (function () {
+      var path = location.pathname || '/';
+      var isHome = path === '/' || path === '';
+      var wantsLogin =
+        location.hash === '#login' ||
+        location.search.indexOf('error=') !== -1 ||
+        location.search.indexOf('registered') !== -1;
+
+      // Plain visit to melkegna.com → stay at top
+      if (isHome && !wantsLogin) {
+        if (location.hash && location.hash !== '#login') { /* leave other hashes */ }
+        else if (location.hash === '#login') { /* handled below */ }
+        else {
+          // Ensure we are at top (no residual scroll)
+          window.scrollTo(0, 0);
+        }
+        return;
+      }
+
+      if (wantsLogin) {
+        setTimeout(goToLoginForm, 80);
+      }
+    })();
   </script>
 </body>
 </html>
