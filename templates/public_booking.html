@@ -13,106 +13,272 @@
             --accent: #9C6B3F;
             --accent-hover: #7E5530;
             --cream: #F6ECE1;
+            --bg: #FAFAF8;
             --border: #E3D3C0;
             --text: #2D2424;
             --muted: #7A6E6E;
             --green: #2E7D32;
             --star: #E6A817;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --radius: 16px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.06);
+            --shadow-lg: 0 12px 40px rgba(156,107,63,0.12);
         }
         * { box-sizing: border-box; }
         body {
-            background: #FAFAF8;
+            background: var(--bg);
             font-family: 'Noto Sans Ethiopic', sans-serif;
             min-height: 100vh;
             color: var(--text);
             margin: 0;
-            padding-bottom: calc(84px + var(--safe-bottom));
+            padding-bottom: calc(90px + var(--safe-bottom));
             -webkit-tap-highlight-color: transparent;
         }
 
-        .lang-toggle {
-            position: fixed; top: 12px; right: 12px; z-index: 2000;
-            display: flex; align-items: center; gap: 6px;
-            background: rgba(255,255,255,0.94); border: 1px solid var(--border);
-            border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 0.78rem;
-            color: var(--accent); cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-        }
+        /* Language helpers */
         [data-lang-en] { display: none; }
         html[lang="en"] [data-lang-am] { display: none !important; }
         html[lang="en"] [data-lang-en] { display: inline !important; }
         html[lang="am"] [data-lang-am] { display: inline !important; }
         html[lang="am"] [data-lang-en] { display: none !important; }
 
-        .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 24px; overflow-x: visible; }
-        /* Let carousels breathe past padding slightly on phones */
-        .featured-scroll, .pkg-scroll, .gallery-row, .testimonial-scroll, .cat-row {
-            width: 100%;
-            max-width: 100%;
+        /* ========== FLOATING GLASS HEADER ========== */
+        .top-header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 2000;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(227,211,192,0.6);
+            padding: 10px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px;
         }
+        .header-brand {
+            display: flex; align-items: center; gap: 10px; min-width: 0;
+        }
+        .header-logo {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: var(--cream); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .header-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .header-logo .ph { font-weight: 800; color: var(--accent); font-size: 1rem; }
+        .header-name {
+            font-weight: 800; font-size: 0.95rem; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+        }
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+        .lang-btn {
+            display: flex; align-items: center; gap: 5px;
+            background: #fff; border: 1px solid var(--border);
+            border-radius: 999px; padding: 6px 12px;
+            font-weight: 700; font-size: 0.78rem; color: var(--accent);
+            cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .btn-header-book {
+            background: var(--accent); color: #fff; border: none;
+            font-weight: 700; font-size: 0.82rem;
+            padding: 8px 14px; border-radius: 999px;
+            display: inline-flex; align-items: center; gap: 6px;
+            box-shadow: 0 3px 12px rgba(156,107,63,0.25);
+        }
+        .btn-header-book:hover { background: var(--accent-hover); color: #fff; }
 
-        /* Hero */
+        .page-content { padding-top: 62px; }
+        .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 28px; }
+
+        /* ========== HERO ========== */
         .hero {
-            position: relative; height: 220px; width: 100%;
+            position: relative; height: 260px; width: 100%;
             background-size: cover; background-position: center; background-color: #5A4936;
         }
         .hero.no-photo { background-image: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%); }
         .hero-overlay {
             position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 100%);
+            background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.78) 100%);
             display: flex; flex-direction: column; justify-content: flex-end;
-            padding: 18px 18px 16px;
+            padding: 22px 20px 20px;
         }
-        .hero h1 { color: #fff; font-weight: 800; font-size: 1.45rem; margin: 0 0 2px; }
-        .hero .tagline { color: #EADFD0; font-size: 0.85rem; margin: 0; }
+        .hero h1 { color: #fff; font-weight: 800; font-size: 1.55rem; margin: 0 0 4px; line-height: 1.2; }
+        .hero .tagline { color: #EADFD0; font-size: 0.9rem; margin: 0 0 10px; font-weight: 500; }
+        .hero-rating {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+            border-radius: 999px; padding: 5px 12px;
+            color: #fff; font-size: 0.8rem; font-weight: 600;
+        }
+        .hero-rating .stars { color: var(--star); letter-spacing: 1px; }
 
-        /* Trust bar */
-        .trust-bar {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+        /* ========== TRUST CARDS ========== */
+        .trust-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+            margin: -32px 0 18px; position: relative; z-index: 2;
+        }
+        .trust-card {
             background: #fff; border: 1px solid var(--border); border-radius: 14px;
-            padding: 12px 14px; margin: -28px 0 16px; position: relative; z-index: 2;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.06); font-size: 0.82rem; font-weight: 600; color: #5A4936;
+            padding: 12px 8px; text-align: center;
+            box-shadow: var(--shadow); font-size: 0.72rem; font-weight: 600; color: #5A4936;
         }
-        .trust-bar .sep { color: var(--border); font-weight: 400; }
-        .trust-bar .star { color: var(--star); }
-        .trust-bar i { color: var(--accent); }
+        .trust-card i { display: block; color: var(--accent); font-size: 1rem; margin-bottom: 4px; }
+        .trust-card .val { font-weight: 800; font-size: 0.78rem; color: var(--text); }
 
-        /* Sections */
-        .section { margin-bottom: 20px; }
+        /* ========== LOCATION ========== */
+        .location-card {
+            background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 14px 16px; margin-bottom: 20px; box-shadow: var(--shadow);
+            display: flex; gap: 12px; align-items: flex-start;
+        }
+        .location-card i { color: var(--accent); font-size: 1.1rem; margin-top: 2px; }
+        .location-card strong { display: block; font-size: 0.9rem; margin-bottom: 2px; }
+        .location-card a { color: var(--accent); font-weight: 600; font-size: 0.82rem; text-decoration: none; }
+        #salonMap { height: 160px; width: 100%; border-radius: 12px; margin-top: 10px; border: 1px solid var(--border); }
+        .map-loading {
+            height: 160px; display: flex; align-items: center; justify-content: center;
+            background: var(--cream); border-radius: 12px; margin-top: 10px; color: var(--muted); font-size: 0.85rem;
+        }
+
+        /* ========== SECTIONS ========== */
+        .section { margin-bottom: 24px; }
+        .section-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px;
+        }
         .section-title {
-            font-size: 1rem; font-weight: 700; margin: 0 0 12px; color: var(--text);
+            font-size: 1.05rem; font-weight: 800; margin: 0; color: var(--text);
             display: flex; align-items: center; gap: 8px;
         }
+        .section-title i { color: var(--accent); }
         .section-title .step-num {
             width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff;
             font-size: 0.75rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
         }
 
-        /* Category chips */
-        /* Shared horizontal carousel behavior (mobile-friendly sideways swipe) */
-        .h-scroll {
-            display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain;
-            touch-action: pan-x;
-            padding-bottom: 10px;
-            margin-left: -4px;
-            margin-right: -4px;
-            padding-left: 4px;
-            padding-right: 4px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) transparent;
+        /* ========== FEATURED CLIENTS ========== */
+        .featured-scroll {
+            display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; touch-action: pan-x;
+            padding: 4px 2px 12px; scrollbar-width: none;
         }
-        .h-scroll::-webkit-scrollbar { height: 4px; }
-        .h-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        .h-scroll > * { flex-shrink: 0; scroll-snap-align: start; }
+        .featured-scroll::-webkit-scrollbar { display: none; }
+        .feat-card {
+            flex: 0 0 150px; scroll-snap-align: start;
+            background: #fff; border: 1px solid var(--border); border-radius: 18px;
+            padding: 16px 12px 14px; text-align: center;
+            box-shadow: var(--shadow); position: relative;
+            transition: transform .18s, box-shadow .18s;
+        }
+        .feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+        .feat-card.is-celeb {
+            border-color: #E6A817;
+            background: linear-gradient(180deg, #FFF8E8 0%, #fff 60%);
+            box-shadow: 0 6px 20px rgba(230,168,23,0.15);
+        }
+        .feat-photo {
+            width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 10px;
+            overflow: hidden; border: 3px solid var(--accent); background: var(--cream);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .feat-card.is-celeb .feat-photo { border-color: #E6A817; }
+        .feat-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .feat-photo .ph {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: 800; color: var(--accent); background: var(--cream);
+        }
+        .feat-name { font-size: 0.88rem; font-weight: 800; color: var(--text); margin: 0 0 4px; }
+        .feat-badge {
+            display: inline-block; font-size: 0.62rem; font-weight: 800;
+            padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+        }
+        .feat-badge.celeb { background: linear-gradient(135deg, #E6A817, #ED6C02); color: #fff; }
+        .feat-badge.pinned { background: var(--cream); color: var(--accent); border: 1px solid var(--border); }
+        .feat-quote {
+            font-size: 0.72rem; color: #5A4936; font-style: italic; line-height: 1.35;
+            margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
 
+        /* ========== PACKAGES ========== */
+        .pkg-scroll {
+            display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; touch-action: pan-x;
+            padding: 4px 2px 14px; scrollbar-width: thin;
+        }
+        .pkg-scroll::-webkit-scrollbar { height: 4px; }
+        .pkg-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .pkg-card {
+            flex: 0 0 270px; scroll-snap-align: start;
+            background: #fff; border: 1.5px solid var(--border); border-radius: 20px;
+            overflow: hidden; cursor: pointer;
+            transition: border-color .18s, box-shadow .18s, transform .18s;
+            display: flex; flex-direction: column;
+            box-shadow: var(--shadow);
+        }
+        .pkg-card:hover {
+            border-color: rgba(156,107,63,0.4);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-3px);
+        }
+        .pkg-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.18), var(--shadow-lg);
+            transform: translateY(-3px);
+        }
+        .pkg-card input { display: none; }
+        .pkg-photo {
+            width: 100%; height: 160px;
+            background: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%);
+            position: relative; overflow: hidden;
+        }
+        .pkg-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pkg-photo .pkg-photo-ph {
+            width: 100%; height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: rgba(255,255,255,0.92);
+            gap: 8px; font-weight: 700; font-size: 0.88rem;
+        }
+        .pkg-photo .pkg-photo-ph i { font-size: 2.2rem; opacity: 0.9; }
+        .pkg-badge {
+            position: absolute; top: 12px; left: 12px; z-index: 2;
+            font-size: 0.68rem; font-weight: 800;
+            background: linear-gradient(135deg, #9C6B3F, #ED6C02); color: #fff;
+            padding: 4px 11px; border-radius: 999px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .pkg-body { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+        .pkg-name { font-weight: 800; font-size: 1.05rem; margin: 0 0 6px; color: var(--text); line-height: 1.3; }
+        .pkg-includes {
+            font-size: 0.8rem; color: #5A4936; margin: 0 0 10px; line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1;
+        }
+        .pkg-meta {
+            display: flex; flex-wrap: wrap; gap: 8px 14px;
+            font-size: 0.76rem; font-weight: 600; color: var(--muted); margin-bottom: 12px;
+        }
+        .pkg-meta span { display: inline-flex; align-items: center; gap: 5px; }
+        .pkg-meta i { color: var(--accent); font-size: 0.78rem; }
+        .pkg-footer {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            margin-top: auto; padding-top: 4px;
+        }
+        .pkg-price { font-weight: 800; color: var(--accent); font-size: 1.12rem; line-height: 1.2; }
+        .pkg-price .from { font-size: 0.7rem; font-weight: 600; color: var(--muted); display: block; }
+        .pkg-select-btn {
+            flex-shrink: 0; background: var(--accent); color: #fff; border: none;
+            font-weight: 700; font-size: 0.8rem; padding: 9px 14px; border-radius: 12px;
+            display: inline-flex; align-items: center; gap: 6px; transition: background .15s;
+        }
+        .pkg-card.selected .pkg-select-btn { background: var(--green); }
+        .pkg-card.selected .pkg-select-btn::after { content: " ✓"; }
+        .pkg-outside {
+            font-size: 0.68rem; font-weight: 700; color: #E65100;
+            background: #FFF8E1; border: 1px solid #FFE0B2; border-radius: 8px;
+            padding: 3px 8px; display: inline-block; margin-top: 8px;
+        }
+
+        /* ========== GALLERY ========== */
         .cat-row {
-            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px;
             -webkit-overflow-scrolling: touch; scrollbar-width: none;
             touch-action: pan-x; overscroll-behavior-x: contain;
         }
@@ -121,10 +287,9 @@
             flex: 0 0 auto; border: 1px solid var(--border); background: #fff;
             color: #5A4936; font-weight: 600; font-size: 0.78rem;
             padding: 8px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+            transition: all .15s;
         }
         .cat-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-        /* Gallery */
         .gallery-row {
             display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
             scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
@@ -136,8 +301,9 @@
         .g-tile {
             flex: 0 0 140px; height: 150px; border-radius: 14px; overflow: hidden;
             scroll-snap-align: start; border: 1px solid var(--border); background: var(--cream);
-            position: relative; cursor: pointer;
+            position: relative; cursor: pointer; transition: transform .15s;
         }
+        .g-tile:hover { transform: scale(1.02); }
         .g-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .g-tile .badge {
             position: absolute; left: 8px; bottom: 8px;
@@ -145,272 +311,65 @@
             padding: 3px 8px; border-radius: 999px;
         }
         .g-tile.hidden { display: none; }
-        .g-empty {
-            flex: 1; text-align: center; padding: 24px; color: var(--muted); font-size: 0.85rem;
-            border: 1px dashed var(--border); border-radius: 14px; background: #fff;
-        }
 
-        /* Reviews summary */
-        .reviews-card {
-            background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 16px;
+        /* ========== MY BOOKINGS ========== */
+        .mybook-card {
+            background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 16px; margin-bottom: 20px; box-shadow: var(--shadow);
         }
-        .rev-top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
-        .rev-score { text-align: center; min-width: 72px; }
-        .rev-score .big { font-size: 2rem; font-weight: 800; color: var(--text); line-height: 1; }
-        .rev-score .stars { color: var(--star); font-size: 0.75rem; letter-spacing: 1px; margin: 4px 0; }
-        .rev-score .count { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
-        .rev-bars { flex: 1; }
-        .rev-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.72rem; color: var(--muted); }
-        .rev-bar-row .lbl { width: 12px; text-align: right; font-weight: 700; }
-        .rev-bar-track { flex: 1; height: 6px; background: #F0E8DC; border-radius: 4px; overflow: hidden; }
-        .rev-bar-fill { height: 100%; background: var(--star); border-radius: 4px; }
-        .rev-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-        .rev-filter {
-            border: 1px solid var(--border); background: #fff; border-radius: 999px;
-            padding: 5px 12px; font-size: 0.72rem; font-weight: 600; color: #5A4936; cursor: pointer;
+        .mybook-card h3 {
+            font-size: 0.95rem; font-weight: 800; margin: 0 0 12px; color: var(--text);
+            display: flex; align-items: center; gap: 8px;
         }
-        .rev-filter.active { background: var(--cream); border-color: var(--accent); color: var(--accent); }
-        .testimonial-scroll {
-            display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
-            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; touch-action: pan-x;
-            padding-bottom: 10px; scrollbar-width: thin;
+        .mybook-card h3 i { color: var(--accent); }
+        .mybook-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+        .mybook-row input {
+            flex: 1; border: 1px solid var(--border); border-radius: 12px;
+            padding: 12px 14px; font-size: 0.95rem; background: var(--bg);
         }
-        .testimonial-scroll::-webkit-scrollbar { height: 4px; }
-        .testimonial-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        .t-card {
-            flex: 0 0 240px; scroll-snap-align: start;
-            background: #FAFAF8; border: 1px solid var(--border); border-radius: 14px; padding: 12px;
+        .mybook-row input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
         }
-        .t-card .t-head {
-            display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+        .mybook-row button {
+            border: none; background: var(--accent); color: #fff; font-weight: 700;
+            border-radius: 12px; padding: 0 18px; white-space: nowrap; cursor: pointer;
         }
-        .t-card .t-avatar {
-            width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
-            background: var(--cream); border: 2px solid var(--border); flex-shrink: 0;
+        .mybook-row button:active { background: var(--accent-hover); }
+        .mybook-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .mybook-item {
+            border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; background: var(--bg);
         }
-        .t-card .t-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .t-card .t-avatar .ph {
-            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-            color: var(--accent); font-weight: 800; font-size: 0.95rem; background: var(--cream);
+        .mybook-item.upcoming { border-color: var(--accent); background: var(--cream); }
+        .mybook-item .mb-top {
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;
         }
-        .t-card .stars { color: var(--star); font-size: 0.7rem; margin-bottom: 6px; }
-        .t-card .quote { font-size: 0.82rem; color: #5A4936; font-style: italic; margin-bottom: 8px; line-height: 1.4; }
-        .t-card .who { font-size: 0.82rem; font-weight: 800; color: var(--text); line-height: 1.2; }
-        .t-card .meta { font-size: 0.7rem; color: var(--muted); }
-        .t-card .celeb-tag {
-            display: inline-block; font-size: 0.62rem; font-weight: 800;
-            background: linear-gradient(135deg, #E6A817, #ED6C02); color: #fff;
-            padding: 2px 7px; border-radius: 999px; margin-left: 4px; vertical-align: middle;
+        .mybook-item .mb-date { font-weight: 800; font-size: 0.92rem; color: var(--text); }
+        .mybook-item .mb-time { font-size: 0.82rem; color: var(--accent); font-weight: 700; }
+        .mybook-item .mb-svc { font-size: 0.85rem; font-weight: 600; color: #5A4936; }
+        .mybook-item .mb-meta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+        .mybook-item .mb-status {
+            font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 999px;
+            background: #FFF3E0; color: #E65100; white-space: nowrap;
         }
+        .mybook-item .mb-status.ok { background: #E8F5E9; color: #2E7D32; }
+        .mybook-item .mb-status.bad { background: #FFEBEE; color: #C62828; }
+        .mybook-hint { font-size: 0.82rem; color: var(--muted); text-align: center; padding: 8px 0; }
 
-        /* Featured / celebrity strip */
-        .featured-wrap { margin-bottom: 14px; }
-        .featured-label {
-            font-size: 0.78rem; font-weight: 800; color: var(--accent);
-            margin: 0 0 10px; display: flex; align-items: center; gap: 6px;
-        }
-        .featured-scroll {
-            display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
-            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; touch-action: pan-x;
-            padding-bottom: 10px; scrollbar-width: thin;
-        }
-        .featured-scroll::-webkit-scrollbar { height: 4px; }
-        .featured-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        .feat-card {
-            flex: 0 0 148px; scroll-snap-align: start;
-            background: #fff; border: 1px solid var(--border); border-radius: 16px;
-            padding: 14px 10px 12px; text-align: center;
-            box-shadow: 0 4px 14px rgba(156,107,63,0.08);
-            position: relative;
-        }
-        .feat-card.is-celeb {
-            border-color: #E6A817;
-            background: linear-gradient(180deg, #FFF8E8 0%, #fff 55%);
-            box-shadow: 0 6px 18px rgba(230,168,23,0.18);
-        }
-        .feat-card .feat-photo {
-            width: 88px; height: 88px; border-radius: 50%; margin: 0 auto 10px;
-            overflow: hidden; border: 3px solid var(--accent); background: var(--cream);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .feat-card.is-celeb .feat-photo { border-color: #E6A817; }
-        .feat-card .feat-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .feat-card .feat-photo .ph {
-            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem; font-weight: 800; color: var(--accent); background: var(--cream);
-        }
-        .feat-card .feat-name {
-            font-size: 0.88rem; font-weight: 800; color: var(--text); margin: 0 0 3px;
-            line-height: 1.25; word-break: break-word;
-        }
-        .feat-card .feat-badge {
-            display: inline-block; font-size: 0.62rem; font-weight: 800;
-            padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
-        }
-        .feat-card .feat-badge.celeb {
-            background: linear-gradient(135deg, #E6A817, #ED6C02); color: #fff;
-        }
-        .feat-card .feat-badge.pinned {
-            background: var(--cream); color: var(--accent); border: 1px solid var(--border);
-        }
-        .feat-card .feat-quote {
-            font-size: 0.72rem; color: #5A4936; font-style: italic; line-height: 1.35;
-            margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .feat-card .feat-svc {
-            font-size: 0.65rem; color: var(--muted); font-weight: 600; margin-top: 4px;
-        }
-
-        /* ============================================================
-           PACKAGES — Fresha / Booksy style (owner-customizable)
-           Photo, name, includes, price, duration, party size, CTA
-           All driven by Service fields the owner already controls.
-           ============================================================ */
-        .pkg-section { margin-bottom: 24px; }
-        .pkg-section .section-title {
-            margin-bottom: 6px;
-        }
-        .pkg-section .section-sub {
-            font-size: 0.8rem; color: var(--muted); font-weight: 500;
-            margin: 0 0 14px;
-        }
-        .pkg-scroll {
-            display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden;
-            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; touch-action: pan-x;
-            padding: 4px 2px 12px; scrollbar-width: thin;
-        }
-        .pkg-scroll::-webkit-scrollbar { height: 4px; }
-        .pkg-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-        .pkg-card {
-            flex: 0 0 280px; scroll-snap-align: start;
-            background: #fff;
-            border: 1.5px solid var(--border);
-            border-radius: 18px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: border-color .18s, box-shadow .18s, transform .18s;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
-        }
-        .pkg-card:hover {
-            border-color: rgba(156,107,63,0.45);
-            box-shadow: 0 8px 24px rgba(156,107,63,0.14);
-            transform: translateY(-2px);
-        }
-        .pkg-card.selected {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(156,107,63,0.18), 0 10px 28px rgba(156,107,63,0.16);
-            transform: translateY(-2px);
-        }
-        .pkg-card input { display: none; }
-
-        .pkg-photo {
-            width: 100%; height: 168px;
-            background: linear-gradient(135deg, #9C6B3F 0%, #5A4936 100%);
-            position: relative; overflow: hidden;
-        }
-        .pkg-photo img {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-        }
-        .pkg-photo .pkg-photo-ph {
-            width: 100%; height: 100%; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; color: rgba(255,255,255,0.92);
-            gap: 8px; font-weight: 700; font-size: 0.88rem;
-        }
-        .pkg-photo .pkg-photo-ph i { font-size: 2.2rem; opacity: 0.9; }
-
-        .pkg-badge {
-            position: absolute; top: 12px; left: 12px; z-index: 2;
-            font-size: 0.68rem; font-weight: 800;
-            background: rgba(255,255,255,0.95); color: var(--accent);
-            padding: 4px 11px; border-radius: 999px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            letter-spacing: 0.02em;
-        }
-        .pkg-badge.special {
-            background: linear-gradient(135deg, #9C6B3F, #ED6C02); color: #fff;
-        }
-
-        .pkg-body {
-            padding: 14px 16px 16px;
-            display: flex; flex-direction: column; flex: 1;
-        }
-        .pkg-name {
-            font-weight: 800; font-size: 1.05rem; margin: 0 0 6px;
-            color: var(--text); line-height: 1.3;
-        }
-        .pkg-includes {
-            font-size: 0.8rem; color: #5A4936; margin: 0 0 10px; line-height: 1.4;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden; flex: 1;
-        }
-        .pkg-meta {
-            display: flex; flex-wrap: wrap; gap: 8px 14px;
-            font-size: 0.76rem; font-weight: 600; color: var(--muted);
-            margin-bottom: 12px;
-        }
-        .pkg-meta span { display: inline-flex; align-items: center; gap: 5px; }
-        .pkg-meta i { color: var(--accent); font-size: 0.78rem; }
-
-        .pkg-footer {
-            display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            margin-top: auto; padding-top: 4px;
-        }
-        .pkg-price {
-            font-weight: 800; color: var(--accent); font-size: 1.12rem;
-            line-height: 1.2;
-        }
-        .pkg-price .from {
-            font-size: 0.7rem; font-weight: 600; color: var(--muted); display: block;
-        }
-        .pkg-select-btn {
-            flex-shrink: 0;
-            background: var(--accent); color: #fff; border: none;
-            font-weight: 700; font-size: 0.8rem;
-            padding: 9px 14px; border-radius: 12px;
-            display: inline-flex; align-items: center; gap: 6px;
-            transition: background .15s;
-        }
-        .pkg-card.selected .pkg-select-btn {
-            background: var(--green);
-        }
-        .pkg-card.selected .pkg-select-btn::after {
-            content: " ✓";
-        }
-        .pkg-outside {
-            font-size: 0.68rem; font-weight: 700; color: #E65100;
-            background: #FFF8E1; border: 1px solid #FFE0B2; border-radius: 8px;
-            padding: 3px 8px; display: inline-block; margin-top: 8px;
-        }
-
-        /* Booking card */
+        /* ========== BOOKING FLOW ========== */
         .book-card {
             background: #fff; border: 1px solid var(--border); border-radius: 20px;
-            padding: 20px 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+            padding: 20px 18px; box-shadow: var(--shadow);
         }
-
-        /* Step progress */
-        .steps-bar {
-            display: flex; gap: 4px; margin-bottom: 18px;
-        }
+        .steps-bar { display: flex; gap: 4px; margin-bottom: 18px; }
         .steps-bar .dot {
-            flex: 1; height: 4px; border-radius: 4px; background: #EDE4D6;
-            transition: background .2s;
+            flex: 1; height: 4px; border-radius: 4px; background: #EDE4D6; transition: background .2s;
         }
         .steps-bar .dot.done, .steps-bar .dot.active { background: var(--accent); }
-
         .step-panel { display: none; }
         .step-panel.active { display: block; animation: fadeIn .2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-        /* Service cards */
         .svc-list { display: flex; flex-direction: column; gap: 10px; }
         .svc-card {
             display: flex; align-items: center; gap: 12px;
@@ -434,13 +393,15 @@
         .svc-meta { font-size: 0.78rem; color: var(--muted); margin: 0; }
         .svc-price { font-weight: 800; color: var(--accent); font-size: 0.95rem; white-space: nowrap; }
 
+        #partySizeBlock {
+            background: var(--cream); border: 1px solid var(--border);
+            border-radius: 14px; padding: 14px; margin-top: 12px;
+        }
+        #packageTotalLine { font-weight: 800; color: var(--accent); font-size: 1.05rem; margin-top: 8px; }
+
         /* Staff */
-        .staff-list {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 12px;
-        }
-        .staff-pick {
-            position: relative; text-align: center; cursor: pointer;
-        }
+        .staff-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 12px; }
+        .staff-pick { position: relative; text-align: center; cursor: pointer; }
         .staff-pick input { position: absolute; opacity: 0; pointer-events: none !important; z-index: 1; }
         .staff-ring {
             width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 6px;
@@ -459,11 +420,6 @@
         .staff-pick input:checked ~ .staff-check { display: flex; }
         .staff-pick .nm { font-size: 0.78rem; font-weight: 700; color: #5A4936; }
         .staff-pick.staff-hidden { display: none !important; }
-        .staff-any {
-            border: 1.5px dashed var(--border); border-radius: 14px; padding: 12px;
-            text-align: center; cursor: pointer; margin-top: 8px; font-weight: 600; font-size: 0.85rem; color: var(--muted);
-        }
-        .staff-any.selected { border-color: var(--accent); border-style: solid; background: var(--cream); color: var(--accent); }
 
         /* Time wheel */
         .eth-time-picker {
@@ -480,44 +436,24 @@
             background: rgba(156,107,63,0.12);
             border-top: 1px solid rgba(156,107,63,0.35);
             border-bottom: 1px solid rgba(156,107,63,0.35);
-            pointer-events: none !important;
-            z-index: 1;
+            pointer-events: none !important; z-index: 1;
         }
         .wheel-col {
-            position: relative;
-            height: 220px;
-            width: 100%;
-            overflow-y: scroll;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-y: contain;
-            touch-action: pan-y;
-            scroll-snap-type: y mandatory;
-            scrollbar-width: none;
-            z-index: 2;
-            -webkit-user-select: none;
-            user-select: none;
+            position: relative; height: 220px; width: 100%;
+            overflow-y: scroll; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+            touch-action: pan-y; scroll-snap-type: y mandatory;
+            scrollbar-width: none; z-index: 2;
+            -webkit-user-select: none; user-select: none;
         }
         .wheel-col::-webkit-scrollbar { display: none; width: 0; height: 0; }
-        .wheel-spacer {
-            height: 88px;
-            flex-shrink: 0;
-            pointer-events: none !important;
-        }
+        .wheel-spacer { height: 88px; flex-shrink: 0; pointer-events: none !important; }
         .wheel-item {
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            font-weight: 600;
-            color: #B9A990;
-            scroll-snap-align: center;
-            scroll-snap-stop: always;
-            transition: color .12s, font-size .12s;
-            cursor: pointer;
-            -webkit-user-select: none;
-            user-select: none;
+            height: 44px; display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; font-weight: 600; color: #B9A990;
+            scroll-snap-align: center; scroll-snap-stop: always;
+            transition: color .12s, font-size .12s; cursor: pointer;
+            -webkit-user-select: none; user-select: none;
         }
         .wheel-item.active { color: #5A4936; font-size: 1.15rem; font-weight: 800; }
         .eth-preview { margin-top: 8px; font-weight: 700; color: var(--accent); font-size: 1.05rem; text-align: center; }
@@ -531,10 +467,7 @@
         }
         .form-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
 
-        /* Nav between steps */
-        .step-nav {
-            display: flex; gap: 10px; margin-top: 18px;
-        }
+        .step-nav { display: flex; gap: 10px; margin-top: 18px; }
         .btn-next {
             flex: 1; background: var(--accent); color: #fff; border: none; font-weight: 700;
             min-height: 48px; border-radius: 14px; font-size: 0.95rem;
@@ -545,7 +478,6 @@
             min-height: 48px; border-radius: 14px; padding: 0 18px;
         }
 
-        /* Confirm summary */
         .summary-box {
             background: var(--cream); border: 1px solid var(--border); border-radius: 14px;
             padding: 14px 16px; margin-bottom: 16px;
@@ -557,12 +489,12 @@
         .summary-row .lbl { color: var(--muted); font-weight: 600; }
         .summary-row .val { font-weight: 700; color: var(--text); text-align: right; }
 
-        /* Sticky CTA */
+        /* ========== STICKY CTA ========== */
         .sticky-cta {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
             background: #fff; border-top: 1px solid var(--border);
             padding: 12px 16px calc(12px + var(--safe-bottom));
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 -6px 24px rgba(0,0,0,0.08);
         }
         .sticky-cta-inner {
             max-width: 480px; margin: 0 auto;
@@ -571,72 +503,22 @@
         .sticky-cta .price-hint {
             flex: 1; font-size: 0.8rem; color: var(--muted); font-weight: 600; line-height: 1.25;
         }
-        .sticky-cta .price-hint strong { display: block; color: var(--text); font-size: 0.95rem; }
+        .sticky-cta .price-hint strong { display: block; color: var(--text); font-size: 0.98rem; }
         .sticky-cta .btn-cta {
             background: var(--accent); color: #fff; border: none; font-weight: 700;
             border-radius: 14px; padding: 14px 22px; font-size: 0.95rem; white-space: nowrap;
-            box-shadow: 0 4px 14px rgba(156,107,63,0.3);
+            box-shadow: 0 4px 16px rgba(156,107,63,0.3);
         }
         .sticky-cta .btn-cta:hover { background: var(--accent-hover); color: #fff; }
         body.booking-open .sticky-cta { display: none; }
         body.success-view .sticky-cta { display: none; }
 
-        /* My bookings lookup */
-        .mybook-card {
-            background: #fff; border: 1px solid var(--border); border-radius: 16px;
-            padding: 16px; margin-bottom: 16px;
-        }
-        .mybook-card h3 {
-            font-size: 0.95rem; font-weight: 800; margin: 0 0 10px; color: var(--text);
-            display: flex; align-items: center; gap: 8px;
-        }
-        .mybook-card h3 i { color: var(--accent); }
-        .mybook-row {
-            display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px;
-        }
-        .mybook-row input {
-            flex: 1; border: 1px solid var(--border); border-radius: 12px;
-            padding: 11px 13px; font-size: 0.95rem; background: #FAFAF8;
-        }
-        .mybook-row input:focus {
-            outline: none; border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(156,107,63,0.12);
-        }
-        .mybook-row button {
-            border: none; background: var(--accent); color: #fff; font-weight: 700;
-            border-radius: 12px; padding: 0 16px; white-space: nowrap; cursor: pointer;
-        }
-        .mybook-row button:active { background: var(--accent-hover); }
-        .mybook-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-        .mybook-item {
-            border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
-            background: #FAFAF8;
-        }
-        .mybook-item.upcoming {
-            border-color: var(--accent); background: var(--cream);
-        }
-        .mybook-item .mb-top {
-            display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-            margin-bottom: 6px;
-        }
-        .mybook-item .mb-date { font-weight: 800; font-size: 0.92rem; color: var(--text); }
-        .mybook-item .mb-time { font-size: 0.82rem; color: var(--accent); font-weight: 700; }
-        .mybook-item .mb-svc { font-size: 0.85rem; font-weight: 600; color: #5A4936; }
-        .mybook-item .mb-meta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
-        .mybook-item .mb-status {
-            font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 999px;
-            background: #FFF3E0; color: #E65100; white-space: nowrap;
-        }
-        .mybook-item .mb-status.ok { background: #E8F5E9; color: #2E7D32; }
-        .mybook-item .mb-status.bad { background: #FFEBEE; color: #C62828; }
-        .mybook-empty, .mybook-hint {
-            font-size: 0.82rem; color: var(--muted); text-align: center; padding: 8px 0;
-        }
-
+        /* Success / Waitlist */
         .confirm-card {
-            text-align: center; padding: 32px 20px;
+            text-align: center; padding: 40px 24px;
             border-radius: 20px; border: 1px solid #C8E6C9;
             background: linear-gradient(180deg, #E8F5E9 0%, #fff 50%);
+            margin-top: 40px;
         }
         .confirm-icon {
             width: 72px; height: 72px; border-radius: 50%; background: var(--green); color: #fff;
@@ -646,13 +528,11 @@
         }
         @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .confirm-card h3 { font-weight: 800; font-size: 1.3rem; color: #1B5E20; margin: 0 0 8px; }
-        .confirm-card .thanks { font-size: 0.95rem; color: #3E5C40; font-weight: 600; margin: 0 0 8px; }
-        .confirm-card .sub { font-size: 0.85rem; color: var(--muted); margin: 0 0 18px; }
-
         .waitlist-card {
-            text-align: center; padding: 32px 20px;
+            text-align: center; padding: 40px 24px;
             border-radius: 20px; border: 1px solid #FFE0B2;
             background: linear-gradient(180deg, #FFF8E1 0%, #fff 50%);
+            margin-top: 40px;
         }
         .waitlist-icon {
             width: 72px; height: 72px; border-radius: 50%; background: #ED6C02; color: #fff;
@@ -660,20 +540,13 @@
             margin: 0 auto 16px;
         }
 
-        .hours-strip, .location-strip {
-            display: flex; align-items: flex-start; gap: 10px;
-            border: 1px solid var(--border); border-radius: 12px;
-            padding: 12px 14px; margin-bottom: 12px; font-size: .85rem; color: #5A4936;
-            background: #fff;
-        }
-        .hours-strip { background: var(--cream); align-items: center; }
-        .hours-strip i, .location-strip i { color: var(--accent); }
-        .location-strip a { color: var(--accent); font-weight: 600; text-decoration: none; }
-        #salonMap { height: 180px; width: 100%; border-radius: 12px; margin-top: 8px; border: 1px solid var(--border); }
-        .map-loading {
-            height: 180px; display: flex; align-items: center; justify-content: center;
-            background: var(--cream); border-radius: 12px; margin-top: 8px; color: var(--muted); font-size: 0.85rem;
-        }
+        .alert { border-radius: 12px; font-size: 0.88rem; }
+
+        /* Dual time */
+        .time-dual-main { font-weight: 800; color: var(--accent); font-size: 1rem; }
+        .time-dual-sub { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
+        html[data-time="intl"] .time-eth-only { display: none !important; }
+        html[data-time="eth"] .time-west-only { display: none !important; }
 
         .lightbox {
             display: none; position: fixed; inset: 0; z-index: 9999;
@@ -685,575 +558,577 @@
             position: absolute; top: 16px; right: 16px; width: 40px; height: 40px;
             border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 1.1rem;
         }
-
-        .alert { border-radius: 12px; font-size: 0.88rem; }
-
-        /* Dual time */
-        .time-dual-main { font-weight: 800; color: var(--accent); font-size: 1rem; }
-        .time-dual-sub { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
-        html[data-time="intl"] .time-eth-only { display: none !important; }
-        html[data-time="eth"] .time-west-only { display: none !important; }
-
-        .eth-preview { text-align: center; }
-        .eth-preview .time-dual-main { display: block; font-weight: 800; color: var(--accent); font-size: 1.05rem; }
-        .eth-preview .time-dual-sub { display: block; font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
-        .mb-time { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
-
-        /* Party size block (packages) */
-        #partySizeBlock {
-            background: var(--cream);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 14px;
-            margin-top: 12px;
-        }
-        #packageTotalLine {
-            font-weight: 800;
-            color: var(--accent);
-            font-size: 1.05rem;
-            margin-top: 8px;
-        }
     </style>
 </head>
 <body class="{% if success or waitlisted %}success-view{% endif %}">
 
-<button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">
-    <i class="fa-solid fa-globe"></i>
-    <span id="langLabel">EN</span>
-</button>
+<!-- ========== FLOATING HEADER ========== -->
+<header class="top-header">
+    <div class="header-brand">
+        <div class="header-logo">
+            {% if salon.logo_url %}
+            <img src="{{ salon.logo_url }}" alt="">
+            {% else %}
+            <span class="ph">{{ (salon.name or 'S')[0]|upper }}</span>
+            {% endif %}
+        </div>
+        <span class="header-name">{{ brand_name or salon.name }}</span>
+    </div>
+    <div class="header-actions">
+        <button type="button" class="lang-btn" id="langToggle" onclick="toggleLang()">
+            <i class="fa-solid fa-globe"></i>
+            <span id="langLabel">EN</span>
+        </button>
+        <button type="button" class="btn-header-book" onclick="startBooking()">
+            <i class="fa-solid fa-calendar-check"></i>
+            <span data-lang-am>ያዙ</span>
+            <span data-lang-en>Book</span>
+        </button>
+    </div>
+</header>
 
 {% if success %}
-<div class="wrap" style="padding-top: 40px;">
-    <div class="confirm-card">
-        <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
-        <h3><span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span><span data-lang-en>Booking confirmed!</span></h3>
-        <p class="thanks"><span data-lang-am>እናመሰግናለን</span><span data-lang-en>Thank you</span></p>
-        <p class="sub"><span data-lang-am>ቀጠሮ ተረጋግጧል እናመሰግናለን</span><span data-lang-en>We'll see you soon.</span></p>
-        <a href="/book/{{ salon_ref }}" class="btn btn-accent" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;">
-            <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
-        </a>
+<div class="page-content">
+    <div class="wrap">
+        <div class="confirm-card">
+            <div class="confirm-icon"><i class="fa-solid fa-check"></i></div>
+            <h3><span data-lang-am>ቀጠሮዎ ተረጋግጧል!</span><span data-lang-en>Booking confirmed!</span></h3>
+            <p style="font-size:0.95rem;color:#3E5C40;font-weight:600;margin:0 0 8px;"><span data-lang-am>እናመሰግናለን</span><span data-lang-en>Thank you</span></p>
+            <p style="font-size:0.85rem;color:var(--muted);margin:0 0 18px;"><span data-lang-am>ቀጠሮ ተረጋግጧል እናመሰግናለን</span><span data-lang-en>We'll see you soon.</span></p>
+            <a href="/book/{{ salon_ref }}" class="btn" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;">
+                <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
+            </a>
+        </div>
     </div>
 </div>
 {% elif waitlisted %}
-<div class="wrap" style="padding-top: 40px;">
-    <div class="waitlist-card">
-        <div class="waitlist-icon"><i class="fa-solid fa-clock"></i></div>
-        <h3 style="font-weight:800;font-size:1.2rem;margin:0 0 8px;"><span data-lang-am>በመጠባበቂያ ዝርዝር ላይ</span><span data-lang-en>You're on the waitlist</span></h3>
-        <p style="color:var(--muted);font-size:0.9rem;"><span data-lang-am>ክፍት ቦታ ሲገኝ እናሳውቅዎታለን።</span><span data-lang-en>We'll notify you when a slot opens.</span></p>
-        <a href="/book/{{ salon_ref }}" class="btn" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;margin-top:12px;">
-            <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
-        </a>
+<div class="page-content">
+    <div class="wrap">
+        <div class="waitlist-card">
+            <div class="waitlist-icon"><i class="fa-solid fa-clock"></i></div>
+            <h3 style="font-weight:800;font-size:1.2rem;margin:0 0 8px;"><span data-lang-am>በመጠባበቂያ ዝርዝር ላይ</span><span data-lang-en>You're on the waitlist</span></h3>
+            <p style="color:var(--muted);font-size:0.9rem;"><span data-lang-am>ክፍት ቦታ ሲገኝ እናሳውቅዎታለን።</span><span data-lang-en>We'll notify you when a slot opens.</span></p>
+            <a href="/book/{{ salon_ref }}" class="btn" style="background:var(--accent);color:#fff;border:none;font-weight:700;padding:12px 24px;border-radius:14px;text-decoration:none;display:inline-block;margin-top:12px;">
+                <span data-lang-am>ወደ መነሻ</span><span data-lang-en>Back home</span>
+            </a>
+        </div>
     </div>
 </div>
 {% else %}
 
-<!-- Hero -->
-<div class="hero {% if not salon.cover_photo_url %}no-photo{% endif %}"
-     {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}')"{% endif %}>
-    <div class="hero-overlay">
-        <h1>{{ brand_name or salon.name }}</h1>
-        <p class="tagline">
-            <span data-lang-am>ቀጠሮ ይያዙ · ቀላልና ፈጣን</span>
-            <span data-lang-en>Book online · Easy & fast</span>
-        </p>
+<div class="page-content">
+    <!-- HERO -->
+    <div class="hero {% if not salon.cover_photo_url %}no-photo{% endif %}"
+         {% if salon.cover_photo_url %}style="background-image:url('{{ salon.cover_photo_url }}')"{% endif %}>
+        <div class="hero-overlay">
+            <h1>{{ brand_name or salon.name }}</h1>
+            <p class="tagline">
+                <span data-lang-am>ቀጠሮ ይያዙ · ቀላልና ፈጣን</span>
+                <span data-lang-en>Book online · Easy & fast</span>
+            </p>
+            {% if testimonials and testimonials|length > 0 %}
+            <div class="hero-rating">
+                <span class="stars">★★★★★</span>
+                <span>{{ (testimonials|sum(attribute='rating') / testimonials|length)|round(1) }}</span>
+            </div>
+            {% endif %}
+        </div>
     </div>
-</div>
 
-<div class="wrap">
-    <!-- Trust bar -->
-    <div class="trust-bar">
-        <span><i class="fa-solid fa-clock"></i> {{ hours_label or '—' }}</span>
-        <span class="sep">·</span>
-        <span><i class="fa-solid fa-calendar-days"></i> {{ days_label or '—' }}</span>
-        {% if testimonials and testimonials|length > 0 %}
-        <span class="sep">·</span>
-        <span class="star">★</span>
-        <span>{{ (testimonials|sum(attribute='rating') / testimonials|length)|round(1) }}</span>
+    <div class="wrap">
+        <!-- TRUST CARDS -->
+        <div class="trust-row">
+            <div class="trust-card">
+                <i class="fa-solid fa-clock"></i>
+                <div class="val">{{ hours_label or '—' }}</div>
+                <span data-lang-am>ሰዓት</span><span data-lang-en>Hours</span>
+            </div>
+            <div class="trust-card">
+                <i class="fa-solid fa-calendar-days"></i>
+                <div class="val">{{ days_label or '—' }}</div>
+                <span data-lang-am>ቀናት</span><span data-lang-en>Days</span>
+            </div>
+            <div class="trust-card">
+                <i class="fa-solid fa-star" style="color:var(--star)"></i>
+                {% if testimonials and testimonials|length > 0 %}
+                <div class="val">{{ (testimonials|sum(attribute='rating') / testimonials|length)|round(1) }}</div>
+                {% else %}
+                <div class="val">—</div>
+                {% endif %}
+                <span data-lang-am>ደረጃ</span><span data-lang-en>Rating</span>
+            </div>
+        </div>
+
+        <!-- LOCATION -->
+        {% if salon.address %}
+        <div class="location-card">
+            <i class="fa-solid fa-location-dot"></i>
+            <div style="flex:1;">
+                <strong id="salonAddressText">{{ salon.address }}</strong>
+                <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | urlencode }}" target="_blank" rel="noopener">
+                    <span data-lang-am>ካርታ ላይ ይመልከቱ</span><span data-lang-en>View on map</span>
+                </a>
+                <div id="mapLoading" class="map-loading"><span data-lang-am>ካርታ በመጫን ላይ…</span><span data-lang-en>Loading map…</span></div>
+                <div id="salonMap" style="display:none;"></div>
+            </div>
+        </div>
         {% endif %}
-    </div>
 
-    <!-- Location (hours already shown in trust bar) -->
-    {% if salon.address %}
-    <div class="location-strip">
-        <i class="fa-solid fa-location-dot"></i>
-        <div>
-            <strong id="salonAddressText">{{ salon.address }}</strong><br>
-            <a href="https://www.google.com/maps/search/?api=1&query={{ salon.address | urlencode }}" target="_blank" rel="noopener">
-                <span data-lang-am>ካርታ ላይ ይመልከቱ</span><span data-lang-en>View on map</span>
-            </a>
-            <div id="mapLoading" class="map-loading"><span data-lang-am>ካርታ በመጫን ላይ…</span><span data-lang-en>Loading map…</span></div>
-            <div id="salonMap" style="display:none;"></div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Featured testimonials -->
-    {% set featured = testimonials|selectattr('is_pinned')|list or testimonials[:6] %}
-    {% if featured %}
-    <div class="featured-wrap section">
-        <div class="featured-label">
-            <i class="fa-solid fa-star"></i>
-            <span data-lang-am>ደንበኞቻችን ምን ይላሉ</span>
-            <span data-lang-en>What clients say</span>
-        </div>
-        <div class="featured-scroll">
-            {% for t in featured %}
-            <div class="feat-card {% if t.is_celebrity %}is-celeb{% endif %}">
-                <div class="feat-photo">
-                    {% if t.client_photo_url %}
-                    <img src="{{ t.client_photo_url }}" alt="" loading="lazy">
-                    {% else %}
-                    <div class="ph">{{ (t.client_name or '?')[0]|upper }}</div>
+        <!-- FEATURED CLIENTS -->
+        {% set featured = testimonials|selectattr('is_pinned')|list or testimonials[:6] %}
+        {% if featured %}
+        <div class="section">
+            <div class="section-head">
+                <h2 class="section-title">
+                    <i class="fa-solid fa-star"></i>
+                    <span data-lang-am>ደንበኞቻችን</span>
+                    <span data-lang-en>Featured Clients</span>
+                </h2>
+            </div>
+            <div class="featured-scroll">
+                {% for t in featured %}
+                <div class="feat-card {% if t.is_celebrity %}is-celeb{% endif %}">
+                    <div class="feat-photo">
+                        {% if t.client_photo_url %}
+                        <img src="{{ t.client_photo_url }}" alt="" loading="lazy">
+                        {% else %}
+                        <div class="ph">{{ (t.client_name or '?')[0]|upper }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="feat-name">{{ t.client_name }}</div>
+                    {% if t.is_celebrity %}
+                    <span class="feat-badge celeb">Celebrity</span>
+                    {% elif t.is_pinned %}
+                    <span class="feat-badge pinned">Featured</span>
+                    {% endif %}
+                    {% if t.comment %}
+                    <p class="feat-quote">“{{ t.comment[:90] }}{% if t.comment|length > 90 %}…{% endif %}”</p>
                     {% endif %}
                 </div>
-                <div class="feat-name">{{ t.client_name }}</div>
-                {% if t.is_celebrity %}
-                <span class="feat-badge celeb">Celebrity</span>
-                {% elif t.is_pinned %}
-                <span class="feat-badge pinned">Featured</span>
-                {% endif %}
-                {% if t.comment %}
-                <p class="feat-quote">“{{ t.comment[:90] }}{% if t.comment|length > 90 %}…{% endif %}”</p>
-                {% endif %}
-                {% if t.service_label %}
-                <div class="feat-svc">{{ t.service_label }}</div>
-                {% endif %}
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <!-- Gallery -->
-    {% if gallery %}
-    <div class="section">
-        <div class="section-title">
-            <span data-lang-am>ስራዎቻችን</span>
-            <span data-lang-en>Our work</span>
+        <!-- SPECIAL PACKAGES -->
+        {% set packages = services|selectattr('is_package')|list %}
+        {% if packages %}
+        <div class="section">
+            <div class="section-head">
+                <h2 class="section-title">
+                    <i class="fa-solid fa-gift"></i>
+                    <span data-lang-am>ልዩ ጥቅሎች</span>
+                    <span data-lang-en>Special Packages</span>
+                </h2>
+            </div>
+            <div class="pkg-scroll">
+                {% for p in packages %}
+                <div class="pkg-card" data-service-id="{{ p.id }}" onclick="pickPackage({{ p.id }}, this)">
+                    <input type="radio" name="pkg_preview" value="{{ p.id }}">
+                    <div class="pkg-photo">
+                        {% if p.photo_url %}
+                        <img src="{{ p.photo_url }}" alt="{{ p.name }}" loading="lazy">
+                        {% else %}
+                        <div class="pkg-photo-ph">
+                            <i class="fa-solid fa-spa"></i>
+                            <span>{{ p.name[:18] }}</span>
+                        </div>
+                        {% endif %}
+                        <span class="pkg-badge">
+                            <span data-lang-am>ጥቅል</span>
+                            <span data-lang-en>Package</span>
+                        </span>
+                    </div>
+                    <div class="pkg-body">
+                        <h3 class="pkg-name">{{ p.name }}</h3>
+                        {% if p.includes_text %}
+                        <p class="pkg-includes">{{ p.includes_text }}</p>
+                        {% else %}
+                        <p class="pkg-includes" style="opacity:.6">
+                            <span data-lang-am>ዝርዝር በባለቤት ይጨመራል</span>
+                            <span data-lang-en>Details set by salon</span>
+                        </p>
+                        {% endif %}
+                        <div class="pkg-meta">
+                            <span><i class="fa-regular fa-clock"></i> {{ p.duration_minutes or 60 }} ደቂቃ</span>
+                            {% if p.min_people and p.min_people > 1 %}
+                            <span>
+                                <i class="fa-solid fa-users"></i>
+                                {% if p.max_people %}{{ p.min_people }}–{{ p.max_people }}{% else %}{{ p.min_people }}+{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="pkg-footer">
+                            <div class="pkg-price">
+                                {% if p.extra_person_price and p.extra_person_price > 0 %}
+                                <span class="from"><span data-lang-am>ከ</span><span data-lang-en>From</span></span>
+                                {% endif %}
+                                {{ "{:,.0f}".format(p.price or 0) }} ብር
+                            </div>
+                            <button type="button" class="pkg-select-btn" onclick="event.stopPropagation(); pickPackage({{ p.id }}, this.closest('.pkg-card'))">
+                                <span data-lang-am>ይምረጡ</span>
+                                <span data-lang-en>Select</span>
+                            </button>
+                        </div>
+                        {% if p.allow_outside_hours %}
+                        <div class="pkg-outside">
+                            <i class="fa-solid fa-moon"></i>
+                            <span data-lang-am>ከስራ ሰዓት ውጭም ይቻላል</span>
+                            <span data-lang-en>Outside hours OK</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
-        {# Only show category chips that exist on THIS salon's gallery photos #}
-        {% set _cat_meta = {
-            'hair': ('ፀጉር', 'Hair'),
-            'nails': ('ጥፍር', 'Nails'),
-            'pedicure': ('ጥፍር', 'Nails'),
-            'manicure': ('ጥፍር', 'Nails'),
-            'makeup': ('ሜካፕ', 'Makeup'),
-            'facial': ('ፊት', 'Facial'),
-            'spa': ('ስፓ', 'Spa'),
-            'massage': ('ስፓ', 'Spa'),
-            'barber': ('ባርበር', 'Barber'),
-            'other': ('ሌላ', 'Other')
-        } %}
-        {% set ns = namespace(used=[]) %}
-        {% for g in gallery %}
-          {% set c = (g.category or 'other')|lower %}
-          {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
-          {% if c == 'massage' %}{% set c = 'spa' %}{% endif %}
-          {% if c not in ns.used %}{% set ns.used = ns.used + [c] %}{% endif %}
-        {% endfor %}
-        <div class="cat-row" id="catFilters">
-            <button type="button" class="cat-chip active" data-cat="all">
-                <span data-lang-am>ሁሉም</span>
-                <span data-lang-en>All</span>
-            </button>
-            {% for c in ns.used %}
-              {% set meta = _cat_meta.get(c, ('ሌላ', 'Other')) %}
-              <button type="button" class="cat-chip" data-cat="{{ c }}">
-                <span data-lang-am>{{ meta[0] }}</span>
-                <span data-lang-en>{{ meta[1] }}</span>
-              </button>
-            {% endfor %}
-        </div>
-        <div class="gallery-row" id="galleryScroll">
+        {% endif %}
+
+        <!-- GALLERY -->
+        {% if gallery %}
+        <div class="section">
+            <div class="section-head">
+                <h2 class="section-title">
+                    <span data-lang-am>ስራዎቻችን</span>
+                    <span data-lang-en>Our Work</span>
+                </h2>
+            </div>
+            {% set _cat_meta = {
+                'hair': ('ፀጉር', 'Hair'),
+                'nails': ('ጥፍር', 'Nails'),
+                'pedicure': ('ጥፍር', 'Nails'),
+                'manicure': ('ጥፍር', 'Nails'),
+                'makeup': ('ሜካፕ', 'Makeup'),
+                'facial': ('ፊት', 'Facial'),
+                'spa': ('ስፓ', 'Spa'),
+                'massage': ('ስፓ', 'Spa'),
+                'barber': ('ባርበር', 'Barber'),
+                'other': ('ሌላ', 'Other')
+            } %}
+            {% set ns = namespace(used=[]) %}
             {% for g in gallery %}
               {% set c = (g.category or 'other')|lower %}
               {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
               {% if c == 'massage' %}{% set c = 'spa' %}{% endif %}
-            <div class="g-tile" data-cat="{{ c }}" onclick="openLightbox('{{ g.image_url }}')">
-                <img src="{{ g.image_url }}" alt="" loading="lazy">
-                {% if g.caption %}<span class="badge">{{ g.caption }}</span>{% endif %}
-            </div>
+              {% if c not in ns.used %}{% set ns.used = ns.used + [c] %}{% endif %}
             {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- ============================================================
-         SPECIAL PACKAGES — Fresha/Booksy style
-         Owner customizes via: photo_url, name, includes_text, price,
-         duration_minutes, min_people, max_people, extra_person_price,
-         allow_outside_hours. Selecting a card checks the matching
-         service radio and opens the booking flow.
-         ============================================================ -->
-    {% set packages = services|selectattr('is_package')|list %}
-    {% if packages %}
-    <div class="pkg-section section">
-        <div class="section-title">
-            <i class="fa-solid fa-gift" style="color:var(--accent)"></i>
-            <span data-lang-am>ልዩ ጥቅሎች</span>
-            <span data-lang-en>Special packages</span>
-        </div>
-        <p class="section-sub">
-            <span data-lang-am>ብሪዳል፣ ቡድን እና ልዩ ቀናት — ፎቶና ዝርዝር በባለቤት ይቀመጣሉ</span>
-            <span data-lang-en>Bridal, group & special days — photo & details set by the salon owner</span>
-        </p>
-        <div class="pkg-scroll">
-            {% for p in packages %}
-            <div class="pkg-card"
-                 data-service-id="{{ p.id }}"
-                 onclick="pickPackage({{ p.id }}, this)">
-                <input type="radio" name="pkg_preview" value="{{ p.id }}">
-                <div class="pkg-photo">
-                    {% if p.photo_url %}
-                    <img src="{{ p.photo_url }}" alt="{{ p.name }}" loading="lazy">
-                    {% else %}
-                    <div class="pkg-photo-ph">
-                        <i class="fa-solid fa-spa"></i>
-                        <span>{{ p.name[:18] }}</span>
-                    </div>
-                    {% endif %}
-                    <span class="pkg-badge special">
-                        <span data-lang-am>ጥቅል</span>
-                        <span data-lang-en>Package</span>
-                    </span>
-                </div>
-                <div class="pkg-body">
-                    <h3 class="pkg-name">{{ p.name }}</h3>
-                    {% if p.includes_text %}
-                    <p class="pkg-includes">{{ p.includes_text }}</p>
-                    {% else %}
-                    <p class="pkg-includes" style="opacity:.6">
-                        <span data-lang-am>ዝርዝር በባለቤት ይጨመራል</span>
-                        <span data-lang-en>Details set by salon</span>
-                    </p>
-                    {% endif %}
-                    <div class="pkg-meta">
-                        <span><i class="fa-regular fa-clock"></i> {{ p.duration_minutes or 60 }} ደቂቃ</span>
-                        {% if p.min_people and p.min_people > 1 %}
-                        <span>
-                            <i class="fa-solid fa-users"></i>
-                            {% if p.max_people %}
-                            {{ p.min_people }}–{{ p.max_people }}
-                            {% else %}
-                            {{ p.min_people }}+
-                            {% endif %}
-                        </span>
-                        {% endif %}
-                    </div>
-                    <div class="pkg-footer">
-                        <div class="pkg-price">
-                            {% if p.extra_person_price and p.extra_person_price > 0 %}
-                            <span class="from"><span data-lang-am>ከ</span><span data-lang-en>From</span></span>
-                            {% endif %}
-                            {{ "{:,.0f}".format(p.price or 0) }} ብር
-                        </div>
-                        <button type="button" class="pkg-select-btn" onclick="event.stopPropagation(); pickPackage({{ p.id }}, this.closest('.pkg-card'))">
-                            <span data-lang-am>ይምረጡ</span>
-                            <span data-lang-en>Select</span>
-                        </button>
-                    </div>
-                    {% if p.allow_outside_hours %}
-                    <div class="pkg-outside">
-                        <i class="fa-solid fa-moon"></i>
-                        <span data-lang-am>ከስራ ሰዓት ውጭም ይቻላል</span>
-                        <span data-lang-en>Outside hours OK</span>
-                    </div>
-                    {% endif %}
-                </div>
+            <div class="cat-row" id="catFilters">
+                <button type="button" class="cat-chip active" data-cat="all">
+                    <span data-lang-am>ሁሉም</span>
+                    <span data-lang-en>All</span>
+                </button>
+                {% for c in ns.used %}
+                  {% set meta = _cat_meta.get(c, ('ሌላ', 'Other')) %}
+                  <button type="button" class="cat-chip" data-cat="{{ c }}">
+                    <span data-lang-am>{{ meta[0] }}</span>
+                    <span data-lang-en>{{ meta[1] }}</span>
+                  </button>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- My bookings lookup -->
-    <div class="mybook-card">
-        <h3>
-            <i class="fa-solid fa-calendar-check"></i>
-            <span data-lang-am>የእኔ ቀጠሮዎች</span>
-            <span data-lang-en>My bookings</span>
-        </h3>
-        <div class="mybook-row">
-            <input type="tel" id="myBookPhone" placeholder="09…" inputmode="tel" autocomplete="tel">
-            <button type="button" onclick="lookupMyBookings()">
-                <span data-lang-am>ፈልግ</span>
-                <span data-lang-en>Find</span>
-            </button>
-        </div>
-        <p class="mybook-hint" id="myBookHint">
-            <span data-lang-am>ስልክዎን ያስገቡ ቀጠሮዎችዎን ለማየት</span>
-            <span data-lang-en>Enter your phone to see your bookings</span>
-        </p>
-        <div class="mybook-list" id="myBookResults" style="display:none;"></div>
-    </div>
-
-    <!-- Booking section -->
-    <div class="section" id="bookingSection">
-        <div class="section-title">
-            <span class="step-num">1</span>
-            <span data-lang-am>ቀጠሮ ያዙ</span>
-            <span data-lang-en>Book an appointment</span>
-        </div>
-
-        {% if error == 'conflict' %}
-        <div class="alert alert-warning">
-            <span data-lang-am>ይህ ሰዓት ተይዟል። ሌላ ሰዓት ወይም ሰራተኛ ይምረጡ።</span>
-            <span data-lang-en>That slot is taken. Please choose another time or professional.</span>
-        </div>
-        {% elif error %}
-        <div class="alert alert-danger">
-            <span data-lang-am>ስህተት ተፈጥሯል። እንደገና ይሞክሩ።</span>
-            <span data-lang-en>Something went wrong. Please try again.</span>
+            <div class="gallery-row" id="galleryScroll">
+                {% for g in gallery %}
+                  {% set c = (g.category or 'other')|lower %}
+                  {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
+                  {% if c == 'massage' %}{% set c = 'spa' %}{% endif %}
+                <div class="g-tile" data-cat="{{ c }}" onclick="openLightbox('{{ g.image_url }}')">
+                    <img src="{{ g.image_url }}" alt="" loading="lazy">
+                    {% if g.caption %}<span class="badge">{{ g.caption }}</span>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
         </div>
         {% endif %}
 
-        <div class="book-card">
-            <div class="steps-bar" id="stepsBar">
-                <div class="dot active" data-s="1"></div>
-                <div class="dot" data-s="2"></div>
-                <div class="dot" data-s="3"></div>
-                <div class="dot" data-s="4"></div>
-                <div class="dot" data-s="5"></div>
+        <!-- MY BOOKINGS -->
+        <div class="mybook-card">
+            <h3>
+                <i class="fa-solid fa-calendar-check"></i>
+                <span data-lang-am>የእኔ ቀጠሮዎች</span>
+                <span data-lang-en>My Bookings</span>
+            </h3>
+            <div class="mybook-row">
+                <input type="tel" id="myBookPhone" placeholder="09…" inputmode="tel" autocomplete="tel">
+                <button type="button" onclick="lookupMyBookings()">
+                    <span data-lang-am>ፈልግ</span>
+                    <span data-lang-en>Find</span>
+                </button>
+            </div>
+            <p class="mybook-hint" id="myBookHint">
+                <span data-lang-am>ስልክዎን ያስገቡ ቀጠሮዎችዎን ለማየት</span>
+                <span data-lang-en>Enter your phone to see your bookings</span>
+            </p>
+            <div class="mybook-list" id="myBookResults" style="display:none;"></div>
+        </div>
+
+        <!-- BOOKING SECTION -->
+        <div class="section" id="bookingSection">
+            <div class="section-head">
+                <h2 class="section-title">
+                    <span class="step-num">1</span>
+                    <span data-lang-am>ቀጠሮ ያዙ</span>
+                    <span data-lang-en>Book an appointment</span>
+                </h2>
             </div>
 
-            <form method="post" action="/book/{{ salon_ref }}" id="bookingForm" enctype="multipart/form-data">
+            {% if error == 'conflict' %}
+            <div class="alert alert-warning">
+                <span data-lang-am>ይህ ሰዓት ተይዟል። ሌላ ሰዓት ወይም ሰራተኛ ይምረጡ።</span>
+                <span data-lang-en>That slot is taken. Please choose another time or professional.</span>
+            </div>
+            {% elif error %}
+            <div class="alert alert-danger">
+                <span data-lang-am>ስህተት ተፈጥሯል። እንደገና ይሞክሩ።</span>
+                <span data-lang-en>Something went wrong. Please try again.</span>
+            </div>
+            {% endif %}
 
-                <!-- Step 1: Service (includes packages as selectable cards) -->
-                <div class="step-panel active" data-step="1">
-                    <label class="form-label">
-                        <span data-lang-am>አገልግሎት ይምረጡ</span>
-                        <span data-lang-en>Choose a service</span>
-                    </label>
-                    <div class="svc-list">
-                        {% for s in services %}
-                        <label class="svc-card" for="svc-{{ s.id }}">
-                            <input type="radio" name="service_id" id="svc-{{ s.id }}" value="{{ s.id }}"
-                                   data-name="{{ s.name }}"
-                                   data-price="{{ s.price }}"
-                                   data-deposit="{{ s.deposit_amount or 0 }}"
-                                   data-is-package="{{ 1 if s.is_package else 0 }}"
-                                   data-min-people="{{ s.min_people or 1 }}"
-                                   data-max-people="{{ s.max_people or 0 }}"
-                                   data-extra-price="{{ s.extra_person_price or 0 }}"
-                                   data-duration="{{ s.duration_minutes or 30 }}"
-                                   onchange="onServicePick(this)" required>
-                            <div class="svc-icon">
-                                {% if s.is_package %}
-                                <i class="fa-solid fa-gift"></i>
-                                {% else %}
-                                <i class="fa-solid fa-scissors"></i>
-                                {% endif %}
-                            </div>
-                            <div class="svc-body">
-                                <div class="svc-name">
-                                    {{ s.name }}
+            <div class="book-card">
+                <div class="steps-bar" id="stepsBar">
+                    <div class="dot active" data-s="1"></div>
+                    <div class="dot" data-s="2"></div>
+                    <div class="dot" data-s="3"></div>
+                    <div class="dot" data-s="4"></div>
+                    <div class="dot" data-s="5"></div>
+                </div>
+
+                <form method="post" action="/book/{{ salon_ref }}" id="bookingForm" enctype="multipart/form-data">
+
+                    <!-- Step 1: Service -->
+                    <div class="step-panel active" data-step="1">
+                        <label class="form-label">
+                            <span data-lang-am>አገልግሎት ይምረጡ</span>
+                            <span data-lang-en>Choose a service</span>
+                        </label>
+                        <div class="svc-list">
+                            {% for s in services %}
+                            <label class="svc-card" for="svc-{{ s.id }}">
+                                <input type="radio" name="service_id" id="svc-{{ s.id }}" value="{{ s.id }}"
+                                       data-name="{{ s.name }}"
+                                       data-price="{{ s.price }}"
+                                       data-deposit="{{ s.deposit_amount or 0 }}"
+                                       data-is-package="{{ 1 if s.is_package else 0 }}"
+                                       data-min-people="{{ s.min_people or 1 }}"
+                                       data-max-people="{{ s.max_people or 0 }}"
+                                       data-extra-price="{{ s.extra_person_price or 0 }}"
+                                       data-duration="{{ s.duration_minutes or 30 }}"
+                                       onchange="onServicePick(this)" required>
+                                <div class="svc-icon">
                                     {% if s.is_package %}
-                                    <span style="font-size:0.65rem;background:var(--cream);color:var(--accent);padding:2px 7px;border-radius:999px;margin-left:4px;font-weight:800;">
-                                        <span data-lang-am>ጥቅል</span><span data-lang-en>PKG</span>
-                                    </span>
+                                    <i class="fa-solid fa-gift"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-scissors"></i>
                                     {% endif %}
                                 </div>
-                                <p class="svc-meta">
-                                    {{ s.duration_minutes or 30 }} ደቂቃ
-                                    {% if s.is_package and s.min_people and s.min_people > 1 %}
-                                    · {{ s.min_people }}{% if s.max_people %}–{{ s.max_people }}{% else %}+{% endif %} ሰዎች
-                                    {% endif %}
-                                </p>
-                            </div>
-                            <div class="svc-price">{{ "{:,.0f}".format(s.price or 0) }} ብር</div>
-                        </label>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Party size for packages (shown only when package selected) -->
-                    <div id="partySizeBlock" style="display:none;">
-                        <label class="form-label">
-                            <span data-lang-am>የሰዎች ብዛት</span>
-                            <span data-lang-en>Number of people</span>
-                        </label>
-                        <input type="number" class="form-control" name="party_size" id="partySize" value="1" min="1" onchange="updatePackageTotal()" oninput="updatePackageTotal()">
-                        <p class="small text-muted mt-1 mb-0" id="partySizeHint"></p>
-                        <div id="packageTotalLine" style="display:none;">
-                            <span data-lang-am>ጠቅላላ</span>
-                            <span data-lang-en>Total</span>:
-                            <span id="packageTotalValue">0</span> ብር
-                        </div>
-                    </div>
-
-                    <div class="step-nav">
-                        <button type="button" class="btn-next" onclick="goStep(2)">
-                            <span data-lang-am>ቀጣይ</span>
-                            <span data-lang-en>Next</span>
-                            <i class="fa-solid fa-arrow-right ms-1"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Step 2: Staff -->
-                <div class="step-panel" data-step="2">
-                    <label class="form-label">
-                        <span data-lang-am>ባለሙያ ይምረጡ</span>
-                        <span data-lang-en>Choose a professional</span>
-                    </label>
-                    <div class="staff-list" id="staffList">
-                        {% for st in staff_members %}
-                        <label class="staff-pick" data-services="{{ st.service_ids|join(',') if st.service_ids else 'all' }}">
-                            <input type="radio" name="staff_id" value="{{ st.id }}"
-                                   data-name="{{ st.name }}"
-                                   data-open="{{ st.opening_time or salon.opening_time or '09:00' }}"
-                                   data-close="{{ st.closing_time or salon.closing_time or '18:00' }}"
-                                   data-days="{{ st.working_days or salon.working_days or '0,1,2,3,4,5,6' }}"
-                                   onchange="onStaffPick()" required>
-                            <div class="staff-ring">
-                                {% if st.photo_url %}
-                                <img class="staff-photo-img" src="{{ st.photo_url }}" data-fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect fill='%23F6ECE1' width='80' height='80'/%3E%3Ctext x='40' y='48' text-anchor='middle' fill='%239C6B3F' font-size='28' font-family='sans-serif'%3E{{ (st.name or '?')[0]|upper }}%3C/text%3E%3C/svg%3E" alt="">
-                                {% else %}
-                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--accent);background:var(--cream);font-size:1.4rem;">{{ (st.name or '?')[0]|upper }}</div>
-                                {% endif %}
-                            </div>
-                            <span class="staff-check"><i class="fa-solid fa-check"></i></span>
-                            <div class="nm">{{ st.name }}</div>
-                        </label>
-                        {% endfor %}
-                    </div>
-                    <p id="noStaffForService" style="display:none;" class="text-muted small text-center mt-2">
-                        <span data-lang-am>ለዚህ አገልግሎት ባለሙያ አልተመደበም</span>
-                        <span data-lang-en>No professional assigned to this service</span>
-                    </p>
-                    <p class="small text-muted mt-2" id="staffHoursHint"></p>
-                    <div class="step-nav">
-                        <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
-                        <button type="button" class="btn-next" onclick="goStep(3)">
-                            <span data-lang-am>ቀጣይ</span>
-                            <span data-lang-en>Next</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Step 3: Date & time -->
-                <div class="step-panel" data-step="3">
-                    <label class="form-label">
-                        <span data-lang-am>ቀን</span>
-                        <span data-lang-en>Date</span>
-                    </label>
-                    <input type="date" class="form-control mb-3" id="ethDate" name="appointment_date_display" min="{{ current_date }}" required>
-
-                    <label class="form-label">
-                        <span data-lang-am>ሰዓት</span>
-                        <span data-lang-en>Time</span>
-                    </label>
-                    <div class="eth-time-picker">
-                        <div class="eth-wheel-shell">
-                            <div class="eth-wheel-highlight"></div>
-                            <div class="wheel-col wheel-eth" id="wheelEth"></div>
-                        </div>
-                        <div class="eth-preview" id="ethPreview">—</div>
-                    </div>
-                    <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
-
-                    <div class="step-nav">
-                        <button type="button" class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i></button>
-                        <button type="button" class="btn-next" onclick="goStep(4)">
-                            <span data-lang-am>ቀጣይ</span>
-                            <span data-lang-en>Next</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Step 4: Customer details -->
-                <div class="step-panel" data-step="4">
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <span data-lang-am>ስም</span>
-                            <span data-lang-en>Name</span>
-                        </label>
-                        <input type="text" class="form-control" name="customer_name" id="customerName" required autocomplete="name">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <span data-lang-am>ስልክ</span>
-                            <span data-lang-en>Phone</span>
-                        </label>
-                        <input type="tel" class="form-control" name="customer_phone" id="customerPhone" required inputmode="tel" autocomplete="tel">
-                    </div>
-                    <div class="step-nav">
-                        <button type="button" class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i></button>
-                        <button type="button" class="btn-next" onclick="goStep(5)">
-                            <span data-lang-am>ቀጣይ</span>
-                            <span data-lang-en>Next</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Step 5: Confirm -->
-                <div class="step-panel" data-step="5">
-                    <div class="summary-box">
-                        <div class="summary-row">
-                            <span class="lbl"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
-                            <span class="val" id="sumService">—</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="lbl"><span data-lang-am>ባለሙያ</span><span data-lang-en>Professional</span></span>
-                            <span class="val" id="sumStaff">—</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="lbl"><span data-lang-am>ቀን / ሰዓት</span><span data-lang-en>When</span></span>
-                            <span class="val" id="sumWhen">—</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="lbl"><span data-lang-am>ስም</span><span data-lang-en>Name</span></span>
-                            <span class="val" id="sumName">—</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
-                            <span class="val" id="sumPrice">—</span>
-                        </div>
-                        <div class="summary-row" id="sumDepositRow" style="display:none;">
-                            <span class="lbl"><span data-lang-am>ቅድመ ክፍያ</span><span data-lang-en>Deposit</span></span>
-                            <span class="val" id="sumDeposit">—</span>
-                        </div>
-                    </div>
-
-                    {% if salon.deposit_enabled %}
-                    <div id="depositBlock" style="display:none;" class="mb-3">
-                        <label class="form-label">
-                            <span data-lang-am>የክፍያ ዘዴ</span>
-                            <span data-lang-en>Payment method</span>
-                        </label>
-                        <select class="form-select mb-2" name="payment_method">
-                            {% for m in payment_methods or [] %}
-                            <option value="{{ m.name }}">{{ m.name }}{% if m.account %} — {{ m.account }}{% endif %}</option>
+                                <div class="svc-body">
+                                    <div class="svc-name">
+                                        {{ s.name }}
+                                        {% if s.is_package %}
+                                        <span style="font-size:0.65rem;background:var(--cream);color:var(--accent);padding:2px 7px;border-radius:999px;margin-left:4px;font-weight:800;">
+                                            <span data-lang-am>ጥቅል</span><span data-lang-en>PKG</span>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="svc-meta">
+                                        {{ s.duration_minutes or 30 }} ደቂቃ
+                                        {% if s.is_package and s.min_people and s.min_people > 1 %}
+                                        · {{ s.min_people }}{% if s.max_people %}–{{ s.max_people }}{% else %}+{% endif %} ሰዎች
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="svc-price">{{ "{:,.0f}".format(s.price or 0) }} ብር</div>
+                            </label>
                             {% endfor %}
-                        </select>
-                        {% for m in payment_methods or [] %}
-                        {% if m.account %}
-                        <div class="small mb-1">
-                            <strong>{{ m.name }}:</strong> {{ m.account }}
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="copyAccount('{{ m.account }}', this)">
-                                <i class="fa-regular fa-copy"></i>
+                        </div>
+
+                        <div id="partySizeBlock" style="display:none;">
+                            <label class="form-label">
+                                <span data-lang-am>የሰዎች ብዛት</span>
+                                <span data-lang-en>Number of people</span>
+                            </label>
+                            <input type="number" class="form-control" name="party_size" id="partySize" value="1" min="1" onchange="updatePackageTotal()" oninput="updatePackageTotal()">
+                            <p class="small text-muted mt-1 mb-0" id="partySizeHint"></p>
+                            <div id="packageTotalLine" style="display:none;">
+                                <span data-lang-am>ጠቅላላ</span>
+                                <span data-lang-en>Total</span>:
+                                <span id="packageTotalValue">0</span> ብር
+                            </div>
+                        </div>
+
+                        <div class="step-nav">
+                            <button type="button" class="btn-next" onclick="goStep(2)">
+                                <span data-lang-am>ቀጣይ</span>
+                                <span data-lang-en>Next</span>
+                                <i class="fa-solid fa-arrow-right ms-1"></i>
                             </button>
                         </div>
-                        {% endif %}
-                        {% endfor %}
-                        <label class="form-label mt-2">
-                            <span data-lang-am>የክፍያ screenshot</span>
-                            <span data-lang-en>Payment screenshot</span>
+                    </div>
+
+                    <!-- Step 2: Staff -->
+                    <div class="step-panel" data-step="2">
+                        <label class="form-label">
+                            <span data-lang-am>ባለሙያ ይምረጡ</span>
+                            <span data-lang-en>Choose a professional</span>
                         </label>
-                        <input type="file" class="form-control" name="payment_screenshot" id="paymentScreenshot" accept="image/*">
+                        <div class="staff-list" id="staffList">
+                            {% for st in staff_members %}
+                            <label class="staff-pick" data-services="{{ st.service_ids|join(',') if st.service_ids else 'all' }}">
+                                <input type="radio" name="staff_id" value="{{ st.id }}"
+                                       data-name="{{ st.name }}"
+                                       data-open="{{ st.opening_time or salon.opening_time or '09:00' }}"
+                                       data-close="{{ st.closing_time or salon.closing_time or '18:00' }}"
+                                       data-days="{{ st.working_days or salon.working_days or '0,1,2,3,4,5,6' }}"
+                                       onchange="onStaffPick()" required>
+                                <div class="staff-ring">
+                                    {% if st.photo_url %}
+                                    <img class="staff-photo-img" src="{{ st.photo_url }}" data-fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect fill='%23F6ECE1' width='80' height='80'/%3E%3Ctext x='40' y='48' text-anchor='middle' fill='%239C6B3F' font-size='28' font-family='sans-serif'%3E{{ (st.name or '?')[0]|upper }}%3C/text%3E%3C/svg%3E" alt="">
+                                    {% else %}
+                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--accent);background:var(--cream);font-size:1.4rem;">{{ (st.name or '?')[0]|upper }}</div>
+                                    {% endif %}
+                                </div>
+                                <span class="staff-check"><i class="fa-solid fa-check"></i></span>
+                                <div class="nm">{{ st.name }}</div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <p id="noStaffForService" style="display:none;" class="text-muted small text-center mt-2">
+                            <span data-lang-am>ለዚህ አገልግሎት ባለሙያ አልተመደበም</span>
+                            <span data-lang-en>No professional assigned to this service</span>
+                        </p>
+                        <p class="small text-muted mt-2" id="staffHoursHint"></p>
+                        <div class="step-nav">
+                            <button type="button" class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i></button>
+                            <button type="button" class="btn-next" onclick="goStep(3)">
+                                <span data-lang-am>ቀጣይ</span>
+                                <span data-lang-en>Next</span>
+                            </button>
+                        </div>
                     </div>
-                    {% endif %}
 
-                    <div class="step-nav">
-                        <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
-                        <button type="submit" class="btn-next">
-                            <i class="fa-solid fa-calendar-check me-1"></i>
-                            <span data-lang-am>ቀጠሮ አረጋግጥ</span>
-                            <span data-lang-en>Confirm booking</span>
-                        </button>
+                    <!-- Step 3: Date & time -->
+                    <div class="step-panel" data-step="3">
+                        <label class="form-label">
+                            <span data-lang-am>ቀን</span>
+                            <span data-lang-en>Date</span>
+                        </label>
+                        <input type="date" class="form-control mb-3" id="ethDate" name="appointment_date_display" min="{{ current_date }}" required>
+
+                        <label class="form-label">
+                            <span data-lang-am>ሰዓት</span>
+                            <span data-lang-en>Time</span>
+                        </label>
+                        <div class="eth-time-picker">
+                            <div class="eth-wheel-shell">
+                                <div class="eth-wheel-highlight"></div>
+                                <div class="wheel-col wheel-eth" id="wheelEth"></div>
+                            </div>
+                            <div class="eth-preview" id="ethPreview">—</div>
+                        </div>
+                        <input type="hidden" name="appointment_time" id="appointmentTimeHidden" value="">
+
+                        <div class="step-nav">
+                            <button type="button" class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i></button>
+                            <button type="button" class="btn-next" onclick="goStep(4)">
+                                <span data-lang-am>ቀጣይ</span>
+                                <span data-lang-en>Next</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-            </form>
+                    <!-- Step 4: Customer details -->
+                    <div class="step-panel" data-step="4">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <span data-lang-am>ስም</span>
+                                <span data-lang-en>Name</span>
+                            </label>
+                            <input type="text" class="form-control" name="customer_name" id="customerName" required autocomplete="name">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <span data-lang-am>ስልክ</span>
+                                <span data-lang-en>Phone</span>
+                            </label>
+                            <input type="tel" class="form-control" name="customer_phone" id="customerPhone" required inputmode="tel" autocomplete="tel">
+                        </div>
+                        <div class="step-nav">
+                            <button type="button" class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i></button>
+                            <button type="button" class="btn-next" onclick="goStep(5)">
+                                <span data-lang-am>ቀጣይ</span>
+                                <span data-lang-en>Next</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Confirm -->
+                    <div class="step-panel" data-step="5">
+                        <div class="summary-box">
+                            <div class="summary-row">
+                                <span class="lbl"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
+                                <span class="val" id="sumService">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="lbl"><span data-lang-am>ባለሙያ</span><span data-lang-en>Professional</span></span>
+                                <span class="val" id="sumStaff">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="lbl"><span data-lang-am>ቀን / ሰዓት</span><span data-lang-en>When</span></span>
+                                <span class="val" id="sumWhen">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="lbl"><span data-lang-am>ስም</span><span data-lang-en>Name</span></span>
+                                <span class="val" id="sumName">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="lbl"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></span>
+                                <span class="val" id="sumPrice">—</span>
+                            </div>
+                            <div class="summary-row" id="sumDepositRow" style="display:none;">
+                                <span class="lbl"><span data-lang-am>ቅድመ ክፍያ</span><span data-lang-en>Deposit</span></span>
+                                <span class="val" id="sumDeposit">—</span>
+                            </div>
+                        </div>
+
+                        {% if salon.deposit_enabled %}
+                        <div id="depositBlock" style="display:none;" class="mb-3">
+                            <label class="form-label">
+                                <span data-lang-am>የክፍያ ዘዴ</span>
+                                <span data-lang-en>Payment method</span>
+                            </label>
+                            <select class="form-select mb-2" name="payment_method">
+                                {% for m in payment_methods or [] %}
+                                <option value="{{ m.name }}">{{ m.name }}{% if m.account %} — {{ m.account }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                            {% for m in payment_methods or [] %}
+                            {% if m.account %}
+                            <div class="small mb-1">
+                                <strong>{{ m.name }}:</strong> {{ m.account }}
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="copyAccount('{{ m.account }}', this)">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            <label class="form-label mt-2">
+                                <span data-lang-am>የክፍያ screenshot</span>
+                                <span data-lang-en>Payment screenshot</span>
+                            </label>
+                            <input type="file" class="form-control" name="payment_screenshot" id="paymentScreenshot" accept="image/*">
+                        </div>
+                        {% endif %}
+
+                        <div class="step-nav">
+                            <button type="button" class="btn-back" onclick="goStep(4)"><i class="fa-solid fa-arrow-left"></i></button>
+                            <button type="submit" class="btn-next">
+                                <i class="fa-solid fa-calendar-check me-1"></i>
+                                <span data-lang-am>ቀጠሮ አረጋግጥ</span>
+                                <span data-lang-en>Confirm booking</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -1388,7 +1263,7 @@ function goStep(n) {
     }
 }
 
-/* Package → service selection (connected to booking flow) */
+/* Package → service selection */
 function pickPackage(id, card) {
     document.querySelectorAll('.pkg-card').forEach(c => c.classList.remove('selected'));
     if (card) card.classList.add('selected');
@@ -1417,7 +1292,6 @@ function onServicePick(el) {
             ? `<span data-lang-en style="display:inline">From ${Number(price).toLocaleString()} ETB</span>`
             : `<span data-lang-am style="display:inline">ከ ${Number(price).toLocaleString()} ብር ጀምሮ</span>`;
     }
-    // Party size + dynamic total for packages
     const isPkg = el.dataset.isPackage === '1';
     const minP = parseInt(el.dataset.minPeople || '1', 10) || 1;
     const maxP = parseInt(el.dataset.maxPeople || '0', 10) || 0;
@@ -1449,7 +1323,6 @@ function onServicePick(el) {
             if (tot) tot.style.display = 'none';
         }
     }
-    // Keep package cards in sync
     document.querySelectorAll('.pkg-card').forEach(c => {
         c.classList.toggle('selected', String(c.dataset.serviceId) === String(el.value));
     });
@@ -1610,7 +1483,6 @@ function westernToEth(h, m) {
     else { period = 'ለሊት'; displayH = eh - 12; }
     return { period, hour: displayH, minute: em };
 }
-const ITEM_H = 44;
 function buildEthSlots() {
     const slots = [];
     for (let i = 0; i < 96; i++) {
