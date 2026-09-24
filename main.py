@@ -3144,28 +3144,86 @@ def public_booking_status(salon_ref: str, appointment_id: int, db: Session = Dep
 
 
 @app.post("/book/{salon_ref}/waitlist")
-def public_join_waitlist(
+async def public_join_waitlist(
     salon_ref: str,
-    customer_name: str = Form(...),
-    customer_phone: str = Form(...),
-    service_id: int = Form(...),
-    staff_id: Optional[int] = Form(None),
-    preferred_date: str = Form(...),
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    """Join waitlist after a conflict. Tolerates empty staff_id / missing date (never 500)."""
     salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
     public_path = (salon.slug or "").strip() or str(salon.id)
-    db.add(Waitlist(
-        salon_id=salon.id,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        service_id=service_id,
-        staff_id=staff_id or None,
-        preferred_date=_parse_date(preferred_date) or date.today(),
-    ))
-    db.commit()
+
+    form = await request.form()
+    customer_name = (str(form.get("customer_name") or "")).strip()
+    customer_phone = (str(form.get("customer_phone") or "")).strip()
+    if not customer_name or not customer_phone:
+        return RedirectResponse(
+            url=f"/book/{public_path}?error=waitlist_missing",
+            status_code=303,
+        )
+
+    # service_id — required for meaningful waitlist; fall back to first active service
+    service_id = None
+    raw_svc = str(form.get("service_id") or "").strip()
+    if raw_svc.isdigit():
+        service_id = int(raw_svc)
+        svc = db.query(Service).filter(
+            Service.id == service_id, Service.salon_id == salon.id
+        ).first()
+        if not svc:
+            service_id = None
+    if service_id is None:
+        svc = (
+            db.query(Service)
+            .filter(Service.salon_id == salon.id)
+            .order_by(Service.id)
+            .first()
+        )
+        # prefer active
+        active = (
+            db.query(Service)
+            .filter(Service.salon_id == salon.id)
+            .all()
+        )
+        for s in active:
+            if getattr(s, "is_active", 1) != 0:
+                svc = s
+                break
+        if not svc:
+            return RedirectResponse(
+                url=f"/book/{public_path}?error=waitlist_no_service",
+                status_code=303,
+            )
+        service_id = svc.id
+
+    # staff_id — empty string must not 422/500
+    staff_id = None
+    raw_staff = str(form.get("staff_id") or "").strip()
+    if raw_staff.isdigit():
+        sid = int(raw_staff)
+        if db.query(Staff).filter(Staff.id == sid, Staff.salon_id == salon.id).first():
+            staff_id = sid
+
+    preferred_date = _parse_date(str(form.get("preferred_date") or "").strip()) or date.today()
+
+    try:
+        db.add(Waitlist(
+            salon_id=salon.id,
+            customer_name=customer_name[:120],
+            customer_phone=customer_phone[:40],
+            service_id=service_id,
+            staff_id=staff_id,
+            preferred_date=preferred_date,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse(
+            url=f"/book/{public_path}?error=waitlist_failed",
+            status_code=303,
+        )
     return RedirectResponse(url=f"/book/{public_path}?waitlisted=1", status_code=303)
 
 

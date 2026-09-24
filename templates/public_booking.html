@@ -1040,9 +1040,11 @@
                     <form method="post" action="/book/{{ salon_ref }}/waitlist" class="m-0" id="conflictWaitlistForm">
                         <input type="hidden" name="customer_name" value="{{ conflict_name or '' }}">
                         <input type="hidden" name="customer_phone" value="{{ conflict_phone or '' }}">
-                        <input type="hidden" name="service_id" value="{{ conflict_service or '' }}">
-                        <input type="hidden" name="staff_id" value="{{ conflict_staff or '' }}">
-                        <input type="hidden" name="preferred_date" value="{{ conflict_date or '' }}">
+                        <input type="hidden" name="service_id" value="{{ conflict_service or (services[0].id if services else '') }}">
+                        {% if conflict_staff %}
+                        <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
+                        {% endif %}
+                        <input type="hidden" name="preferred_date" value="{{ conflict_date or current_date or '' }}">
                         <button type="submit" class="btn-cf wait">
                             <span style="display:flex;align-items:center;gap:12px;">
                                 <i class="fa-solid fa-list-ul lead"></i>
@@ -1061,6 +1063,16 @@
                         </button>
                     </form>
                 </div>
+            </div>
+            {% elif error == 'waitlist_missing' %}
+            <div class="alert alert-danger">
+                <span data-lang-am>ስምና ስልክ ያስፈልጋል።</span>
+                <span data-lang-en>Name and phone are required for the waitlist.</span>
+            </div>
+            {% elif error == 'waitlist_failed' or error == 'waitlist_no_service' %}
+            <div class="alert alert-danger">
+                <span data-lang-am>መጠባበቂያ ላይ መግባት አልተሳካም። እንደገና ይሞክሩ።</span>
+                <span data-lang-en>Could not join the waitlist. Please try again.</span>
             </div>
             {% elif error %}
             <div class="alert alert-danger">
