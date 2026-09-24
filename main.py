@@ -2566,6 +2566,76 @@ async def convert_waitlist(
     return RedirectResponse(url="/dashboard?tab=home", status_code=303)
 
 
+@app.post("/add-waitlist")
+async def add_waitlist(
+    request: Request,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Salon-owner waitlist add (dashboard conflict panel + modal). Never 500 on empty fields."""
+    form = await request.form()
+    customer_name = (str(form.get("customer_name") or "")).strip()
+    customer_phone = (str(form.get("customer_phone") or "")).strip()
+    if not customer_name or not customer_phone:
+        return RedirectResponse(
+            url="/dashboard?tab=reserve&error=waitlist_missing",
+            status_code=303,
+        )
+
+    service_id = None
+    raw_svc = str(form.get("service_id") or "").strip()
+    if raw_svc.isdigit():
+        sid = int(raw_svc)
+        if _owned_service(db, sid, salon.id):
+            service_id = sid
+    if service_id is None:
+        # fall back to first active service at this location
+        for s in db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.id).all():
+            if getattr(s, "is_active", 1) != 0:
+                service_id = s.id
+                break
+        if service_id is None:
+            return RedirectResponse(
+                url="/dashboard?tab=reserve&error=waitlist_no_service",
+                status_code=303,
+            )
+
+    staff_id = None
+    raw_staff = str(form.get("staff_id") or "").strip()
+    if raw_staff.isdigit():
+        stid = int(raw_staff)
+        if _owned_staff(db, stid, salon.id):
+            staff_id = stid
+
+    preferred_date = _parse_date(str(form.get("preferred_date") or "").strip()) or date.today()
+
+    try:
+        db.add(Waitlist(
+            salon_id=salon.id,
+            customer_name=customer_name[:120],
+            customer_phone=customer_phone[:40],
+            service_id=service_id,
+            staff_id=staff_id,
+            preferred_date=preferred_date,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse(
+            url="/dashboard?tab=home&error=waitlist_failed",
+            status_code=303,
+        )
+
+    # Prefer returning to reserve tab; conflict flow started from home
+    next_tab = str(form.get("next_tab") or "reserve").strip() or "reserve"
+    if next_tab not in ("home", "reserve", "staff", "services", "settings"):
+        next_tab = "reserve"
+    return RedirectResponse(
+        url=f"/dashboard?tab={next_tab}&waitlisted=1",
+        status_code=303,
+    )
+
+
 @app.post("/delete-waitlist")
 def delete_waitlist(
     waitlist_id: int = Form(...),

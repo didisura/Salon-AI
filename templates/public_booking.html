@@ -598,7 +598,27 @@
             font-size: 0.72rem; font-weight: 800; letter-spacing: 0.6px;
             text-transform: uppercase; color: var(--muted); margin: 14px 0 8px;
         }
-        body.conflict-view .sticky-cta { display: none; }
+body.conflict-view .sticky-cta { display: none; }
+        body.conflict-view .hero,
+        body.conflict-view .trust-row,
+        body.conflict-view .location-card,
+        body.conflict-view .section:not(#bookingSection),
+        body.conflict-view .mybook-card {
+            display: none !important;
+        }
+        body.conflict-view .page-content { padding-top: 72px; }
+        body.conflict-view #bookingSection {
+            margin-top: 8px;
+            scroll-margin-top: 72px;
+        }
+        body.conflict-view .conflict-card {
+            margin-top: 0;
+            animation: cfPulse 0.6s ease-out;
+        }
+        @keyframes cfPulse {
+            0% { transform: scale(0.98); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
 
         .alert { border-radius: 12px; font-size: 0.88rem; }
 
@@ -1915,22 +1935,20 @@ document.getElementById('myBookPhone')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); lookupMyBookings(); }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof applyTimeMode === 'function') applyTimeMode(getTimeMode());
-    filterStaffForService();
-    updateStaffHint();
-    updatePreviewAndHidden();
+/* ===== Conflict resolution (GLOBAL — required for onclick) ===== */
+window.CONFLICT_TIME = {{ (conflict_time or '')|tojson }};
+window.CONFLICT_STAFF = {{ (conflict_staff or '')|tojson }};
+window.CONFLICT_SERVICE = {{ (conflict_service or '')|tojson }};
+window.CONFLICT_NAME = {{ (conflict_name or '')|tojson }};
+window.CONFLICT_PHONE = {{ (conflict_phone or '')|tojson }};
+window.CONFLICT_DATE = {{ (conflict_date or '')|tojson }};
 
-/* ===== Conflict resolution helpers ===== */
-const CONFLICT_TIME = {{ (conflict_time or '')|tojson }};
-const CONFLICT_STAFF = {{ (conflict_staff or '')|tojson }};
-const CONFLICT_SERVICE = {{ (conflict_service or '')|tojson }};
-const CONFLICT_NAME = {{ (conflict_name or '')|tojson }};
-const CONFLICT_PHONE = {{ (conflict_phone or '')|tojson }};
-const CONFLICT_DATE = {{ (conflict_date or '')|tojson }};
+window.conflictPickAnotherTime = function () {
+    const CONFLICT_NAME = window.CONFLICT_NAME;
+    const CONFLICT_PHONE = window.CONFLICT_PHONE;
+    const CONFLICT_SERVICE = window.CONFLICT_SERVICE;
+    const CONFLICT_DATE = window.CONFLICT_DATE;
 
-function conflictPickAnotherTime() {
-    // Prefill customer + service + date from conflict, open booking steps at time selection
     if (CONFLICT_NAME) {
         const n = document.getElementById('customerName');
         if (n) n.value = CONFLICT_NAME;
@@ -1946,90 +1964,116 @@ function conflictPickAnotherTime() {
             radio.dispatchEvent(new Event('change', { bubbles: true }));
             if (typeof filterStaffForService === 'function') filterStaffForService();
             if (typeof updatePackageTotal === 'function') updatePackageTotal();
+            if (typeof onServicePick === 'function') onServicePick();
         }
     }
     if (CONFLICT_DATE) {
         const d = document.getElementById('ethDate');
         if (d) d.value = CONFLICT_DATE;
+        if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
     }
-    // Prefer time step (often step 3 or 4) — try common step numbers
-    if (typeof goStep === 'function') {
-        // Heuristic: find step panel that contains ethDate / wheel
-        let step = 3;
-        document.querySelectorAll('.step-panel').forEach(panel => {
-            if (panel.querySelector('#ethDate, #wheelEth, [id*="wheel"]')) {
-                step = parseInt(panel.getAttribute('data-step') || '3', 10) || 3;
-            }
-        });
-        goStep(step);
-    }
-    const formCard = document.getElementById('bookingForm');
-    if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Soft-disable sticky until they change slot
-    const panel = document.getElementById('conflictPanel');
-    if (panel) panel.style.opacity = '0.85';
-}
 
-// Block submitting the exact same conflicting slot again
-document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
-    if (!CONFLICT_TIME) return;
-    const hidden = document.getElementById('appointmentTimeHidden');
-    const staffEl = document.querySelector('input[name="staff_id"]:checked');
-    const timeVal = (hidden && hidden.value) ? hidden.value : '';
-    const staffVal = staffEl ? String(staffEl.value) : '';
-    // Normalize: conflict may be YYYY-MM-DDTHH:MM or with seconds
-    const norm = (t) => String(t || '').replace(/:00$/, '').slice(0, 16);
-    const sameTime = norm(timeVal) === norm(CONFLICT_TIME);
-    const sameStaff = CONFLICT_STAFF && staffVal && String(CONFLICT_STAFF) === staffVal;
-    if (sameTime && (sameStaff || !CONFLICT_STAFF)) {
-        e.preventDefault();
-        const en = document.documentElement.lang === 'en';
-        alert(en
-            ? 'That time is still taken. Please pick another time, another professional, or join the waitlist.'
-            : 'ይህ ሰዓት አሁንም ተይዟል። ሌላ ሰዓት፣ ሌላ ባለሙያ ይምረጡ ወይም ወደ መጠባበቂያ ይግቡ።');
-        const panel = document.getElementById('conflictPanel');
-        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    }
-}, true);
-
-// On load with conflict: prefill form fields so "choose another time" is one step
-document.addEventListener('DOMContentLoaded', () => {
-    if (!CONFLICT_TIME && !CONFLICT_NAME) return;
-    if (CONFLICT_NAME) {
-        const n = document.getElementById('customerName');
-        if (n && !n.value) n.value = CONFLICT_NAME;
-    }
-    if (CONFLICT_PHONE) {
-        const p = document.getElementById('customerPhone') || document.querySelector('input[name="customer_phone"]');
-        if (p && !p.value) p.value = CONFLICT_PHONE;
-    }
-    if (CONFLICT_SERVICE) {
-        const radio = document.querySelector('input[name="service_id"][value="' + CONFLICT_SERVICE + '"]');
-        if (radio) {
-            radio.checked = true;
-            if (typeof filterStaffForService === 'function') filterStaffForService();
+    // Jump into the booking wizard at the DATE/TIME step
+    let step = 3;
+    document.querySelectorAll('.step-panel').forEach(panel => {
+        if (panel.querySelector('#ethDate, #wheelEth, [id*="wheel"]')) {
+            step = parseInt(panel.getAttribute('data-step') || '3', 10) || 3;
         }
-    }
-    // Scroll conflict panel into view
-    const panel = document.getElementById('conflictPanel');
-    if (panel) setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
-});
+    });
+    if (typeof goStep === 'function') goStep(step);
 
-    const conflictTime = "{{ conflict_time or '' }}";
-    if (conflictTime) {
-        try {
-            const [datePart, timePart] = conflictTime.split('T');
-            const [hh, mm] = timePart.split(':').map(Number);
-            const snap = Math.round((mm || 0) / 15) * 15 % 60;
-            const hhmm = `${String(hh).padStart(2,'0')}:${String(snap).padStart(2,'0')}`;
-            document.getElementById('ethDate').value = datePart;
-            selectedHHMM = hhmm;
-            const s = slots.find(x => x.hhmm === hhmm);
-            if (s) ethWheel.set(s.label);
-            updatePreviewAndHidden();
-            goStep(1);
-        } catch(e) {}
+    // Soften conflict panel so form is the focus
+    const panel = document.getElementById('conflictPanel');
+    if (panel) {
+        panel.style.opacity = '0.55';
+        panel.style.pointerEvents = 'none';
+    }
+    const formCard = document.getElementById('bookingForm') || document.getElementById('bookingSection');
+    if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof applyTimeMode === 'function') applyTimeMode(getTimeMode());
+    if (typeof filterStaffForService === 'function') filterStaffForService();
+    if (typeof updateStaffHint === 'function') updateStaffHint();
+    if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
+
+    // Block re-submitting the exact same conflicting slot
+    const bookingForm = document.getElementById('bookingForm');
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', function (e) {
+            const CONFLICT_TIME = window.CONFLICT_TIME;
+            if (!CONFLICT_TIME) return;
+            const hidden = document.getElementById('appointmentTimeHidden');
+            const staffEl = document.querySelector('input[name="staff_id"]:checked');
+            const timeVal = (hidden && hidden.value) ? hidden.value : '';
+            const staffVal = staffEl ? String(staffEl.value) : '';
+            const norm = function (t) { return String(t || '').replace(/:00$/, '').slice(0, 16); };
+            const sameTime = norm(timeVal) === norm(CONFLICT_TIME);
+            const sameStaff = window.CONFLICT_STAFF && staffVal && String(window.CONFLICT_STAFF) === staffVal;
+            if (sameTime && (sameStaff || !window.CONFLICT_STAFF)) {
+                e.preventDefault();
+                const en = document.documentElement.lang === 'en';
+                alert(en
+                    ? 'That time is still taken. Please pick another time, another professional, or join the waitlist.'
+                    : 'ይህ ሰዓት አሁንም ተይዟል። ሌላ ሰዓት፣ ሌላ ባለሙያ ይምረጡ ወይም ወደ መጠባበቂያ ይግቡ።');
+                const panel = document.getElementById('conflictPanel');
+                if (panel) {
+                    panel.style.opacity = '1';
+                    panel.style.pointerEvents = '';
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return false;
+            }
+        }, true);
+    }
+
+    // Conflict landing: stay on the booking section (not the hero top)
+    if (window.CONFLICT_TIME || document.body.classList.contains('conflict-view')) {
+        if (window.CONFLICT_NAME) {
+            const n = document.getElementById('customerName');
+            if (n && !n.value) n.value = window.CONFLICT_NAME;
+        }
+        if (window.CONFLICT_PHONE) {
+            const p = document.getElementById('customerPhone') || document.querySelector('input[name="customer_phone"]');
+            if (p && !p.value) p.value = window.CONFLICT_PHONE;
+        }
+        if (window.CONFLICT_SERVICE) {
+            const radio = document.querySelector('input[name="service_id"][value="' + window.CONFLICT_SERVICE + '"]');
+            if (radio) {
+                radio.checked = true;
+                if (typeof filterStaffForService === 'function') filterStaffForService();
+            }
+        }
+        if (window.CONFLICT_TIME) {
+            try {
+                const parts = String(window.CONFLICT_TIME).split('T');
+                const datePart = parts[0];
+                const timePart = parts[1] || '';
+                const hm = timePart.split(':');
+                const hh = parseInt(hm[0], 10);
+                const mm = parseInt(hm[1], 10) || 0;
+                const snap = Math.round(mm / 15) * 15 % 60;
+                const hhmm = String(hh).padStart(2, '0') + ':' + String(snap).padStart(2, '0');
+                const dateEl = document.getElementById('ethDate');
+                if (dateEl && datePart) dateEl.value = datePart;
+                if (typeof selectedHHMM !== 'undefined') {
+                    selectedHHMM = hhmm;
+                    if (typeof slots !== 'undefined' && typeof ethWheel !== 'undefined') {
+                        const s = slots.find(function (x) { return x.hhmm === hhmm; });
+                        if (s && ethWheel && ethWheel.set) ethWheel.set(s.label);
+                    }
+                }
+                if (typeof updatePreviewAndHidden === 'function') updatePreviewAndHidden();
+            } catch (e) {}
+        }
+        // Scroll straight to the conflict / booking block
+        setTimeout(function () {
+            const target = document.getElementById('conflictPanel') || document.getElementById('bookingSection');
+            if (target) target.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }, 50);
     }
 });
 </script>

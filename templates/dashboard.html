@@ -938,13 +938,14 @@
 
   {# Waitlist #}
   <form action="/add-waitlist" method="post" class="d-inline-block mb-1">
-    <input type="hidden" name="customer_name" value="{{ conflict_name }}">
-    <input type="hidden" name="customer_phone" value="{{ conflict_phone }}">
-    <input type="hidden" name="service_id" value="{{ conflict_service }}">
+    <input type="hidden" name="customer_name" value="{{ conflict_name or '' }}">
+    <input type="hidden" name="customer_phone" value="{{ conflict_phone or '' }}">
+    <input type="hidden" name="service_id" value="{{ conflict_service or '' }}">
     {% if conflict_staff %}
     <input type="hidden" name="staff_id" value="{{ conflict_staff }}">
     {% endif %}
     <input type="hidden" name="preferred_date" value="{{ conflict_date or selected_date or current_date }}">
+    <input type="hidden" name="next_tab" value="home">
     <button type="submit" class="btn btn-sm btn-outline-secondary">
       <i class="fa-solid fa-list-check me-1"></i>
       <span data-lang-am>ተጠባባቂ ላይ ጨምር</span>
