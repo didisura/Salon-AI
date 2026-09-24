@@ -248,6 +248,27 @@ def _ensure_package_columns():
 
 _ensure_package_columns()
 
+def _ensure_waitlist_screenshot_column():
+    """Allow payment proof to travel with waitlist entries after a conflict."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+    str_type = "VARCHAR(500)" if dialect == "postgresql" else "TEXT"
+    try:
+        cols = [c["name"] for c in inspector.get_columns("waitlist")]
+    except Exception:
+        cols = []
+    if cols and "payment_screenshot_url" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE waitlist ADD COLUMN payment_screenshot_url {str_type}"))
+    if cols and "payment_method" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE waitlist ADD COLUMN payment_method {str_type}"))
+
+
+_ensure_waitlist_screenshot_column()
+
+
 
 def _ensure_staff_service_ids_column():
     from sqlalchemy import inspect, text
@@ -506,6 +527,35 @@ ADMIN_PASSWORD_HASH = (os.environ.get("ADMIN_PASSWORD_HASH") or "").strip()
 ADMIN_TOTP_SECRET = (os.environ.get("ADMIN_TOTP_SECRET") or "").strip()
 
 SLOT_STEP_MINUTES = 15
+
+# Short-lived payment proofs when booking hits a conflict then joins waitlist
+# key: "{salon_id}:{phone}" → (timestamp, screenshot_url, payment_method)
+_pending_payment_proofs: dict = {}
+_PENDING_PROOF_TTL = 60 * 60  # 1 hour
+
+
+def _proof_key(salon_id, phone: str) -> str:
+    digits = "".join(c for c in str(phone or "") if c.isdigit())
+    return f"{salon_id}:{digits}"
+
+
+def _store_pending_proof(salon_id, phone: str, screenshot_url: Optional[str], pay_method: Optional[str] = None) -> None:
+    if not screenshot_url:
+        return
+    _pending_payment_proofs[_proof_key(salon_id, phone)] = (time.time(), screenshot_url, pay_method)
+
+
+def _take_pending_proof(salon_id, phone: str):
+    """Pop pending proof if present and not expired."""
+    key = _proof_key(salon_id, phone)
+    row = _pending_payment_proofs.pop(key, None)
+    if not row:
+        return None, None
+    ts, url, method = row
+    if time.time() - ts > _PENDING_PROOF_TTL:
+        return None, None
+    return url, method
+
 
 
 def _cookie_secure() -> bool:
@@ -1573,6 +1623,37 @@ def dashboard(
         .order_by(Waitlist.id.desc())
         .all()
     )
+    # Hydrate payment proof columns (may exist in DB before models.py is updated)
+    if waitlist:
+        try:
+            from sqlalchemy import text
+            ids = [w.id for w in waitlist]
+            if ids:
+                # portable IN clause
+                placeholders = ",".join(str(int(i)) for i in ids)
+                rows = db.execute(
+                    text(
+                        f"SELECT id, payment_screenshot_url, payment_method FROM waitlist "
+                        f"WHERE id IN ({placeholders})"
+                    )
+                ).fetchall()
+                by_id = {int(r[0]): r for r in rows}
+                for w in waitlist:
+                    row = by_id.get(int(w.id))
+                    if not row:
+                        continue
+                    if row[1]:
+                        try:
+                            setattr(w, "payment_screenshot_url", row[1])
+                        except Exception:
+                            pass
+                    if len(row) > 2 and row[2]:
+                        try:
+                            setattr(w, "payment_method", row[2])
+                        except Exception:
+                            pass
+        except Exception:
+            pass
 
     daily_rev = _revenue_between(db, salon.id, day_start, day_end)
     today_appt_count = (
@@ -2574,6 +2655,8 @@ async def convert_waitlist(
         appointment_datetime=appt_dt,
         status=AppointmentStatus.confirmed,
         source="waitlist",
+        payment_screenshot_url=getattr(entry, "payment_screenshot_url", None),
+        payment_method=getattr(entry, "payment_method", None),
     ))
     db.delete(entry)
     db.commit()
@@ -2954,6 +3037,8 @@ def public_booking_page(
     conflict_service: Optional[int] = None,
     conflict_staff: Optional[int] = None,
     conflict_time: Optional[str] = None,
+    conflict_screenshot: Optional[str] = None,
+    conflict_pay_method: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     salon = _resolve_salon(db, salon_ref)
@@ -3008,6 +3093,11 @@ def public_booking_page(
                 conflict_time=conflict_time,
             )
         )
+        # Preserve payment proof across conflict → waitlist
+        if conflict_screenshot and str(conflict_screenshot).startswith("/"):
+            context["conflict_screenshot"] = conflict_screenshot
+        if conflict_pay_method:
+            context["conflict_pay_method"] = conflict_pay_method
     return templates.TemplateResponse(request, "public_booking.html", context)
 
 
@@ -3029,16 +3119,40 @@ async def public_booking_submit(
         return HTMLResponse("Salon not found", status_code=404)
     public_path = (salon.slug or "").strip() or str(salon.id)
 
+    # Save payment proof EARLY so it is not lost on conflict → waitlist
+    screenshot_url = None
+    pay_method = (payment_method or "").strip() or None
+    if payment_screenshot and getattr(payment_screenshot, "filename", None):
+        try:
+            screenshot_url = _save_upload(
+                payment_screenshot, subfolder=f"payments/{salon.id}", salon_id=salon.id
+            )
+        except ValueError:
+            return RedirectResponse(
+                url=f"/book/{public_path}?error=invalid_image", status_code=303
+            )
+        except Exception:
+            screenshot_url = None
+
     def _conflict_redirect():
-        params = urlencode({
+        # Keep payment proof so waitlist / later booking can still show the screenshot
+        if screenshot_url:
+            _store_pending_proof(salon.id, customer_phone, screenshot_url, pay_method)
+        params = {
             "error": "conflict",
             "conflict_name": customer_name,
             "conflict_phone": customer_phone,
             "conflict_service": service_id,
             "conflict_staff": staff_id if staff_id else 0,
             "conflict_time": appointment_time,
-        })
-        return RedirectResponse(url=f"/book/{public_path}?{params}", status_code=303)
+        }
+        if screenshot_url:
+            params["conflict_screenshot"] = screenshot_url
+        if pay_method:
+            params["conflict_pay_method"] = pay_method
+        return RedirectResponse(
+            url=f"/book/{public_path}?{urlencode(params)}", status_code=303
+        )
 
     try:
         appt_dt = _parse_appt_datetime(appointment_time)
@@ -3083,18 +3197,7 @@ async def public_booking_submit(
         return _conflict_redirect()
 
     deposit_amt = float(svc.deposit_amount or 0) if svc else 0.0
-    needs_deposit = bool(salon.deposit_enabled) and deposit_amt > 0
-    screenshot_url = None
-    pay_method = (payment_method or "").strip() or None
-
-    if needs_deposit:
-        if payment_screenshot and payment_screenshot.filename:
-            try:
-                screenshot_url = _save_upload(
-                    payment_screenshot, subfolder=f"payments/{salon.id}", salon_id=salon.id
-                )
-            except ValueError:
-                return RedirectResponse(url=f"/book/{public_path}?error=invalid_image", status_code=303)
+    needs_deposit = bool(getattr(salon, "deposit_enabled", 0)) and deposit_amt > 0
 
     status_val = AppointmentStatus.confirmed
     if needs_deposit and not screenshot_url:
@@ -3103,7 +3206,10 @@ async def public_booking_submit(
     snap_name = svc.name if svc else None
     snap_price = float(svc.price) if svc else None
     if svc and getattr(svc, "is_package", 0):
-        snap_price = svc.package_total(party)
+        try:
+            snap_price = svc.package_total(party)
+        except Exception:
+            snap_price = float(svc.price or 0) * party
 
     appt = Appointment(
         salon_id=salon.id,
@@ -3127,14 +3233,16 @@ async def public_booking_submit(
         db.refresh(appt)
     except Exception:
         db.rollback()
-        return RedirectResponse(url=f"/book/{public_path}?error=booking_failed", status_code=303)
+        return RedirectResponse(
+            url=f"/book/{public_path}?error=booking_failed", status_code=303
+        )
 
     try:
         await manager.broadcast(salon.id, {
             "event": "new_booking",
             "appointment": {
                 "id": appt.id,
-                "appointment_time": appt.appointment_time,
+                "appointment_time": getattr(appt, "appointment_time", None),
                 "customer_name": appt.customer_name,
                 "customer_phone": appt.customer_phone,
                 "service_name": appt.service_name,
@@ -3143,6 +3251,7 @@ async def public_booking_submit(
                 "status": getattr(appt.status, "value", str(appt.status)),
                 "source": appt.source,
                 "party_size": appt.party_size or 1,
+                "payment_screenshot_url": screenshot_url,
             },
         })
     except Exception:
@@ -3152,6 +3261,7 @@ async def public_booking_submit(
         url=f"/book/{public_path}?success=1&appt_id={appt.id}",
         status_code=303,
     )
+
 
 
 @app.get("/book/{salon_ref}/my-bookings")
@@ -3233,7 +3343,7 @@ async def public_join_waitlist(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Join waitlist after a conflict. Tolerates empty staff_id / missing date (never 500)."""
+    """Join waitlist after a conflict. Keeps payment screenshot when provided."""
     salon = _resolve_salon(db, salon_ref)
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
@@ -3248,7 +3358,6 @@ async def public_join_waitlist(
             status_code=303,
         )
 
-    # service_id — required for meaningful waitlist; fall back to first active service
     service_id = None
     raw_svc = str(form.get("service_id") or "").strip()
     if raw_svc.isdigit():
@@ -3259,22 +3368,13 @@ async def public_join_waitlist(
         if not svc:
             service_id = None
     if service_id is None:
-        svc = (
-            db.query(Service)
-            .filter(Service.salon_id == salon.id)
-            .order_by(Service.id)
-            .first()
-        )
-        # prefer active
-        active = (
-            db.query(Service)
-            .filter(Service.salon_id == salon.id)
-            .all()
-        )
-        for s in active:
+        svc = None
+        for s in db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.id).all():
             if getattr(s, "is_active", 1) != 0:
                 svc = s
                 break
+        if not svc:
+            svc = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.id).first()
         if not svc:
             return RedirectResponse(
                 url=f"/book/{public_path}?error=waitlist_no_service",
@@ -3282,7 +3382,6 @@ async def public_join_waitlist(
             )
         service_id = svc.id
 
-    # staff_id — empty string must not 422/500
     staff_id = None
     raw_staff = str(form.get("staff_id") or "").strip()
     if raw_staff.isdigit():
@@ -3292,23 +3391,72 @@ async def public_join_waitlist(
 
     preferred_date = _parse_date(str(form.get("preferred_date") or "").strip()) or date.today()
 
+    # Keep payment proof from the booking attempt (hidden field OR server-side pending store)
+    shot = (str(form.get("payment_screenshot_url") or "")).strip() or None
+    if shot and not shot.startswith("/"):
+        shot = None
+    pay_method = (str(form.get("payment_method") or "")).strip() or None
+    if not shot:
+        pending_url, pending_method = _take_pending_proof(salon.id, customer_phone)
+        if pending_url:
+            shot = pending_url
+        if not pay_method and pending_method:
+            pay_method = pending_method
+
     try:
-        db.add(Waitlist(
+        entry = Waitlist(
             salon_id=salon.id,
             customer_name=customer_name[:120],
             customer_phone=customer_phone[:40],
             service_id=service_id,
             staff_id=staff_id,
             preferred_date=preferred_date,
-        ))
+        )
+        db.add(entry)
         db.commit()
+        db.refresh(entry)
+        # Persist payment proof (column may exist via migration even if model is older)
+        if shot or pay_method:
+            from sqlalchemy import text
+            try:
+                db.execute(
+                    text(
+                        "UPDATE waitlist SET payment_screenshot_url = :shot, payment_method = :pm "
+                        "WHERE id = :id"
+                    ),
+                    {"shot": shot, "pm": pay_method, "id": entry.id},
+                )
+                db.commit()
+            except Exception:
+                db.rollback()
+                try:
+                    db.execute(
+                        text("UPDATE waitlist SET payment_screenshot_url = :shot WHERE id = :id"),
+                        {"shot": shot, "id": entry.id},
+                    )
+                    db.commit()
+                except Exception:
+                    db.rollback()
     except Exception:
         db.rollback()
-        return RedirectResponse(
-            url=f"/book/{public_path}?error=waitlist_failed",
-            status_code=303,
-        )
+        try:
+            db.add(Waitlist(
+                salon_id=salon.id,
+                customer_name=customer_name[:120],
+                customer_phone=customer_phone[:40],
+                service_id=service_id,
+                staff_id=staff_id,
+                preferred_date=preferred_date,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+            return RedirectResponse(
+                url=f"/book/{public_path}?error=waitlist_failed",
+                status_code=303,
+            )
     return RedirectResponse(url=f"/book/{public_path}?waitlisted=1", status_code=303)
+
 
 
 @app.get("/privacy", response_class=HTMLResponse)
