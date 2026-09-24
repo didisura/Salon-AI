@@ -1742,6 +1742,7 @@
                                         </div>
                                         <div class="col-auto d-flex align-items-center">
                                             <label class="form-check m-0" title="Active / Archive">
+                                                <input type="hidden" name="is_active" value="0">
                                                 <input type="checkbox" class="form-check-input" name="is_active" value="1"
                                                        {% if s.is_active is not defined or s.is_active %}checked{% endif %}>
                                                 <span class="form-check-label small">
@@ -1812,6 +1813,7 @@
                                             <span class="text-muted fw-normal">— {{ s.name }}</span>
                                         </div>
                                         <label class="form-check m-0">
+                                            <input type="hidden" name="is_package" value="0">
                                             <input type="checkbox" name="is_package" value="1" class="form-check-input" {% if s.is_package %}checked{% endif %}
                                                    onchange="this.closest('form').querySelector('.pkg-fields').style.opacity=this.checked?'1':'0.45'">
                                             <span class="form-check-label small fw-semibold">
@@ -1877,6 +1879,7 @@
                                             </div>
                                             <div class="col-12 col-md-3 d-flex align-items-end">
                                                 <label class="form-check m-0">
+                                                    <input type="hidden" name="allow_outside_hours" value="0">
                                                     <input type="checkbox" name="allow_outside_hours" value="1" class="form-check-input" {% if s.allow_outside_hours %}checked{% endif %}>
                                                     <span class="form-check-label small">
                                                         <i class="fa-solid fa-moon me-1" style="color:var(--accent);"></i>
@@ -3278,7 +3281,8 @@
                     <div class="mb-3 p-3 rounded-3 package-box" style="border:1.5px solid var(--border);background:linear-gradient(180deg,#fff 0%,#faf8f5 100%);">
                         <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                             <label class="form-check m-0 flex-grow-1">
-                                <input type="checkbox" name="is_package" value="1" class="form-check-input"
+                                <input type="hidden" name="is_package" value="0">
+                            <input type="checkbox" name="is_package" value="1" class="form-check-input"
                                        id="addIsPackage"
                                        onchange="toggleAddPkg(this.checked)">
                                 <span class="form-check-label fw-bold" style="font-size:0.95rem;">

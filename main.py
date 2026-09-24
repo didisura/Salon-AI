@@ -2007,6 +2007,26 @@ def _form_bool(form, key: str) -> bool:
     return str(v).strip().lower() in ("1", "on", "true", "yes")
 
 
+def _form_checkbox(form, key: str):
+    """Checkbox with optional hidden value=0 companion.
+    Returns True if any submitted value is truthy (1/on/true/yes),
+    False if the key is present but only falsy values (e.g. hidden 0),
+    None if the key is absent entirely (leave field unchanged).
+    """
+    if key not in form:
+        return None
+    try:
+        vals = list(form.getlist(key))
+    except Exception:
+        vals = [form.get(key)]
+    for v in vals:
+        if v is None:
+            continue
+        if str(v).strip().lower() in ("1", "on", "true", "yes"):
+            return True
+    return False
+
+
 @app.post("/add-service")
 async def add_service(
     request: Request,
@@ -2023,7 +2043,8 @@ async def add_service(
     price = max(0.0, _form_float(form, "price", 0.0))
     duration_minutes = max(5, _form_int(form, "duration_minutes", 30))
     deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
-    is_pkg = _form_bool(form, "is_package")
+    pkg_flag = _form_checkbox(form, "is_package")
+    is_pkg = bool(pkg_flag) if pkg_flag is not None else _form_bool(form, "is_package")
     min_people = max(1, _form_int(form, "min_people", 1))
     max_raw = form.get("max_people")
     max_people = None
@@ -2217,9 +2238,12 @@ async def update_service(
     if "deposit_amount" in form:
         svc.deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
 
-    # Package fields — only touch when present so partial forms stay safe
-    if "is_package" in form:
-        svc.is_package = 1 if _form_bool(form, "is_package") else 0
+    # Package / checkbox fields — support hidden value=0 + checkbox value=1
+    # so turning a package OFF actually persists (unchecked boxes are omitted otherwise).
+    pkg = _form_checkbox(form, "is_package")
+    if pkg is not None:
+        svc.is_package = 1 if pkg else 0
+
     if "min_people" in form and str(form.get("min_people") or "").strip() != "":
         svc.min_people = max(1, _form_int(form, "min_people", 1))
     if "max_people" in form:
@@ -2234,8 +2258,11 @@ async def update_service(
     if "includes_text" in form:
         txt = _form_str(form, "includes_text")
         svc.includes_text = txt or None
-    if "allow_outside_hours" in form:
-        svc.allow_outside_hours = 1 if _form_bool(form, "allow_outside_hours") else 0
+
+    outside = _form_checkbox(form, "allow_outside_hours")
+    if outside is not None:
+        svc.allow_outside_hours = 1 if outside else 0
+
     if "extra_person_price" in form:
         raw = str(form.get("extra_person_price") or "").strip()
         if raw == "":
@@ -2246,9 +2273,9 @@ async def update_service(
             except (TypeError, ValueError):
                 pass
 
-    # Optional reactivation
-    if "is_active" in form:
-        svc.is_active = 1 if _form_bool(form, "is_active") else 0
+    active = _form_checkbox(form, "is_active")
+    if active is not None:
+        svc.is_active = 1 if active else 0
 
     upload = photo
     if (not upload or not getattr(upload, "filename", None)) and "photo" in form:
@@ -2275,6 +2302,19 @@ async def update_service(
 # ---------------------------------------------------------------------------
 # Staff
 # ---------------------------------------------------------------------------
+
+
+
+@app.post("/update-service-package")
+async def update_service_package_alias(
+    request: Request,
+    photo: Optional[UploadFile] = File(None),
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Alias for older dashboard forms that posted to /update-service-package."""
+    return await update_service(request=request, photo=photo, salon=salon, db=db)
+
 
 @app.post("/add-staff")
 async def add_staff(

@@ -540,6 +540,66 @@
             margin: 0 auto 16px;
         }
 
+
+        /* Conflict resolution */
+        .conflict-card {
+            background: #fff;
+            border: 2px solid #ED6C02;
+            border-radius: 20px;
+            padding: 20px 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 28px rgba(237,108,2,0.12);
+        }
+        .conflict-card .cf-icon {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: #FFF3E0; color: #E65100;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; margin: 0 auto 12px;
+        }
+        .conflict-card h3 {
+            text-align: center; font-weight: 800; font-size: 1.1rem;
+            margin: 0 0 6px; color: var(--text);
+        }
+        .conflict-card .cf-sub {
+            text-align: center; font-size: 0.88rem; color: var(--muted);
+            margin: 0 0 16px; line-height: 1.45;
+        }
+        .conflict-card .cf-attempt {
+            background: var(--cream); border: 1px solid var(--border);
+            border-radius: 12px; padding: 10px 12px; margin-bottom: 16px;
+            font-size: 0.82rem; color: #5A4936;
+        }
+        .conflict-card .cf-attempt strong { color: var(--text); }
+        .conflict-actions { display: flex; flex-direction: column; gap: 10px; }
+        .conflict-actions .btn-cf {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            width: 100%; border: 1.5px solid var(--border); background: #fff;
+            border-radius: 14px; padding: 12px 14px; cursor: pointer;
+            font-family: inherit; text-align: left; transition: border-color .15s, box-shadow .15s;
+        }
+        .conflict-actions .btn-cf:hover {
+            border-color: var(--accent); box-shadow: 0 4px 14px rgba(156,107,63,0.12);
+        }
+        .conflict-actions .btn-cf .cf-label { font-weight: 800; font-size: 0.9rem; color: var(--text); }
+        .conflict-actions .btn-cf .cf-hint { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+        .conflict-actions .btn-cf i.lead { color: var(--accent); font-size: 1.1rem; width: 24px; text-align: center; }
+        .conflict-actions .btn-cf i.chev { color: var(--muted); }
+        .conflict-actions .btn-cf.primary {
+            background: var(--accent); border-color: var(--accent); color: #fff;
+        }
+        .conflict-actions .btn-cf.primary .cf-label,
+        .conflict-actions .btn-cf.primary .cf-hint,
+        .conflict-actions .btn-cf.primary i { color: #fff; }
+        .conflict-actions .btn-cf.wait {
+            background: #FFF8E1; border-color: #FFE0B2;
+        }
+        .conflict-actions .btn-cf.wait i.lead { color: #ED6C02; }
+        .cf-section-label {
+            font-size: 0.72rem; font-weight: 800; letter-spacing: 0.6px;
+            text-transform: uppercase; color: var(--muted); margin: 14px 0 8px;
+        }
+        body.conflict-view .sticky-cta { display: none; }
+
         .alert { border-radius: 12px; font-size: 0.88rem; }
 
         /* Dual time */
@@ -560,7 +620,7 @@
         }
     </style>
 </head>
-<body class="{% if success or waitlisted %}success-view{% endif %}">
+<body class="{% if success or waitlisted %}success-view{% elif error == 'conflict' %}conflict-view{% endif %}">
 
 <!-- ========== FLOATING HEADER ========== -->
 <header class="top-header">
@@ -871,9 +931,136 @@
             </div>
 
             {% if error == 'conflict' %}
-            <div class="alert alert-warning">
-                <span data-lang-am>ይህ ሰዓት ተይዟል። ሌላ ሰዓት ወይም ሰራተኛ ይምረጡ።</span>
-                <span data-lang-en>That slot is taken. Please choose another time or professional.</span>
+            <div class="conflict-card" id="conflictPanel" role="alert">
+                <div class="cf-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+                <h3>
+                    <span data-lang-am>ይህ ሰዓት አይገኝም</span>
+                    <span data-lang-en>That time is not available</span>
+                </h3>
+                <p class="cf-sub">
+                    <span data-lang-am>ቀጠሮዎ አልተጠናቀቀም። ከታች አንዱን መንገድ ይምረጡ — ሌላ ባለሙያ፣ ሌላ ሰዓት፣ ወይም መጠባበቂያ።</span>
+                    <span data-lang-en>Your booking is <strong>not completed</strong>. Choose another professional, another time, or join the waitlist below.</span>
+                </p>
+                {% if conflict_time %}
+                <div class="cf-attempt">
+                    <div><strong data-lang-am>የሞከሩት፡</strong><strong data-lang-en>You tried:</strong>
+                        {{ conflict_date or '' }}
+                        {% if next_slot_display %}{% endif %}
+                        · {{ conflict_time.split('T')[1][:5] if conflict_time and 'T' in conflict_time else (conflict_time or '') }}
+                        {% if conflict_staff_name %} · {{ conflict_staff_name }}{% endif %}
+                    </div>
+                    {% if conflict_name %}
+                    <div class="mt-1"><span data-lang-am>ስም</span><span data-lang-en>Name</span>: {{ conflict_name }}
+                        {% if conflict_phone %} · {{ conflict_phone }}{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="conflict-actions">
+                    {% if alt_staff and alt_staff|length > 0 %}
+                    <div class="cf-section-label">
+                        <span data-lang-am>በተመሳሳይ ሰዓት የሚገኙ ባለሙያዎች</span>
+                        <span data-lang-en>Available at the same time</span>
+                    </div>
+                    {% for st in alt_staff %}
+                    <form method="post" action="/book/{{ salon_ref }}" enctype="multipart/form-data" class="m-0">
+                        <input type="hidden" name="customer_name" value="{{ conflict_name or '' }}">
+                        <input type="hidden" name="customer_phone" value="{{ conflict_phone or '' }}">
+                        <input type="hidden" name="service_id" value="{{ conflict_service or '' }}">
+                        <input type="hidden" name="staff_id" value="{{ st.id }}">
+                        <input type="hidden" name="appointment_time" value="{{ conflict_time or '' }}">
+                        <input type="hidden" name="party_size" value="1">
+                        <button type="submit" class="btn-cf primary">
+                            <span style="display:flex;align-items:center;gap:12px;">
+                                <i class="fa-solid fa-user-check lead"></i>
+                                <span>
+                                    <div class="cf-label">{{ st.name }}</div>
+                                    <div class="cf-hint">
+                                        <span data-lang-am>በዚህ ሰዓት ይያዙ</span>
+                                        <span data-lang-en>Book this time with them</span>
+                                    </div>
+                                </span>
+                            </span>
+                            <i class="fa-solid fa-chevron-right chev"></i>
+                        </button>
+                    </form>
+                    {% endfor %}
+                    {% endif %}
+
+                    {% if next_slot %}
+                    <div class="cf-section-label">
+                        <span data-lang-am>ቀጣይ ነፃ ሰዓት</span>
+                        <span data-lang-en>Next free slot</span>
+                    </div>
+                    <form method="post" action="/book/{{ salon_ref }}" enctype="multipart/form-data" class="m-0">
+                        <input type="hidden" name="customer_name" value="{{ conflict_name or '' }}">
+                        <input type="hidden" name="customer_phone" value="{{ conflict_phone or '' }}">
+                        <input type="hidden" name="service_id" value="{{ conflict_service or '' }}">
+                        <input type="hidden" name="staff_id" value="{{ conflict_staff or '' }}">
+                        <input type="hidden" name="appointment_time" value="{{ next_slot }}">
+                        <input type="hidden" name="party_size" value="1">
+                        <button type="submit" class="btn-cf primary">
+                            <span style="display:flex;align-items:center;gap:12px;">
+                                <i class="fa-solid fa-clock lead"></i>
+                                <span>
+                                    <div class="cf-label">
+                                        <span data-lang-am>በቀጣዩ ነፃ ሰዓት ይያዙ</span>
+                                        <span data-lang-en>Book next free time</span>
+                                    </div>
+                                    <div class="cf-hint">{{ next_slot_display or next_slot }}</div>
+                                </span>
+                            </span>
+                            <i class="fa-solid fa-chevron-right chev"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <div class="cf-section-label">
+                        <span data-lang-am>ሌሎች አማራጮች</span>
+                        <span data-lang-en>Other options</span>
+                    </div>
+                    <button type="button" class="btn-cf" onclick="conflictPickAnotherTime()">
+                        <span style="display:flex;align-items:center;gap:12px;">
+                            <i class="fa-solid fa-calendar-days lead"></i>
+                            <span>
+                                <div class="cf-label">
+                                    <span data-lang-am>ሌላ ቀን / ሰዓት ይምረጡ</span>
+                                    <span data-lang-en>Choose another date or time</span>
+                                </div>
+                                <div class="cf-hint">
+                                    <span data-lang-am>ወደ ቀጠሮ ቅጽ ይመለሳሉ</span>
+                                    <span data-lang-en>Return to the booking form</span>
+                                </div>
+                            </span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right chev"></i>
+                    </button>
+
+                    <form method="post" action="/book/{{ salon_ref }}/waitlist" class="m-0" id="conflictWaitlistForm">
+                        <input type="hidden" name="customer_name" value="{{ conflict_name or '' }}">
+                        <input type="hidden" name="customer_phone" value="{{ conflict_phone or '' }}">
+                        <input type="hidden" name="service_id" value="{{ conflict_service or '' }}">
+                        <input type="hidden" name="staff_id" value="{{ conflict_staff or '' }}">
+                        <input type="hidden" name="preferred_date" value="{{ conflict_date or '' }}">
+                        <button type="submit" class="btn-cf wait">
+                            <span style="display:flex;align-items:center;gap:12px;">
+                                <i class="fa-solid fa-list-ul lead"></i>
+                                <span>
+                                    <div class="cf-label">
+                                        <span data-lang-am>ወደ መጠባበቂያ ገብተው</span>
+                                        <span data-lang-en>Join the waitlist</span>
+                                    </div>
+                                    <div class="cf-hint">
+                                        <span data-lang-am>ክፍት ቦታ ሲገኝ እናሳውቅዎታለን</span>
+                                        <span data-lang-en>We'll notify you when a slot opens</span>
+                                    </div>
+                                </span>
+                            </span>
+                            <i class="fa-solid fa-chevron-right chev"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
             {% elif error %}
             <div class="alert alert-danger">
@@ -1721,6 +1908,102 @@ document.addEventListener('DOMContentLoaded', () => {
     filterStaffForService();
     updateStaffHint();
     updatePreviewAndHidden();
+
+/* ===== Conflict resolution helpers ===== */
+const CONFLICT_TIME = {{ (conflict_time or '')|tojson }};
+const CONFLICT_STAFF = {{ (conflict_staff or '')|tojson }};
+const CONFLICT_SERVICE = {{ (conflict_service or '')|tojson }};
+const CONFLICT_NAME = {{ (conflict_name or '')|tojson }};
+const CONFLICT_PHONE = {{ (conflict_phone or '')|tojson }};
+const CONFLICT_DATE = {{ (conflict_date or '')|tojson }};
+
+function conflictPickAnotherTime() {
+    // Prefill customer + service + date from conflict, open booking steps at time selection
+    if (CONFLICT_NAME) {
+        const n = document.getElementById('customerName');
+        if (n) n.value = CONFLICT_NAME;
+    }
+    if (CONFLICT_PHONE) {
+        const p = document.getElementById('customerPhone') || document.querySelector('input[name="customer_phone"]');
+        if (p) p.value = CONFLICT_PHONE;
+    }
+    if (CONFLICT_SERVICE) {
+        const radio = document.querySelector('input[name="service_id"][value="' + CONFLICT_SERVICE + '"]');
+        if (radio) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change', { bubbles: true }));
+            if (typeof filterStaffForService === 'function') filterStaffForService();
+            if (typeof updatePackageTotal === 'function') updatePackageTotal();
+        }
+    }
+    if (CONFLICT_DATE) {
+        const d = document.getElementById('ethDate');
+        if (d) d.value = CONFLICT_DATE;
+    }
+    // Prefer time step (often step 3 or 4) — try common step numbers
+    if (typeof goStep === 'function') {
+        // Heuristic: find step panel that contains ethDate / wheel
+        let step = 3;
+        document.querySelectorAll('.step-panel').forEach(panel => {
+            if (panel.querySelector('#ethDate, #wheelEth, [id*="wheel"]')) {
+                step = parseInt(panel.getAttribute('data-step') || '3', 10) || 3;
+            }
+        });
+        goStep(step);
+    }
+    const formCard = document.getElementById('bookingForm');
+    if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Soft-disable sticky until they change slot
+    const panel = document.getElementById('conflictPanel');
+    if (panel) panel.style.opacity = '0.85';
+}
+
+// Block submitting the exact same conflicting slot again
+document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
+    if (!CONFLICT_TIME) return;
+    const hidden = document.getElementById('appointmentTimeHidden');
+    const staffEl = document.querySelector('input[name="staff_id"]:checked');
+    const timeVal = (hidden && hidden.value) ? hidden.value : '';
+    const staffVal = staffEl ? String(staffEl.value) : '';
+    // Normalize: conflict may be YYYY-MM-DDTHH:MM or with seconds
+    const norm = (t) => String(t || '').replace(/:00$/, '').slice(0, 16);
+    const sameTime = norm(timeVal) === norm(CONFLICT_TIME);
+    const sameStaff = CONFLICT_STAFF && staffVal && String(CONFLICT_STAFF) === staffVal;
+    if (sameTime && (sameStaff || !CONFLICT_STAFF)) {
+        e.preventDefault();
+        const en = document.documentElement.lang === 'en';
+        alert(en
+            ? 'That time is still taken. Please pick another time, another professional, or join the waitlist.'
+            : 'ይህ ሰዓት አሁንም ተይዟል። ሌላ ሰዓት፣ ሌላ ባለሙያ ይምረጡ ወይም ወደ መጠባበቂያ ይግቡ።');
+        const panel = document.getElementById('conflictPanel');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
+}, true);
+
+// On load with conflict: prefill form fields so "choose another time" is one step
+document.addEventListener('DOMContentLoaded', () => {
+    if (!CONFLICT_TIME && !CONFLICT_NAME) return;
+    if (CONFLICT_NAME) {
+        const n = document.getElementById('customerName');
+        if (n && !n.value) n.value = CONFLICT_NAME;
+    }
+    if (CONFLICT_PHONE) {
+        const p = document.getElementById('customerPhone') || document.querySelector('input[name="customer_phone"]');
+        if (p && !p.value) p.value = CONFLICT_PHONE;
+    }
+    if (CONFLICT_SERVICE) {
+        const radio = document.querySelector('input[name="service_id"][value="' + CONFLICT_SERVICE + '"]');
+        if (radio) {
+            radio.checked = true;
+            if (typeof filterStaffForService === 'function') filterStaffForService();
+        }
+    }
+    // Scroll conflict panel into view
+    const panel = document.getElementById('conflictPanel');
+    if (panel) setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+});
+
     const conflictTime = "{{ conflict_time or '' }}";
     if (conflictTime) {
         try {
