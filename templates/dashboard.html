@@ -1710,7 +1710,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for s in services %}
+                        {% for s in (services_all if services_all is defined else services) %}
                         <tr {% if s.is_active is defined and s.is_active == 0 %}style="opacity:0.55;"{% endif %}>
                             <td colspan="5" class="p-0 border-0">
                                 <div class="p-3">
@@ -1739,6 +1739,15 @@
                                         <div class="col-4 col-md-2">
                                             <label class="form-label small text-muted mb-0"><span data-lang-am>ቅድሚያ</span><span data-lang-en>Deposit</span></label>
                                             <input type="number" name="deposit_amount" class="form-control form-control-sm" min="0" step="1" value="{{ s.deposit_amount or 0 }}">
+                                        </div>
+                                        <div class="col-auto d-flex align-items-center">
+                                            <label class="form-check m-0" title="Active / Archive">
+                                                <input type="checkbox" class="form-check-input" name="is_active" value="1"
+                                                       {% if s.is_active is not defined or s.is_active %}checked{% endif %}>
+                                                <span class="form-check-label small">
+                                                    <span data-lang-am>ንቁ</span><span data-lang-en>Active</span>
+                                                </span>
+                                            </label>
                                         </div>
                                         <div class="col-12 col-md-2 d-flex gap-1 flex-wrap">
                                             <button type="submit" class="btn btn-sm btn-accent">
@@ -1793,7 +1802,7 @@
                         </tr>
                         <tr class="collapse" id="pkgEdit-{{ s.id }}">
                             <td colspan="5" class="p-0 border-0">
-                                <form action="/update-service-package" method="post" enctype="multipart/form-data"
+                                <form action="/update-service" method="post" enctype="multipart/form-data"
                                       class="p-3 m-2 rounded-3 package-edit-card" style="background:linear-gradient(180deg,#fff 0%,#faf8f5 100%);border:1.5px solid var(--border);">
                                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                                         <div class="fw-bold" style="color:var(--accent);font-size:0.95rem;">

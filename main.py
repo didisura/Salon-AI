@@ -1524,7 +1524,9 @@ def dashboard(
     day_start = datetime.combine(sel, datetime.min.time())
     day_end = day_start + timedelta(days=1)
 
-    services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
+    # Active services for booking UI; full list (incl. archived) for services tab management
+    services_all = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
+    services = [s for s in services_all if getattr(s, "is_active", 1) != 0]
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
 
     appointments = (
@@ -1733,6 +1735,7 @@ def dashboard(
         "salon": salon,
         "active_tab": tab,
         "services": services,
+        "services_all": services_all,  # includes archived (is_active=0) for services tab
         "staff_members": staff_members,
         "appointments": appointments,
         "all_appointments": all_appointments,
@@ -1970,55 +1973,134 @@ async def reschedule_appointment(
 # Services
 # ---------------------------------------------------------------------------
 
+def _form_str(form, key: str, default: str = "") -> str:
+    v = form.get(key)
+    if v is None:
+        return default
+    return str(v).strip()
+
+
+def _form_float(form, key: str, default: float = 0.0) -> float:
+    v = form.get(key)
+    if v is None or str(v).strip() == "":
+        return default
+    try:
+        return float(str(v).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _form_int(form, key: str, default: int = 0) -> int:
+    v = form.get(key)
+    if v is None or str(v).strip() == "":
+        return default
+    try:
+        return int(float(str(v).strip()))
+    except (TypeError, ValueError):
+        return default
+
+
+def _form_bool(form, key: str) -> bool:
+    v = form.get(key)
+    if v is None:
+        return False
+    return str(v).strip().lower() in ("1", "on", "true", "yes")
+
+
 @app.post("/add-service")
 async def add_service(
-    name: str = Form(...),
-    price: float = Form(...),
-    duration_minutes: int = Form(...),
-    deposit_amount: float = Form(0),
-    is_package: Optional[str] = Form(None),
-    min_people: Optional[int] = Form(1),
-    max_people: Optional[int] = Form(None),
-    includes_text: Optional[str] = Form(None),
-    allow_outside_hours: Optional[str] = Form(None),
-    extra_person_price: Optional[float] = Form(None),
+    request: Request,
     photo: Optional[UploadFile] = File(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    photo_url = None
-    if photo and photo.filename:
+    """Create a service. Parses form manually so empty fields never 422/500."""
+    form = await request.form()
+    name = _form_str(form, "name")
+    if not name:
+        return RedirectResponse(url="/dashboard?tab=services&error=service_name", status_code=303)
+
+    price = max(0.0, _form_float(form, "price", 0.0))
+    duration_minutes = max(5, _form_int(form, "duration_minutes", 30))
+    deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
+    is_pkg = _form_bool(form, "is_package")
+    min_people = max(1, _form_int(form, "min_people", 1))
+    max_raw = form.get("max_people")
+    max_people = None
+    if max_raw is not None and str(max_raw).strip() != "":
         try:
-            photo_url = _save_upload(photo, subfolder=f"services/{salon.id}", salon_id=salon.id)
+            max_people = max(min_people, int(float(str(max_raw).strip())))
+        except (TypeError, ValueError):
+            max_people = None
+    includes_text = _form_str(form, "includes_text") or None
+    allow_outside = _form_bool(form, "allow_outside_hours")
+    extra_raw = form.get("extra_person_price")
+    extra_person_price = None
+    if extra_raw is not None and str(extra_raw).strip() != "":
+        try:
+            extra_person_price = max(0.0, float(str(extra_raw).strip()))
+        except (TypeError, ValueError):
+            extra_person_price = None
+
+    photo_url = None
+    # Prefer injected UploadFile; fall back to form file
+    upload = photo
+    if (not upload or not getattr(upload, "filename", None)) and "photo" in form:
+        cand = form.get("photo")
+        if cand is not None and hasattr(cand, "filename") and cand.filename:
+            upload = cand
+    if upload and getattr(upload, "filename", None):
+        try:
+            photo_url = _save_upload(upload, subfolder=f"services/{salon.id}", salon_id=salon.id)
         except ValueError:
             photo_url = None
-    svc = Service(
-        salon_id=salon.id,
-        name=name.strip(),
-        price=max(0.0, float(price)),
-        duration_minutes=max(5, int(duration_minutes)),
-        deposit_amount=max(0.0, float(deposit_amount or 0)),
-        is_package=1 if is_package in ("1", "on", "true", "yes") else 0,
-        min_people=max(1, int(min_people or 1)),
-        max_people=int(max_people) if max_people else None,
-        includes_text=(includes_text or "").strip() or None,
-        allow_outside_hours=1 if allow_outside_hours in ("1", "on", "true", "yes") else 0,
-        extra_person_price=float(extra_person_price) if extra_person_price else None,
-        photo_url=photo_url,
-        is_active=1,
-    )
-    db.add(svc)
-    db.commit()
+        except Exception:
+            photo_url = None
+
+    try:
+        svc = Service(
+            salon_id=salon.id,
+            name=name,
+            price=price,
+            duration_minutes=duration_minutes,
+            deposit_amount=deposit_amount,
+            is_package=1 if is_pkg else 0,
+            min_people=min_people,
+            max_people=max_people,
+            includes_text=includes_text,
+            allow_outside_hours=1 if allow_outside else 0,
+            extra_person_price=extra_person_price,
+            photo_url=photo_url,
+            is_active=1,
+        )
+        db.add(svc)
+        db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
 
 @app.post("/delete-service")
-def delete_service(
-    service_id: int = Form(...),
-    force: Optional[str] = Form(None),
+async def delete_service(
+    request: Request,
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    """
+    Delete or archive a service.
+    - No appointments / waitlist refs → hard delete.
+    - Has history → soft-archive (is_active=0), keep service_id on past appointments
+      (never NULL out FK — avoids NOT NULL / IntegrityError 500s on SQLite).
+    - force=1 is accepted for UI confirm flow; always safe-archives when referenced.
+    """
+    form = await request.form()
+    try:
+        service_id = int(str(form.get("service_id") or "0"))
+    except (TypeError, ValueError):
+        service_id = 0
+    force = _form_bool(form, "force")
+
     svc = _owned_service(db, service_id, salon.id)
     if not svc:
         return RedirectResponse(url="/dashboard?tab=services", status_code=303)
@@ -2028,64 +2110,165 @@ def delete_service(
         .filter(Appointment.service_id == service_id, Appointment.salon_id == salon.id)
         .scalar()
     ) or 0
+    wait_count = (
+        db.query(func.count(Waitlist.id))
+        .filter(Waitlist.service_id == service_id, Waitlist.salon_id == salon.id)
+        .scalar()
+    ) or 0
 
-    if appt_count > 0 and force not in ("1", "on", "true", "yes"):
-        return RedirectResponse(url="/dashboard?tab=services&error=service_in_use", status_code=303)
+    referenced = (appt_count + wait_count) > 0
 
+    # Snapshot name/price on appointments so history stays readable after archive
     if appt_count > 0:
-        for a in db.query(Appointment).filter(
-            Appointment.service_id == service_id, Appointment.salon_id == salon.id
-        ).all():
-            if not a.service_name_snap:
-                a.service_name_snap = svc.name
-            if a.service_price_snap is None:
-                a.service_price_snap = svc.price
-            a.service_id = None
-        svc.is_active = 0
         try:
-            db.commit()
-            return RedirectResponse(url="/dashboard?tab=services&error=service_archived", status_code=303)
+            for a in (
+                db.query(Appointment)
+                .filter(Appointment.service_id == service_id, Appointment.salon_id == salon.id)
+                .all()
+            ):
+                if not getattr(a, "service_name_snap", None):
+                    a.service_name_snap = svc.name
+                if getattr(a, "service_price_snap", None) is None:
+                    try:
+                        a.service_price_snap = float(svc.price or 0)
+                    except Exception:
+                        pass
+            # Keep service_id intact — do NOT set to None (breaks NOT NULL columns)
         except Exception:
             db.rollback()
-            return RedirectResponse(url="/dashboard?tab=services&error=service_in_use", status_code=303)
 
+    if referenced:
+        # Soft archive only (UI may pass force=1 after confirm)
+        try:
+            svc.is_active = 0
+            db.add(svc)
+            db.commit()
+            return RedirectResponse(
+                url="/dashboard?tab=services&error=service_archived",
+                status_code=303,
+            )
+        except Exception:
+            db.rollback()
+            return RedirectResponse(
+                url="/dashboard?tab=services&error=service_in_use",
+                status_code=303,
+            )
+
+    # No references — hard delete
     try:
         db.delete(svc)
         db.commit()
     except IntegrityError:
         db.rollback()
-        svc.is_active = 0
-        db.commit()
-        return RedirectResponse(url="/dashboard?tab=services&error=service_archived", status_code=303)
+        try:
+            svc.is_active = 0
+            db.add(svc)
+            db.commit()
+            return RedirectResponse(
+                url="/dashboard?tab=services&error=service_archived",
+                status_code=303,
+            )
+        except Exception:
+            db.rollback()
+            return RedirectResponse(
+                url="/dashboard?tab=services&error=service_in_use",
+                status_code=303,
+            )
+    except Exception:
+        db.rollback()
+        return RedirectResponse(
+            url="/dashboard?tab=services&error=service_delete_failed",
+            status_code=303,
+        )
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
 
 @app.post("/update-service")
 async def update_service(
-    service_id: int = Form(...),
-    name: str = Form(...),
-    price: float = Form(...),
-    duration_minutes: int = Form(...),
-    deposit_amount: float = Form(0),
+    request: Request,
+    photo: Optional[UploadFile] = File(None),
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
+    """
+    Update service fields (including package options + optional photo).
+    Manual form parsing avoids FastAPI 422/500 when the browser sends empty strings.
+    """
+    form = await request.form()
+    try:
+        service_id = int(str(form.get("service_id") or "0"))
+    except (TypeError, ValueError):
+        service_id = 0
+
     svc = _owned_service(db, service_id, salon.id)
-    if svc:
-        svc.name = (name or "").strip() or svc.name
+    if not svc:
+        return RedirectResponse(url="/dashboard?tab=services", status_code=303)
+
+    name = _form_str(form, "name")
+    if name:
+        svc.name = name
+
+    if "price" in form and str(form.get("price") or "").strip() != "":
+        svc.price = max(0.0, _form_float(form, "price", float(svc.price or 0)))
+
+    if "duration_minutes" in form and str(form.get("duration_minutes") or "").strip() != "":
+        svc.duration_minutes = max(5, _form_int(form, "duration_minutes", int(svc.duration_minutes or 30)))
+
+    if "deposit_amount" in form:
+        svc.deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
+
+    # Package fields — only touch when present so partial forms stay safe
+    if "is_package" in form:
+        svc.is_package = 1 if _form_bool(form, "is_package") else 0
+    if "min_people" in form and str(form.get("min_people") or "").strip() != "":
+        svc.min_people = max(1, _form_int(form, "min_people", 1))
+    if "max_people" in form:
+        raw = str(form.get("max_people") or "").strip()
+        if raw == "":
+            svc.max_people = None
+        else:
+            try:
+                svc.max_people = max(int(getattr(svc, "min_people", 1) or 1), int(float(raw)))
+            except (TypeError, ValueError):
+                pass
+    if "includes_text" in form:
+        txt = _form_str(form, "includes_text")
+        svc.includes_text = txt or None
+    if "allow_outside_hours" in form:
+        svc.allow_outside_hours = 1 if _form_bool(form, "allow_outside_hours") else 0
+    if "extra_person_price" in form:
+        raw = str(form.get("extra_person_price") or "").strip()
+        if raw == "":
+            svc.extra_person_price = None
+        else:
+            try:
+                svc.extra_person_price = max(0.0, float(raw))
+            except (TypeError, ValueError):
+                pass
+
+    # Optional reactivation
+    if "is_active" in form:
+        svc.is_active = 1 if _form_bool(form, "is_active") else 0
+
+    upload = photo
+    if (not upload or not getattr(upload, "filename", None)) and "photo" in form:
+        cand = form.get("photo")
+        if cand is not None and hasattr(cand, "filename") and cand.filename:
+            upload = cand
+    if upload and getattr(upload, "filename", None):
         try:
-            svc.price = max(0.0, float(price))
-        except (TypeError, ValueError):
+            svc.photo_url = _save_upload(upload, subfolder=f"services/{salon.id}", salon_id=salon.id)
+        except ValueError:
             pass
-        try:
-            svc.duration_minutes = max(5, int(duration_minutes))
-        except (TypeError, ValueError):
+        except Exception:
             pass
-        try:
-            svc.deposit_amount = max(0.0, float(deposit_amount or 0))
-        except (TypeError, ValueError):
-            pass
+
+    try:
+        db.add(svc)
         db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
 
 
