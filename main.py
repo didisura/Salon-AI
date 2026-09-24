@@ -1554,10 +1554,23 @@ def dashboard(
         .all()
     )
 
+    # Waitlist for this location; if HQ root, also show branch entries so nothing is "missing"
+    _wl_salon_ids = [salon.id]
+    try:
+        if not getattr(salon, "parent_id", None):
+            _branch_ids = [
+                r[0]
+                for r in db.query(Salon.id)
+                .filter(Salon.parent_id == salon.id)
+                .all()
+            ]
+            _wl_salon_ids.extend(_branch_ids)
+    except Exception:
+        pass
     waitlist = (
         db.query(Waitlist)
-        .filter(Waitlist.salon_id == salon.id)
-        .order_by(Waitlist.preferred_date, Waitlist.id)
+        .filter(Waitlist.salon_id.in_(_wl_salon_ids))
+        .order_by(Waitlist.id.desc())
         .all()
     )
 
@@ -1740,6 +1753,7 @@ def dashboard(
         "appointments": appointments,
         "all_appointments": all_appointments,
         "waitlist": waitlist,
+        "waitlist_entries": waitlist,  # dashboard template iterates waitlist_entries
         "current_date": today.isoformat(),
         "selected_date": sel.isoformat(),
         "selected_day_am": day_am,
