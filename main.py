@@ -250,7 +250,11 @@ def _ensure_package_columns():
 _ensure_package_columns()
 
 def _ensure_service_category_columns():
-    """Service.category + Salon.service_categories (custom list per salon)."""
+    """Service.category + Salon.service_categories (custom list per salon).
+
+    Idempotent: safe to run on every startup. Also backfills NULL categories
+    to 'Other' so the public booking category grid always has something to show.
+    """
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
     dialect = engine.dialect.name
@@ -262,16 +266,38 @@ def _ensure_service_category_columns():
     except Exception:
         svc_cols = []
     if svc_cols and "category" not in svc_cols:
-        with engine.begin() as conn:
-            conn.execute(text(f"ALTER TABLE services ADD COLUMN category {str_type}"))
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE services ADD COLUMN category {str_type}"))
+        except Exception:
+            pass
+    # Backfill empty categories so older rows show under "Other"
+    if svc_cols or True:
+        try:
+            with engine.begin() as conn:
+                # Re-check column exists after possible ALTER
+                try:
+                    cols_now = [c["name"] for c in inspect(engine).get_columns("services")]
+                except Exception:
+                    cols_now = svc_cols
+                if "category" in cols_now:
+                    conn.execute(text(
+                        "UPDATE services SET category = 'Other' "
+                        "WHERE category IS NULL OR TRIM(CAST(category AS TEXT)) = ''"
+                    ))
+        except Exception:
+            pass
 
     try:
         salon_cols = [c["name"] for c in inspector.get_columns("salons")]
     except Exception:
         salon_cols = []
     if salon_cols and "service_categories" not in salon_cols:
-        with engine.begin() as conn:
-            conn.execute(text(f"ALTER TABLE salons ADD COLUMN service_categories {jtype}"))
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE salons ADD COLUMN service_categories {jtype}"))
+        except Exception:
+            pass
 
 
 _ensure_service_category_columns()
@@ -524,6 +550,39 @@ def _save_upload(file: UploadFile, subfolder: str = "", salon_id: Optional[int] 
 
 
 app = FastAPI(title="Melkegna Salon Platform")
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    """Log unexpected errors; return a simple page instead of a raw 500 stack in production."""
+    logger.error(
+        "Unhandled error on %s %s: %s",
+        request.method, request.url.path, exc, exc_info=True,
+    )
+    # API / JSON clients
+    accept = (request.headers.get("accept") or "")
+    if "application/json" in accept or request.url.path.startswith("/admin/api"):
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "internal_error", "detail": "Something went wrong. Please try again."},
+        )
+    html = (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' "
+        "content='width=device-width,initial-scale=1'><title>Error</title>"
+        "<style>body{font-family:system-ui,sans-serif;background:#FAFAF8;color:#2D2424;"
+        "display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}"
+        ".box{background:#fff;border:1px solid #E3D3C0;border-radius:16px;padding:28px 24px;"
+        "max-width:420px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.06)}"
+        "h1{font-size:1.2rem;margin:0 0 10px;color:#9C6B3F}p{color:#7A6E6E;font-size:.95rem;line-height:1.5}"
+        "a{display:inline-block;margin-top:14px;background:#9C6B3F;color:#fff;text-decoration:none;"
+        "padding:10px 18px;border-radius:11px;font-weight:600}</style></head><body><div class='box'>"
+        "<h1>Something went wrong</h1>"
+        "<p>Please try again. If it keeps happening, contact support.</p>"
+        "<a href='javascript:history.back()'>Go back</a></div></body></html>"
+    )
+    return HTMLResponse(content=html, status_code=500)
+
+
 templates = Jinja2Templates(directory="templates")
 Path("static").mkdir(parents=True, exist_ok=True)
 Path("static/uploads").mkdir(parents=True, exist_ok=True)
@@ -2230,9 +2289,11 @@ async def add_service(
     if upload and getattr(upload, "filename", None):
         try:
             photo_url = _save_upload(upload, subfolder=f"services/{salon.id}", salon_id=salon.id)
-        except ValueError:
+        except ValueError as e:
+            logger.warning("Service photo rejected: %s", e)
             photo_url = None
-        except Exception:
+        except Exception as e:
+            logger.error("Service photo upload failed: %s", e, exc_info=True)
             photo_url = None
 
     try:
@@ -2284,15 +2345,21 @@ async def add_service(
                 {"c": category, "id": svc.id},
             )
             db.commit()
-        except Exception:
+        except Exception as e:
+            logger.warning("Could not set service.category via SQL for id=%s: %s", getattr(svc, "id", None), e)
             try:
                 db.rollback()
             except Exception:
                 pass
-    except Exception:
-        db.rollback()
+    except Exception as e:
+        logger.error("add_service failed salon=%s name=%s: %s", getattr(salon, "id", None), name, e, exc_info=True)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
-    return RedirectResponse(url="/dashboard?tab=services", status_code=303)
+    logger.info("Service created id=%s category=%s salon=%s", svc.id, category, salon.id)
+    return RedirectResponse(url="/dashboard?tab=services&service_saved=1", status_code=303)
 
 
 
@@ -2466,16 +2533,16 @@ async def update_service(
         cat_val = (_form_str(form, "category") or "Other")[:80]
         try:
             svc.category = cat_val
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Could not set svc.category on model: %s", e)
         try:
             from sqlalchemy import text as sa_text
             db.execute(
                 sa_text("UPDATE services SET category = :c WHERE id = :id AND salon_id = :sid"),
                 {"c": cat_val, "id": svc.id, "sid": salon.id},
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Could not UPDATE services.category via SQL: %s", e)
 
     if "price" in form and str(form.get("price") or "").strip() != "":
         svc.price = max(0.0, _form_float(form, "price", float(svc.price or 0)))
@@ -3214,9 +3281,10 @@ def public_booking_page(
             if not getattr(s, "category", None):
                 try:
                     s.category = cat_map.get(int(s.id), "Other")
-                except Exception:
-                    pass
-    except Exception:
+                except Exception as e:
+                    logger.debug("Could not set category on service %s: %s", getattr(s, "id", None), e)
+    except Exception as e:
+        logger.warning("Category hydrate failed for salon %s: %s", getattr(salon, "id", None), e)
         cat_map = {}
     # Category cards for public booking (name + count) — computed in Python so Jinja stays simple
     _counts: dict = {}

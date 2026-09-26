@@ -833,6 +833,40 @@
             </div>
         </header>
 
+        {% set _qerr = request.query_params.get('error') if request is defined else none %}
+        {% set _qsaved = request.query_params.get('cats_saved') or request.query_params.get('service_saved') if request is defined else none %}
+        {% if _qerr %}
+        <div class="alert alert-danger border-0 shadow-sm mb-3" style="border-radius:12px;" role="alert">
+            <i class="fa-solid fa-circle-exclamation me-2"></i>
+            {% if _qerr == 'cats_save_failed' %}
+              <span data-lang-am>ምድቦችን ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።</span>
+              <span data-lang-en>Could not save categories. Please try again.</span>
+            {% elif _qerr == 'service_save_failed' %}
+              <span data-lang-am>አገልግሎቱን ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።</span>
+              <span data-lang-en>Could not save service. Please try again.</span>
+            {% elif _qerr == 'service_name' %}
+              <span data-lang-am>የአገልግሎት ስም ያስፈልጋል።</span>
+              <span data-lang-en>Service name is required.</span>
+            {% else %}
+              <span data-lang-am>ስህተት ተከስቷል። እንደገና ይሞክሩ።</span>
+              <span data-lang-en>Something went wrong. Please try again.</span>
+            {% endif %}
+        </div>
+        {% elif _qsaved %}
+        <div class="alert alert-success border-0 shadow-sm mb-3" style="border-radius:12px;" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i>
+            {% if request.query_params.get('cats_saved') %}
+              <span data-lang-am>ምድቦች ተቀምጠዋል።</span>
+              <span data-lang-en>Categories saved.</span>
+            {% else %}
+              <span data-lang-am>አገልግሎት ተቀምጧል።</span>
+              <span data-lang-en>Service saved.</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+
+
         <!-- Multi-location switcher -->
         {% if is_multi_location %}
         <div class="location-switcher">
