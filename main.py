@@ -2236,24 +2236,59 @@ async def add_service(
             photo_url = None
 
     try:
-        svc = Service(
-            salon_id=salon.id,
-            name=name,
-            category=category,
-            price=price,
-            duration_minutes=duration_minutes,
-            deposit_amount=deposit_amount,
-            is_package=1 if is_pkg else 0,
-            min_people=min_people,
-            max_people=max_people,
-            includes_text=includes_text,
-            allow_outside_hours=1 if allow_outside else 0,
-            extra_person_price=extra_person_price,
-            photo_url=photo_url,
-            is_active=1,
-        )
+        try:
+            svc = Service(
+                salon_id=salon.id,
+                name=name,
+                category=category,
+                price=price,
+                duration_minutes=duration_minutes,
+                deposit_amount=deposit_amount,
+                is_package=1 if is_pkg else 0,
+                min_people=min_people,
+                max_people=max_people,
+                includes_text=includes_text,
+                allow_outside_hours=1 if allow_outside else 0,
+                extra_person_price=extra_person_price,
+                photo_url=photo_url,
+                is_active=1,
+            )
+        except TypeError:
+            # Model not yet mapped with category — create without it then set column
+            svc = Service(
+                salon_id=salon.id,
+                name=name,
+                price=price,
+                duration_minutes=duration_minutes,
+                deposit_amount=deposit_amount,
+                is_package=1 if is_pkg else 0,
+                min_people=min_people,
+                max_people=max_people,
+                includes_text=includes_text,
+                allow_outside_hours=1 if allow_outside else 0,
+                extra_person_price=extra_person_price,
+                photo_url=photo_url,
+                is_active=1,
+            )
+        try:
+            svc.category = category
+        except Exception:
+            pass
         db.add(svc)
         db.commit()
+        # Ensure DB column set even if ORM ignored it
+        try:
+            from sqlalchemy import text as sa_text
+            db.execute(
+                sa_text("UPDATE services SET category = :c WHERE id = :id"),
+                {"c": category, "id": svc.id},
+            )
+            db.commit()
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
     except Exception:
         db.rollback()
         return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
@@ -2428,7 +2463,19 @@ async def update_service(
         svc.name = name
 
     if "category" in form:
-        svc.category = (_form_str(form, "category") or "Other")[:80]
+        cat_val = (_form_str(form, "category") or "Other")[:80]
+        try:
+            svc.category = cat_val
+        except Exception:
+            pass
+        try:
+            from sqlalchemy import text as sa_text
+            db.execute(
+                sa_text("UPDATE services SET category = :c WHERE id = :id AND salon_id = :sid"),
+                {"c": cat_val, "id": svc.id, "sid": salon.id},
+            )
+        except Exception:
+            pass
 
     if "price" in form and str(form.get("price") or "").strip() != "":
         svc.price = max(0.0, _form_float(form, "price", float(svc.price or 0)))
@@ -3153,6 +3200,40 @@ def public_booking_page(
     public_path = (salon.slug or "").strip() or str(salon.id)
     services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
     services = [s for s in services if getattr(s, "is_active", 1) != 0]
+    # Hydrate category from DB column even if Service model has no mapped attribute
+    try:
+        from sqlalchemy import text as sa_text
+        cat_map = {
+            int(r[0]): (r[1] or "").strip() or "Other"
+            for r in db.execute(
+                sa_text("SELECT id, category FROM services WHERE salon_id = :sid"),
+                {"sid": salon.id},
+            ).fetchall()
+        }
+        for s in services:
+            if not getattr(s, "category", None):
+                try:
+                    s.category = cat_map.get(int(s.id), "Other")
+                except Exception:
+                    pass
+    except Exception:
+        cat_map = {}
+    # Category cards for public booking (name + count) — computed in Python so Jinja stays simple
+    _counts: dict = {}
+    for s in services:
+        c = (getattr(s, "category", None) or "").strip() or "Other"
+        _counts[c] = _counts.get(c, 0) + 1
+    _ordered = list(_salon_service_categories(salon))
+    for c in _counts:
+        if c not in _ordered:
+            _ordered.append(c)
+    book_categories = [
+        {"name": c, "count": _counts.get(c, 0)}
+        for c in _ordered
+        if _counts.get(c, 0) > 0
+    ]
+    if not book_categories and services:
+        book_categories = [{"name": "Other", "count": len(services)}]
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()
     testimonials = (
         db.query(Testimonial)
@@ -3176,6 +3257,7 @@ def public_booking_page(
         "salon_ref": public_path,
         "services": services,
         "service_categories": _salon_service_categories(salon),
+        "book_categories": book_categories,
         "staff_members": staff_members,
         "gallery": gallery,
         "current_date": date.today().isoformat(),

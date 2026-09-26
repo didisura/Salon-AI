@@ -1013,7 +1013,7 @@ body.conflict-view .sticky-cta { display: none; }
                 'barber': ('ባርበር', 'Barber'),
                 'other': ('ሌላ', 'Other')
             } %}
-            {% set ns = namespace(used=[]) %}
+            
             {% for g in gallery %}
               {% set c = (g.category or 'other')|lower %}
               {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
@@ -1253,24 +1253,11 @@ body.conflict-view .sticky-cta { display: none; }
 
                     <!-- Step 1: Category → Service -->
                     <div class="step-panel active" data-step="1">
-                        {% set ns = namespace(cats=[], counts={}) %}
-                        {% if service_categories is defined and service_categories %}
-                          {% for c in service_categories %}
-                            {% if c not in ns.cats %}{% set _ = ns.cats.append(c) %}{% endif %}
-                          {% endfor %}
+                        {% set _bc = book_categories if book_categories is defined and book_categories else [] %}
+                        {% if not _bc %}
+                          {# fallback: derive from services if backend list missing #}
+                          {% set _bc = [] %}
                         {% endif %}
-                        {% for s in services %}
-                          {% set c = (s.category or 'Other') %}
-                          {% if c not in ns.counts %}
-                            {% set _ = ns.counts.update({c: 1}) %}
-                          {% else %}
-                            {% set _ = ns.counts.update({c: ns.counts[c] + 1}) %}
-                          {% endif %}
-                          {% if c not in ns.cats %}{% set _ = ns.cats.append(c) %}{% endif %}
-                        {% endfor %}
-                        {% if not ns.cats %}{% set _ = ns.cats.append('Other') %}{% endif %}
-                        {% set _book_cats = ns.cats %}
-                        {% set _cat_counts = ns.counts %}
 
                         <div id="bookCatPhase">
                             <p class="book-cat-phase-title">
@@ -1278,44 +1265,44 @@ body.conflict-view .sticky-cta { display: none; }
                                 <span data-lang-en>First, choose a category</span>
                             </p>
                             <div class="book-cat-grid" id="bookCatGrid">
-                                {% for c in _book_cats %}
-                                {% set n = _cat_counts.get(c, 0) %}
-                                {% if n > 0 or c == 'Other' %}
+                                {% if _bc %}
+                                {% for item in _bc %}
+                                {% set c = item.name if item.name is defined else item %}
+                                {% set n = item.count if item.count is defined else 0 %}
                                 <div class="book-cat-card" data-cat="{{ c }}" role="button" tabindex="0"
-                                     onclick="pickBookCategory({{ c|tojson }})"
-                                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickBookCategory({{ c|tojson }});}">
+                                     onclick="pickBookCategory(this.getAttribute('data-cat'))">
                                     <div class="cat-icon">
-                                        {% set cl = c|lower %}
-                                        {% if 'nail' in cl or 'ጥፍር' in c %}<i class="fa-solid fa-hand"></i>
-                                        {% elif 'hair' in cl or 'ፀጉር' in c or 'braid' in cl %}<i class="fa-solid fa-scissors"></i>
-                                        {% elif 'make' in cl or 'ሜካፕ' in c %}<i class="fa-solid fa-palette"></i>
-                                        {% elif 'spa' in cl or 'mass' in cl or 'ማሳጅ' in c %}<i class="fa-solid fa-spa"></i>
+                                        {% set cl = (c|string)|lower %}
+                                        {% if 'nail' in cl %}<i class="fa-solid fa-hand"></i>
+                                        {% elif 'hair' in cl or 'braid' in cl %}<i class="fa-solid fa-scissors"></i>
+                                        {% elif 'make' in cl %}<i class="fa-solid fa-palette"></i>
+                                        {% elif 'spa' in cl or 'mass' in cl %}<i class="fa-solid fa-spa"></i>
                                         {% elif 'wax' in cl %}<i class="fa-solid fa-droplet"></i>
                                         {% elif 'skin' in cl or 'face' in cl %}<i class="fa-solid fa-face-smile"></i>
                                         {% else %}<i class="fa-solid fa-sparkles"></i>{% endif %}
                                     </div>
                                     <div class="cat-name">{{ c }}</div>
                                     <div class="cat-count">
-                                        <span data-lang-am>{{ n }} አገልግሎት{{ 'ዎች' if n != 1 else '' }}</span>
-                                        <span data-lang-en>{{ n }} service{{ 's' if n != 1 else '' }}</span>
+                                        <span data-lang-am>{{ n }} አገልግሎት</span>
+                                        <span data-lang-en>{{ n }} service{% if n != 1 %}s{% endif %}</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                {# No categories yet — show all services directly via JS on load #}
+                                <div class="book-cat-card selected" data-cat="Other"
+                                     onclick="pickBookCategory('Other')">
+                                    <div class="cat-icon"><i class="fa-solid fa-list"></i></div>
+                                    <div class="cat-name">
+                                        <span data-lang-am>ሁሉም</span>
+                                        <span data-lang-en>All</span>
+                                    </div>
+                                    <div class="cat-count">
+                                        <span data-lang-am>{{ services|length }} አገልግሎት</span>
+                                        <span data-lang-en>{{ services|length }} services</span>
                                     </div>
                                 </div>
                                 {% endif %}
-                                {% endfor %}
-                                {# orphan categories on services not in ordered list #}
-                                {% for c, n in _cat_counts.items() %}
-                                  {% if c not in _book_cats and n > 0 %}
-                                <div class="book-cat-card" data-cat="{{ c }}" role="button" tabindex="0"
-                                     onclick="pickBookCategory({{ c|tojson }})">
-                                    <div class="cat-icon"><i class="fa-solid fa-folder"></i></div>
-                                    <div class="cat-name">{{ c }}</div>
-                                    <div class="cat-count">
-                                        <span data-lang-am>{{ n }} አገልግሎቶች</span>
-                                        <span data-lang-en>{{ n }} services</span>
-                                    </div>
-                                </div>
-                                  {% endif %}
-                                {% endfor %}
                             </div>
                         </div>
 
@@ -1734,6 +1721,7 @@ function pickPackage(id, card) {
 /* ========== Category → Service (public booking) ========== */
 var selectedBookCategory = null;
 function pickBookCategory(cat) {
+    if (!cat) return;
     selectedBookCategory = cat;
     document.querySelectorAll('.book-cat-card').forEach(function (c) {
         c.classList.toggle('selected', c.getAttribute('data-cat') === cat);
@@ -1742,18 +1730,24 @@ function pickBookCategory(cat) {
     var phaseSvc = document.getElementById('bookSvcPhase');
     var back = document.getElementById('bookCatBack');
     if (phaseCat) phaseCat.style.display = 'none';
-    if (phaseSvc) phaseSvc.classList.add('show');
+    if (phaseSvc) {
+        phaseSvc.classList.add('show');
+        phaseSvc.style.display = 'block';
+    }
     if (back) back.classList.add('show');
     var en = document.documentElement.lang === 'en';
     var label = document.getElementById('bookSvcPhaseLabel');
     if (label) {
         label.innerHTML = en
-            ? '<span data-lang-en style="display:inline">Services in <strong>' + cat + '</strong></span>'
-            : '<span data-lang-am style="display:inline">በ <strong>' + cat + '</strong> ውስጥ</span>';
+            ? '<span style="display:inline">Services in <strong>' + cat + '</strong></span>'
+            : '<span style="display:inline">በ <strong>' + cat + '</strong> ውስጥ</span>';
     }
+    var visible = 0;
     document.querySelectorAll('.svc-list .svc-card').forEach(function (card) {
-        var ok = (card.getAttribute('data-category') || 'Other') === cat;
+        var cardCat = (card.getAttribute('data-category') || 'Other').trim() || 'Other';
+        var ok = (cardCat === cat) || (cat === 'Other' && (!cardCat || cardCat === 'Other'));
         card.classList.toggle('cat-hidden', !ok);
+        card.style.display = ok ? '' : 'none';
         if (!ok) {
             var radio = card.querySelector('input[name="service_id"]');
             if (radio) {
@@ -1762,6 +1756,7 @@ function pickBookCategory(cat) {
             }
             card.classList.remove('selected');
         } else {
+            visible += 1;
             var radio2 = card.querySelector('input[name="service_id"]');
             if (radio2) radio2.required = true;
         }
@@ -1801,6 +1796,17 @@ document.addEventListener('DOMContentLoaded', function () {
     if (cards.length === 1) {
         var cat = cards[0].getAttribute('data-cat');
         if (cat) pickBookCategory(cat);
+    } else if (cards.length === 0) {
+        // no category UI — reveal all services
+        var phaseSvc = document.getElementById('bookSvcPhase');
+        if (phaseSvc) {
+            phaseSvc.classList.add('show');
+            phaseSvc.style.display = 'block';
+        }
+        document.querySelectorAll('.svc-list .svc-card').forEach(function (card) {
+            card.classList.remove('cat-hidden');
+            card.style.display = '';
+        });
     }
 });
 
