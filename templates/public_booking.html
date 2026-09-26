@@ -25,6 +25,9 @@
             --shadow-lg: 0 12px 40px rgba(156,107,63,0.12);
         }
         * { box-sizing: border-box; }
+        html, body {
+            overscroll-behavior-y: contain;
+        }
         body {
             background: var(--bg);
             font-family: 'Noto Sans Ethiopic', sans-serif;
@@ -52,6 +55,11 @@
             padding: 10px 16px;
             display: flex; align-items: center; justify-content: space-between;
             gap: 12px;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
         }
         .header-brand {
             display: flex; align-items: center; gap: 10px; min-width: 0;
@@ -158,7 +166,7 @@
         .featured-scroll {
             display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
             scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; touch-action: pan-x;
+            overscroll-behavior: contain; touch-action: pan-x;
             padding: 4px 2px 12px; scrollbar-width: none;
         }
         .featured-scroll::-webkit-scrollbar { display: none; }
@@ -202,7 +210,7 @@
         .pkg-scroll {
             display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden;
             scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; touch-action: pan-x;
+            overscroll-behavior: contain; touch-action: pan-x;
             padding: 4px 2px 14px; scrollbar-width: thin;
         }
         .pkg-scroll::-webkit-scrollbar { height: 4px; }
@@ -280,7 +288,7 @@
         .cat-row {
             display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px;
             -webkit-overflow-scrolling: touch; scrollbar-width: none;
-            touch-action: pan-x; overscroll-behavior-x: contain;
+            touch-action: pan-x; overscroll-behavior: contain;
         }
         .cat-row::-webkit-scrollbar { display: none; }
         .cat-chip {
@@ -293,7 +301,7 @@
         .gallery-row {
             display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
             scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; touch-action: pan-x;
+            overscroll-behavior: contain; touch-action: pan-x;
             padding-bottom: 10px; scrollbar-width: thin;
         }
         .gallery-row::-webkit-scrollbar { height: 4px; }
@@ -361,11 +369,44 @@
             background: #fff; border: 1px solid var(--border); border-radius: 20px;
             padding: 20px 18px; box-shadow: var(--shadow);
         }
-        .steps-bar { display: flex; gap: 4px; margin-bottom: 18px; }
-        .steps-bar .dot {
-            flex: 1; height: 4px; border-radius: 4px; background: #EDE4D6; transition: background .2s;
+        /* ---- Numbered steps bar (1-2-3-4-5) ---- */
+        .steps-bar {
+            display: flex; align-items: center; margin-bottom: 20px; padding: 0 2px;
         }
-        .steps-bar .dot.done, .steps-bar .dot.active { background: var(--accent); }
+        .steps-bar .step-item {
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .steps-bar .step-circle {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #fff; color: var(--muted);
+            border: 2px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 800; flex-shrink: 0;
+            transition: background .2s, color .2s, border-color .2s;
+        }
+        .steps-bar .step-item.active .step-circle {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(156,107,63,0.15);
+        }
+        .steps-bar .step-item.done .step-circle {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        .steps-bar .step-item.done .step-circle .num { display: none; }
+        .steps-bar .step-item.done .step-circle .chk { display: inline; }
+        .steps-bar .step-circle .chk { display: none; }
+        .steps-bar .step-line {
+            flex: 1; height: 2px; background: var(--border); margin: 0 2px;
+            transition: background .25s; min-width: 8px;
+        }
+        .steps-bar .step-line.done { background: var(--accent); }
+        .steps-bar-labels {
+            display: flex; justify-content: space-between; margin: 4px 2px 16px;
+            font-size: 0.62rem; font-weight: 700; color: var(--muted);
+        }
+        .steps-bar-labels span { flex: 1; text-align: center; }
+        .steps-bar-labels span:first-child { text-align: left; }
+        .steps-bar-labels span:last-child { text-align: right; }
+        .steps-bar-labels span.active { color: var(--accent); font-weight: 800; }
         .step-panel { display: none; }
         .step-panel.active { display: block; animation: fadeIn .2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -495,6 +536,11 @@
             background: #fff; border-top: 1px solid var(--border);
             padding: 12px 16px calc(12px + var(--safe-bottom));
             box-shadow: 0 -6px 24px rgba(0,0,0,0.08);
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
         }
         .sticky-cta-inner {
             max-width: 480px; margin: 0 auto;
@@ -1116,11 +1162,22 @@ body.conflict-view .sticky-cta { display: none; }
 
             <div class="book-card">
                 <div class="steps-bar" id="stepsBar">
-                    <div class="dot active" data-s="1"></div>
-                    <div class="dot" data-s="2"></div>
-                    <div class="dot" data-s="3"></div>
-                    <div class="dot" data-s="4"></div>
-                    <div class="dot" data-s="5"></div>
+                    <div class="step-item active" data-s="1"><div class="step-circle"><span class="num">1</span><span class="chk">✓</span></div></div>
+                    <div class="step-line" data-l="1"></div>
+                    <div class="step-item" data-s="2"><div class="step-circle"><span class="num">2</span><span class="chk">✓</span></div></div>
+                    <div class="step-line" data-l="2"></div>
+                    <div class="step-item" data-s="3"><div class="step-circle"><span class="num">3</span><span class="chk">✓</span></div></div>
+                    <div class="step-line" data-l="3"></div>
+                    <div class="step-item" data-s="4"><div class="step-circle"><span class="num">4</span><span class="chk">✓</span></div></div>
+                    <div class="step-line" data-l="4"></div>
+                    <div class="step-item" data-s="5"><div class="step-circle"><span class="num">5</span><span class="chk">✓</span></div></div>
+                </div>
+                <div class="steps-bar-labels">
+                    <span data-l="1" class="active"><span data-lang-am>አገልግሎት</span><span data-lang-en>Service</span></span>
+                    <span data-l="2"><span data-lang-am>ባለሙያ</span><span data-lang-en>Staff</span></span>
+                    <span data-l="3"><span data-lang-am>ቀን/ሰዓት</span><span data-lang-en>Time</span></span>
+                    <span data-l="4"><span data-lang-am>ዝርዝር</span><span data-lang-en>Details</span></span>
+                    <span data-l="5"><span data-lang-am>ማረጋገጫ</span><span data-lang-en>Confirm</span></span>
                 </div>
 
                 <form method="post" action="/book/{{ salon_ref }}" id="bookingForm" enctype="multipart/form-data">
@@ -1488,10 +1545,17 @@ function goStep(n, force) {
     document.querySelectorAll('.step-panel').forEach(p => {
         p.classList.toggle('active', parseInt(p.dataset.step, 10) === n);
     });
-    document.querySelectorAll('#stepsBar .dot').forEach(d => {
+    document.querySelectorAll('#stepsBar .step-item').forEach(d => {
         const s = parseInt(d.dataset.s, 10);
         d.classList.toggle('active', s === n);
         d.classList.toggle('done', s < n);
+    });
+    document.querySelectorAll('#stepsBar .step-line').forEach(l => {
+        const s = parseInt(l.dataset.l, 10);
+        l.classList.toggle('done', s < n);
+    });
+    document.querySelectorAll('.steps-bar-labels span[data-l]').forEach(l => {
+        l.classList.toggle('active', parseInt(l.dataset.l, 10) === n);
     });
     document.body.classList.add('booking-open');
     if (n === 3) {
