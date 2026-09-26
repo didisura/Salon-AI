@@ -530,6 +530,75 @@
         .summary-row .lbl { color: var(--muted); font-weight: 600; }
         .summary-row .val { font-weight: 700; color: var(--text); text-align: right; }
 
+
+        /* ========== Booking category picker ========== */
+        .book-cat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        @media (min-width: 400px) {
+            .book-cat-grid { grid-template-columns: 1fr 1fr; }
+        }
+        .book-cat-card {
+            background: #fff;
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
+            padding: 14px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s, transform .15s;
+            user-select: none;
+        }
+        .book-cat-card:hover {
+            border-color: rgba(156,107,63,0.45);
+            box-shadow: var(--shadow);
+            transform: translateY(-2px);
+        }
+        .book-cat-card.selected {
+            border-color: var(--accent);
+            background: var(--cream);
+            box-shadow: 0 0 0 3px rgba(156,107,63,0.14);
+        }
+        .book-cat-card .cat-icon {
+            width: 40px; height: 40px; border-radius: 12px;
+            background: var(--cream); color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 8px; font-size: 1.05rem;
+        }
+        .book-cat-card.selected .cat-icon {
+            background: var(--accent); color: #fff;
+        }
+        .book-cat-card .cat-name {
+            font-weight: 800; font-size: 0.92rem; color: var(--text); margin: 0 0 4px;
+        }
+        .book-cat-card .cat-count {
+            font-size: 0.72rem; font-weight: 700; color: var(--muted);
+        }
+        .book-cat-card.selected .cat-count { color: var(--accent); }
+        .book-cat-back {
+            display: none; align-items: center; gap: 6px;
+            background: none; border: none; color: var(--accent);
+            font-weight: 700; font-size: 0.85rem; padding: 0 0 10px;
+            cursor: pointer;
+        }
+        .book-cat-back.show { display: inline-flex; }
+        .svc-list .svc-card.cat-hidden { display: none !important; }
+        .svc-list-wrap { display: none; }
+        .svc-list-wrap.show { display: block; }
+        .book-cat-phase-title {
+            font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 10px;
+        }
+
+        /* Stronger step indicator */
+        .steps-bar .step-circle {
+            width: 30px; height: 30px; font-size: 0.82rem;
+        }
+        .steps-bar-labels span.active {
+            color: var(--accent); font-weight: 800;
+        }
+
         /* ========== STICKY CTA ========== */
         .sticky-cta {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
@@ -1182,15 +1251,87 @@ body.conflict-view .sticky-cta { display: none; }
 
                 <form method="post" action="/book/{{ salon_ref }}" id="bookingForm" enctype="multipart/form-data">
 
-                    <!-- Step 1: Service -->
+                    <!-- Step 1: Category → Service -->
                     <div class="step-panel active" data-step="1">
-                        <label class="form-label">
-                            <span data-lang-am>አገልግሎት ይምረጡ</span>
-                            <span data-lang-en>Choose a service</span>
-                        </label>
-                        <div class="svc-list">
+                        {% set ns = namespace(cats=[], counts={}) %}
+                        {% if service_categories is defined and service_categories %}
+                          {% for c in service_categories %}
+                            {% if c not in ns.cats %}{% set _ = ns.cats.append(c) %}{% endif %}
+                          {% endfor %}
+                        {% endif %}
+                        {% for s in services %}
+                          {% set c = (s.category or 'Other') %}
+                          {% if c not in ns.counts %}
+                            {% set _ = ns.counts.update({c: 1}) %}
+                          {% else %}
+                            {% set _ = ns.counts.update({c: ns.counts[c] + 1}) %}
+                          {% endif %}
+                          {% if c not in ns.cats %}{% set _ = ns.cats.append(c) %}{% endif %}
+                        {% endfor %}
+                        {% if not ns.cats %}{% set _ = ns.cats.append('Other') %}{% endif %}
+                        {% set _book_cats = ns.cats %}
+                        {% set _cat_counts = ns.counts %}
+
+                        <div id="bookCatPhase">
+                            <p class="book-cat-phase-title">
+                                <span data-lang-am>መጀመሪያ ምድብ ይምረጡ</span>
+                                <span data-lang-en>First, choose a category</span>
+                            </p>
+                            <div class="book-cat-grid" id="bookCatGrid">
+                                {% for c in _book_cats %}
+                                {% set n = _cat_counts.get(c, 0) %}
+                                {% if n > 0 or c == 'Other' %}
+                                <div class="book-cat-card" data-cat="{{ c }}" role="button" tabindex="0"
+                                     onclick="pickBookCategory({{ c|tojson }})"
+                                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickBookCategory({{ c|tojson }});}">
+                                    <div class="cat-icon">
+                                        {% set cl = c|lower %}
+                                        {% if 'nail' in cl or 'ጥፍር' in c %}<i class="fa-solid fa-hand"></i>
+                                        {% elif 'hair' in cl or 'ፀጉር' in c or 'braid' in cl %}<i class="fa-solid fa-scissors"></i>
+                                        {% elif 'make' in cl or 'ሜካፕ' in c %}<i class="fa-solid fa-palette"></i>
+                                        {% elif 'spa' in cl or 'mass' in cl or 'ማሳጅ' in c %}<i class="fa-solid fa-spa"></i>
+                                        {% elif 'wax' in cl %}<i class="fa-solid fa-droplet"></i>
+                                        {% elif 'skin' in cl or 'face' in cl %}<i class="fa-solid fa-face-smile"></i>
+                                        {% else %}<i class="fa-solid fa-sparkles"></i>{% endif %}
+                                    </div>
+                                    <div class="cat-name">{{ c }}</div>
+                                    <div class="cat-count">
+                                        <span data-lang-am>{{ n }} አገልግሎት{{ 'ዎች' if n != 1 else '' }}</span>
+                                        <span data-lang-en>{{ n }} service{{ 's' if n != 1 else '' }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                                {# orphan categories on services not in ordered list #}
+                                {% for c, n in _cat_counts.items() %}
+                                  {% if c not in _book_cats and n > 0 %}
+                                <div class="book-cat-card" data-cat="{{ c }}" role="button" tabindex="0"
+                                     onclick="pickBookCategory({{ c|tojson }})">
+                                    <div class="cat-icon"><i class="fa-solid fa-folder"></i></div>
+                                    <div class="cat-name">{{ c }}</div>
+                                    <div class="cat-count">
+                                        <span data-lang-am>{{ n }} አገልግሎቶች</span>
+                                        <span data-lang-en>{{ n }} services</span>
+                                    </div>
+                                </div>
+                                  {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="svc-list-wrap" id="bookSvcPhase">
+                            <button type="button" class="book-cat-back" id="bookCatBack" onclick="backToBookCategories()">
+                                <i class="fa-solid fa-arrow-left"></i>
+                                <span data-lang-am>ወደ ምድቦች</span>
+                                <span data-lang-en>Back to categories</span>
+                            </button>
+                            <label class="form-label mb-2" id="bookSvcPhaseLabel">
+                                <span data-lang-am>አገልግሎት ይምረጡ</span>
+                                <span data-lang-en>Choose a service</span>
+                            </label>
+                            <div class="svc-list">
                             {% for s in services %}
-                            <label class="svc-card" for="svc-{{ s.id }}">
+                            <label class="svc-card cat-hidden" for="svc-{{ s.id }}" data-category="{{ s.category or 'Other' }}">
                                 <input type="radio" name="service_id" id="svc-{{ s.id }}" value="{{ s.id }}"
                                        data-name="{{ s.name }}"
                                        data-price="{{ s.price }}"
@@ -1200,7 +1341,8 @@ body.conflict-view .sticky-cta { display: none; }
                                        data-max-people="{{ s.max_people or 0 }}"
                                        data-extra-price="{{ s.extra_person_price or 0 }}"
                                        data-duration="{{ s.duration_minutes or 30 }}"
-                                       onchange="onServicePick(this)" required>
+                                       data-category="{{ s.category or 'Other' }}"
+                                       onchange="onServicePick(this)">
                                 <div class="svc-icon">
                                     {% if s.is_package %}
                                     <i class="fa-solid fa-gift"></i>
@@ -1227,6 +1369,7 @@ body.conflict-view .sticky-cta { display: none; }
                                 <div class="svc-price">{{ "{:,.0f}".format(s.price or 0) }} ብር</div>
                             </label>
                             {% endfor %}
+                            </div>
                         </div>
 
                         <div id="partySizeBlock" style="display:none;">
@@ -1573,6 +1716,8 @@ function pickPackage(id, card) {
     if (card) card.classList.add('selected');
     const radio = document.querySelector('input[name="service_id"][value="' + id + '"]');
     if (radio) {
+        var cat = radio.getAttribute('data-category') || (radio.closest('.svc-card') && radio.closest('.svc-card').getAttribute('data-category')) || 'Other';
+        if (typeof pickBookCategory === 'function') pickBookCategory(cat);
         radio.checked = true;
         onServicePick(radio);
         startBooking();
@@ -1584,6 +1729,80 @@ function pickPackage(id, card) {
         }
     }
 }
+
+
+/* ========== Category → Service (public booking) ========== */
+var selectedBookCategory = null;
+function pickBookCategory(cat) {
+    selectedBookCategory = cat;
+    document.querySelectorAll('.book-cat-card').forEach(function (c) {
+        c.classList.toggle('selected', c.getAttribute('data-cat') === cat);
+    });
+    var phaseCat = document.getElementById('bookCatPhase');
+    var phaseSvc = document.getElementById('bookSvcPhase');
+    var back = document.getElementById('bookCatBack');
+    if (phaseCat) phaseCat.style.display = 'none';
+    if (phaseSvc) phaseSvc.classList.add('show');
+    if (back) back.classList.add('show');
+    var en = document.documentElement.lang === 'en';
+    var label = document.getElementById('bookSvcPhaseLabel');
+    if (label) {
+        label.innerHTML = en
+            ? '<span data-lang-en style="display:inline">Services in <strong>' + cat + '</strong></span>'
+            : '<span data-lang-am style="display:inline">በ <strong>' + cat + '</strong> ውስጥ</span>';
+    }
+    document.querySelectorAll('.svc-list .svc-card').forEach(function (card) {
+        var ok = (card.getAttribute('data-category') || 'Other') === cat;
+        card.classList.toggle('cat-hidden', !ok);
+        if (!ok) {
+            var radio = card.querySelector('input[name="service_id"]');
+            if (radio) {
+                radio.checked = false;
+                radio.removeAttribute('required');
+            }
+            card.classList.remove('selected');
+        } else {
+            var radio2 = card.querySelector('input[name="service_id"]');
+            if (radio2) radio2.required = true;
+        }
+    });
+    // clear sticky price until a service is picked
+    var sticky = document.getElementById('stickyPriceLabel');
+    if (sticky) {
+        sticky.innerHTML = en
+            ? '<span data-lang-en style="display:inline">Pick a service</span>'
+            : '<span data-lang-am style="display:inline">አገልግሎት ይምረጡ</span>';
+    }
+}
+function backToBookCategories() {
+    selectedBookCategory = null;
+    document.querySelectorAll('.book-cat-card').forEach(function (c) { c.classList.remove('selected'); });
+    var phaseCat = document.getElementById('bookCatPhase');
+    var phaseSvc = document.getElementById('bookSvcPhase');
+    var back = document.getElementById('bookCatBack');
+    if (phaseCat) phaseCat.style.display = '';
+    if (phaseSvc) phaseSvc.classList.remove('show');
+    if (back) back.classList.remove('show');
+    document.querySelectorAll('.svc-list .svc-card').forEach(function (card) {
+        card.classList.add('cat-hidden');
+        card.classList.remove('selected');
+        var radio = card.querySelector('input[name="service_id"]');
+        if (radio) {
+            radio.checked = false;
+            radio.removeAttribute('required');
+        }
+    });
+    var block = document.getElementById('partySizeBlock');
+    if (block) block.style.display = 'none';
+}
+// If only one category with services, auto-open it for fewer taps
+document.addEventListener('DOMContentLoaded', function () {
+    var cards = document.querySelectorAll('.book-cat-card');
+    if (cards.length === 1) {
+        var cat = cards[0].getAttribute('data-cat');
+        if (cat) pickBookCategory(cat);
+    }
+});
 
 function onServicePick(el) {
     document.querySelectorAll('.svc-card').forEach(c => c.classList.remove('selected'));

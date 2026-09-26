@@ -1699,14 +1699,29 @@
         </div>
         {% endif %}
         <section class="card-soft">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h5 class="fw-bold mb-0">
                     <span data-lang-am>አገልግሎቶች</span><span data-lang-en>Services</span>
                 </h5>
-                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addServiceModal">
-                    <i class="fa-solid fa-plus me-1"></i>
-                    <span data-lang-am>አዲስ</span><span data-lang-en>Add</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-soft btn-sm" data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
+                        <i class="fa-solid fa-tags me-1"></i>
+                        <span data-lang-am>ምድቦች</span><span data-lang-en>Categories</span>
+                    </button>
+                    <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+                        <i class="fa-solid fa-plus me-1"></i>
+                        <span data-lang-am>አዲስ</span><span data-lang-en>Add</span>
+                    </button>
+                </div>
+            </div>
+            {% set svc_cats = service_categories if service_categories is defined and service_categories else ['Hair','Nails','Makeup','Spa','Massage','Waxing','Skincare','Other'] %}
+            <div class="d-flex flex-wrap gap-2 mb-3" id="svcCatFilters">
+                <button type="button" class="btn btn-sm btn-accent svc-cat-chip active" data-cat="all">
+                    <span data-lang-am>ሁሉም</span><span data-lang-en>All</span>
                 </button>
+                {% for c in svc_cats %}
+                <button type="button" class="btn btn-sm btn-outline-soft svc-cat-chip" data-cat="{{ c }}">{{ c }}</button>
+                {% endfor %}
             </div>
             <div class="table-stack">
                 <table class="table align-middle mb-0">
@@ -1721,7 +1736,7 @@
                     </thead>
                     <tbody>
                         {% for s in (services_all if services_all is defined else services) %}
-                        <tr {% if s.is_active is defined and s.is_active == 0 %}style="opacity:0.55;"{% endif %}>
+                        <tr class="svc-row" data-cat="{{ (s.category or 'Other') }}" {% if s.is_active is defined and s.is_active == 0 %}style="opacity:0.55;"{% endif %}>
                             <td colspan="5" class="p-0 border-0">
                                 <div class="p-3">
                                     <form action="/update-service" method="post" class="row g-2 align-items-end">
@@ -1737,6 +1752,21 @@
                                                 {% endif %}
                                             </label>
                                             <input type="text" name="name" class="form-control form-control-sm" value="{{ s.name }}" required>
+                                        </div>
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small text-muted mb-0">
+                                                <span data-lang-am>ምድብ</span><span data-lang-en>Category</span>
+                                            </label>
+                                            <select name="category" class="form-select form-select-sm">
+                                                {% set cur_cat = (s.category or 'Other') %}
+                                                {% set _cats = service_categories if service_categories is defined and service_categories else ['Hair','Nails','Makeup','Spa','Massage','Waxing','Skincare','Other'] %}
+                                                {% if cur_cat and cur_cat not in _cats %}
+                                                <option value="{{ cur_cat }}" selected>{{ cur_cat }}</option>
+                                                {% endif %}
+                                                {% for c in _cats %}
+                                                <option value="{{ c }}" {% if cur_cat == c %}selected{% endif %}>{{ c }}</option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
                                         <div class="col-4 col-md-2">
                                             <label class="form-label small text-muted mb-0"><span data-lang-am>ዋጋ</span><span data-lang-en>Price</span></label>
@@ -3277,6 +3307,21 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">
+                            <span data-lang-am>ምድብ</span><span data-lang-en>Category</span>
+                        </label>
+                        <select name="category" class="form-select" required>
+                            {% set _cats = service_categories if service_categories is defined and service_categories else ['Hair','Nails','Makeup','Spa','Massage','Waxing','Skincare','Other'] %}
+                            {% for c in _cats %}
+                            <option value="{{ c }}">{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="small text-muted mt-1 mb-0">
+                            <span data-lang-am>አዲስ ምድብ ማከል ከፈለጉ «ምድቦች» ይጫኑ</span>
+                            <span data-lang-en>To add your own categories, use the Categories button</span>
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-semibold">
                             <span data-lang-am>ዋጋ (ETB)</span><span data-lang-en>Price (ETB)</span>
                         </label>
                         <input type="number" name="price" class="form-control" step="0.01" min="0" required>
@@ -4020,6 +4065,84 @@ document.getElementById('bookModal')?.addEventListener('shown.bs.modal', filterB
     }, { passive: true });
     area.addEventListener('touchend', () => { ind.style.top = '-48px'; });
 })();
+</script>
+
+
+<!-- ========== Manage service categories ========== -->
+<div class="modal fade" id="manageCategoriesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="/service-categories/save" method="post" id="categoriesForm">
+        <div class="modal-header">
+          <h5 class="fw-bold m-0">
+            <span data-lang-am>የአገልግሎት ምድቦች</span>
+            <span data-lang-en>Service categories</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-3">
+            <span data-lang-am>ለምሳሌ፡ Hair, Braids, Gel Nails, Acrylic, Makeup, Spa… የራስዎን ይጨምሩ፣ ያርትዑ ወይም ያጥፉ።</span>
+            <span data-lang-en>E.g. Hair, Braids, Gel Nails, Acrylic, Makeup, Spa… Add, edit or remove your own.</span>
+          </p>
+          <div id="categoriesList">
+            {% set _cats = service_categories if service_categories is defined and service_categories else ['Hair','Nails','Makeup','Spa','Massage','Waxing','Skincare','Other'] %}
+            {% for c in _cats %}
+            <div class="row g-2 mb-2 cat-row align-items-center">
+              <div class="col-10">
+                <input type="text" name="categories" class="form-control" value="{{ c }}" maxlength="80" required>
+              </div>
+              <div class="col-2">
+                <button type="button" class="btn btn-sm btn-outline-soft w-100" onclick="this.closest('.cat-row').remove()" title="Remove">✕</button>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-outline-soft btn-sm mt-2" onclick="addCategoryRow()">
+            <i class="fa-solid fa-plus me-1"></i>
+            <span data-lang-am>አዲስ ምድብ</span>
+            <span data-lang-en>Add category</span>
+          </button>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+            <span data-lang-am>ሰርዝ</span><span data-lang-en>Cancel</span>
+          </button>
+          <button type="submit" class="btn btn-accent">
+            <span data-lang-am>አስቀምጥ</span><span data-lang-en>Save</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function addCategoryRow() {
+  var list = document.getElementById('categoriesList');
+  if (!list) return;
+  var row = document.createElement('div');
+  row.className = 'row g-2 mb-2 cat-row align-items-center';
+  row.innerHTML =
+    '<div class="col-10"><input type="text" name="categories" class="form-control" value="" maxlength="80" placeholder="e.g. Gel Nails" required></div>' +
+    '<div class="col-2"><button type="button" class="btn btn-sm btn-outline-soft w-100" onclick="this.closest(\'.cat-row\').remove()">✕</button></div>';
+  list.appendChild(row);
+  var inp = row.querySelector('input');
+  if (inp) inp.focus();
+}
+document.querySelectorAll('.svc-cat-chip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    document.querySelectorAll('.svc-cat-chip').forEach(function (c) {
+      c.classList.remove('active', 'btn-accent');
+      c.classList.add('btn-outline-soft');
+    });
+    chip.classList.add('active', 'btn-accent');
+    chip.classList.remove('btn-outline-soft');
+    var cat = chip.getAttribute('data-cat');
+    document.querySelectorAll('tr.svc-row').forEach(function (row) {
+      row.style.display = (cat === 'all' || row.getAttribute('data-cat') === cat) ? '' : 'none';
+    });
+  });
+});
 </script>
 
 <form id="forceDeleteServiceForm" action="/delete-service" method="post" class="d-none">

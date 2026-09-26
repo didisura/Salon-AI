@@ -246,7 +246,35 @@ def _ensure_package_columns():
             pass
 
 
+
 _ensure_package_columns()
+
+def _ensure_service_category_columns():
+    """Service.category + Salon.service_categories (custom list per salon)."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    dialect = engine.dialect.name
+    str_type = "VARCHAR(80)" if dialect == "postgresql" else "TEXT"
+    jtype = "JSON" if dialect == "postgresql" else "TEXT"
+
+    try:
+        svc_cols = [c["name"] for c in inspector.get_columns("services")]
+    except Exception:
+        svc_cols = []
+    if svc_cols and "category" not in svc_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE services ADD COLUMN category {str_type}"))
+
+    try:
+        salon_cols = [c["name"] for c in inspector.get_columns("salons")]
+    except Exception:
+        salon_cols = []
+    if salon_cols and "service_categories" not in salon_cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE salons ADD COLUMN service_categories {jtype}"))
+
+
+_ensure_service_category_columns()
 
 def _ensure_waitlist_screenshot_column():
     """Allow payment proof to travel with waitlist entries after a conflict."""
@@ -609,6 +637,38 @@ def _valid_admin_key(key: Optional[str]) -> bool:
     if not key:
         return False
     return secrets.compare_digest(key, ADMIN_SECRET_KEY)
+
+
+DEFAULT_SERVICE_CATEGORIES = [
+    "Hair",
+    "Nails",
+    "Makeup",
+    "Spa",
+    "Massage",
+    "Waxing",
+    "Skincare",
+    "Other",
+]
+
+
+def _salon_service_categories(salon) -> list:
+    """Return ordered unique category names for this salon (custom or defaults)."""
+    raw = getattr(salon, "service_categories", None)
+    if isinstance(raw, str):
+        try:
+            import json
+            raw = json.loads(raw)
+        except Exception:
+            raw = None
+    if isinstance(raw, list) and raw:
+        out = []
+        for c in raw:
+            s = str(c or "").strip()[:80]
+            if s and s not in out:
+                out.append(s)
+        return out if out else list(DEFAULT_SERVICE_CATEGORIES)
+    return list(DEFAULT_SERVICE_CATEGORIES)
+
 
 
 def _eth_display(dt: Optional[datetime]) -> Optional[str]:
@@ -1830,6 +1890,7 @@ def dashboard(
         "active_tab": tab,
         "services": services,
         "services_all": services_all,  # includes archived (is_active=0) for services tab
+        "service_categories": _salon_service_categories(salon),
         "staff_members": staff_members,
         "appointments": appointments,
         "all_appointments": all_appointments,
@@ -2135,6 +2196,7 @@ async def add_service(
     if not name:
         return RedirectResponse(url="/dashboard?tab=services&error=service_name", status_code=303)
 
+    category = (_form_str(form, "category") or "Other")[:80]
     price = max(0.0, _form_float(form, "price", 0.0))
     duration_minutes = max(5, _form_int(form, "duration_minutes", 30))
     deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
@@ -2177,6 +2239,7 @@ async def add_service(
         svc = Service(
             salon_id=salon.id,
             name=name,
+            category=category,
             price=price,
             duration_minutes=duration_minutes,
             deposit_amount=deposit_amount,
@@ -2195,6 +2258,46 @@ async def add_service(
         db.rollback()
         return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
+
+
+
+
+@app.post("/service-categories/save")
+async def save_service_categories(
+    request: Request,
+    salon: Salon = Depends(get_active_salon),
+    db: Session = Depends(get_db),
+):
+    """Owner manages their own service category list (Hair, Nails, Gel Nails…)."""
+    form = await request.form()
+    cats = []
+    if hasattr(form, "getlist"):
+        try:
+            cats = list(form.getlist("categories"))
+        except Exception:
+            cats = []
+    if not cats:
+        text_val = str(form.get("categories_text") or "")
+        cats = [c.strip() for c in text_val.replace("\n", ",").split(",")]
+    cleaned = []
+    for c in cats:
+        s = str(c or "").strip()[:80]
+        if s and s not in cleaned:
+            cleaned.append(s)
+    if not cleaned:
+        cleaned = list(DEFAULT_SERVICE_CATEGORIES)
+    salon.service_categories = cleaned
+    try:
+        flag_modified(salon, "service_categories")
+    except Exception:
+        pass
+    try:
+        db.add(salon)
+        db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse(url="/dashboard?tab=services&error=cats_save_failed", status_code=303)
+    return RedirectResponse(url="/dashboard?tab=services&cats_saved=1", status_code=303)
 
 
 @app.post("/delete-service")
@@ -2323,6 +2426,9 @@ async def update_service(
     name = _form_str(form, "name")
     if name:
         svc.name = name
+
+    if "category" in form:
+        svc.category = (_form_str(form, "category") or "Other")[:80]
 
     if "price" in form and str(form.get("price") or "").strip() != "":
         svc.price = max(0.0, _form_float(form, "price", float(svc.price or 0)))
@@ -3069,6 +3175,7 @@ def public_booking_page(
         "salon": salon,
         "salon_ref": public_path,
         "services": services,
+        "service_categories": _salon_service_categories(salon),
         "staff_members": staff_members,
         "gallery": gallery,
         "current_date": date.today().isoformat(),
