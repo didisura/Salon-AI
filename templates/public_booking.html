@@ -1013,7 +1013,8 @@ body.conflict-view .sticky-cta { display: none; }
                 'barber': ('ባርበር', 'Barber'),
                 'other': ('ሌላ', 'Other')
             } %}
-            
+
+            {% set ns = namespace(used=[]) %}
             {% for g in gallery %}
               {% set c = (g.category or 'other')|lower %}
               {% if c in ['pedicure', 'manicure'] %}{% set c = 'nails' %}{% endif %}
