@@ -1014,6 +1014,9 @@ body.conflict-view .sticky-cta { display: none; }
                 'other': ('ሌላ', 'Other')
             } %}
 
+            {# FIX: this namespace must exist before we accumulate distinct
+               categories below — this was the root cause of the category
+               filter crashing on any salon with gallery photos. #}
             {% set ns = namespace(used=[]) %}
             {% for g in gallery %}
               {% set c = (g.category or 'other')|lower %}
