@@ -41,6 +41,9 @@ from security import (
     NotAuthenticatedException,
 )
 
+import logging
+logger = logging.getLogger(__name__)
+
 Base.metadata.create_all(bind=engine)
 
 
@@ -2249,38 +2252,52 @@ async def add_service(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    """Create a service. Parses form manually so empty fields never 422/500."""
+    """Create a service with a category. Never 422/500 on empty form fields."""
     form = await request.form()
+
     name = _form_str(form, "name")
     if not name:
         return RedirectResponse(url="/dashboard?tab=services&error=service_name", status_code=303)
 
     category = (_form_str(form, "category") or "Other")[:80]
+
+    # If the salon manages a custom category list, make sure it appears there
+    cats = _salon_service_categories(salon)
+    if category not in cats:
+        cats = list(cats) + [category]
+        salon.service_categories = cats
+        try:
+            flag_modified(salon, "service_categories")
+        except Exception:
+            pass
+
     price = max(0.0, _form_float(form, "price", 0.0))
     duration_minutes = max(5, _form_int(form, "duration_minutes", 30))
     deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
-    pkg_flag = _form_checkbox(form, "is_package")
-    is_pkg = bool(pkg_flag) if pkg_flag is not None else _form_bool(form, "is_package")
+
+    is_pkg = _form_bool(form, "is_package")
     min_people = max(1, _form_int(form, "min_people", 1))
-    max_raw = form.get("max_people")
+
     max_people = None
-    if max_raw is not None and str(max_raw).strip() != "":
+    raw_max = str(form.get("max_people") or "").strip()
+    if raw_max:
         try:
-            max_people = max(min_people, int(float(str(max_raw).strip())))
+            max_people = max(min_people, int(float(raw_max)))
         except (TypeError, ValueError):
             max_people = None
+
     includes_text = _form_str(form, "includes_text") or None
     allow_outside = _form_bool(form, "allow_outside_hours")
-    extra_raw = form.get("extra_person_price")
+
     extra_person_price = None
-    if extra_raw is not None and str(extra_raw).strip() != "":
+    raw_extra = str(form.get("extra_person_price") or "").strip()
+    if raw_extra:
         try:
-            extra_person_price = max(0.0, float(str(extra_raw).strip()))
+            extra_person_price = max(0.0, float(raw_extra))
         except (TypeError, ValueError):
             extra_person_price = None
 
     photo_url = None
-    # Prefer injected UploadFile; fall back to form file
     upload = photo
     if (not upload or not getattr(upload, "filename", None)) and "photo" in form:
         cand = form.get("photo")
@@ -2289,78 +2306,34 @@ async def add_service(
     if upload and getattr(upload, "filename", None):
         try:
             photo_url = _save_upload(upload, subfolder=f"services/{salon.id}", salon_id=salon.id)
-        except ValueError as e:
+        except (ValueError, Exception) as e:
             logger.warning("Service photo rejected: %s", e)
-            photo_url = None
-        except Exception as e:
-            logger.error("Service photo upload failed: %s", e, exc_info=True)
-            photo_url = None
 
+    svc = Service(
+        salon_id=salon.id,
+        name=name,
+        category=category,
+        price=price,
+        duration_minutes=duration_minutes,
+        deposit_amount=deposit_amount,
+        is_package=1 if is_pkg else 0,
+        min_people=min_people,
+        max_people=max_people,
+        includes_text=includes_text,
+        allow_outside_hours=1 if allow_outside else 0,
+        extra_person_price=extra_person_price,
+        photo_url=photo_url,
+        is_active=1,
+    )
+    db.add(svc)
     try:
-        try:
-            svc = Service(
-                salon_id=salon.id,
-                name=name,
-                category=category,
-                price=price,
-                duration_minutes=duration_minutes,
-                deposit_amount=deposit_amount,
-                is_package=1 if is_pkg else 0,
-                min_people=min_people,
-                max_people=max_people,
-                includes_text=includes_text,
-                allow_outside_hours=1 if allow_outside else 0,
-                extra_person_price=extra_person_price,
-                photo_url=photo_url,
-                is_active=1,
-            )
-        except TypeError:
-            # Model not yet mapped with category — create without it then set column
-            svc = Service(
-                salon_id=salon.id,
-                name=name,
-                price=price,
-                duration_minutes=duration_minutes,
-                deposit_amount=deposit_amount,
-                is_package=1 if is_pkg else 0,
-                min_people=min_people,
-                max_people=max_people,
-                includes_text=includes_text,
-                allow_outside_hours=1 if allow_outside else 0,
-                extra_person_price=extra_person_price,
-                photo_url=photo_url,
-                is_active=1,
-            )
-        try:
-            svc.category = category
-        except Exception:
-            pass
-        db.add(svc)
         db.commit()
-        # Ensure DB column set even if ORM ignored it
-        try:
-            from sqlalchemy import text as sa_text
-            db.execute(
-                sa_text("UPDATE services SET category = :c WHERE id = :id"),
-                {"c": category, "id": svc.id},
-            )
-            db.commit()
-        except Exception as e:
-            logger.warning("Could not set service.category via SQL for id=%s: %s", getattr(svc, "id", None), e)
-            try:
-                db.rollback()
-            except Exception:
-                pass
     except Exception as e:
-        logger.error("add_service failed salon=%s name=%s: %s", getattr(salon, "id", None), name, e, exc_info=True)
-        try:
-            db.rollback()
-        except Exception:
-            pass
+        db.rollback()
+        logger.error("add_service failed: %s", e, exc_info=True)
         return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
-    logger.info("Service created id=%s category=%s salon=%s", svc.id, category, salon.id)
-    return RedirectResponse(url="/dashboard?tab=services&service_saved=1", status_code=303)
 
+    return RedirectResponse(url="/dashboard?tab=services&service_saved=1", status_code=303)
 
 
 
@@ -2373,33 +2346,39 @@ async def save_service_categories(
     """Owner manages their own service category list (Hair, Nails, Gel Nails…)."""
     form = await request.form()
     cats = []
-    if hasattr(form, "getlist"):
-        try:
-            cats = list(form.getlist("categories"))
-        except Exception:
-            cats = []
+    try:
+        cats = list(form.getlist("categories"))
+    except Exception:
+        cats = []
+
     if not cats:
         text_val = str(form.get("categories_text") or "")
         cats = [c.strip() for c in text_val.replace("\n", ",").split(",")]
+
     cleaned = []
     for c in cats:
         s = str(c or "").strip()[:80]
         if s and s not in cleaned:
             cleaned.append(s)
+
     if not cleaned:
         cleaned = list(DEFAULT_SERVICE_CATEGORIES)
+
     salon.service_categories = cleaned
     try:
         flag_modified(salon, "service_categories")
     except Exception:
         pass
+
     try:
         db.add(salon)
         db.commit()
     except Exception:
         db.rollback()
         return RedirectResponse(url="/dashboard?tab=services&error=cats_save_failed", status_code=303)
+
     return RedirectResponse(url="/dashboard?tab=services&cats_saved=1", status_code=303)
+
 
 
 @app.post("/delete-service")
@@ -2511,11 +2490,9 @@ async def update_service(
     salon: Salon = Depends(get_active_salon),
     db: Session = Depends(get_db),
 ):
-    """
-    Update service fields (including package options + optional photo).
-    Manual form parsing avoids FastAPI 422/500 when the browser sends empty strings.
-    """
+    """Update service fields, including category + package options + optional photo."""
     form = await request.form()
+
     try:
         service_id = int(str(form.get("service_id") or "0"))
     except (TypeError, ValueError):
@@ -2530,19 +2507,17 @@ async def update_service(
         svc.name = name
 
     if "category" in form:
-        cat_val = (_form_str(form, "category") or "Other")[:80]
-        try:
-            svc.category = cat_val
-        except Exception as e:
-            logger.warning("Could not set svc.category on model: %s", e)
-        try:
-            from sqlalchemy import text as sa_text
-            db.execute(
-                sa_text("UPDATE services SET category = :c WHERE id = :id AND salon_id = :sid"),
-                {"c": cat_val, "id": svc.id, "sid": salon.id},
-            )
-        except Exception as e:
-            logger.warning("Could not UPDATE services.category via SQL: %s", e)
+        new_cat = (_form_str(form, "category") or "Other")[:80]
+        svc.category = new_cat
+        # keep it in the salon's custom list too
+        cats = list(_salon_service_categories(salon))
+        if new_cat not in cats:
+            cats.append(new_cat)
+            salon.service_categories = cats
+            try:
+                flag_modified(salon, "service_categories")
+            except Exception:
+                pass
 
     if "price" in form and str(form.get("price") or "").strip() != "":
         svc.price = max(0.0, _form_float(form, "price", float(svc.price or 0)))
@@ -2553,23 +2528,24 @@ async def update_service(
     if "deposit_amount" in form:
         svc.deposit_amount = max(0.0, _form_float(form, "deposit_amount", 0.0))
 
-    # Package / checkbox fields — support hidden value=0 + checkbox value=1
-    # so turning a package OFF actually persists (unchecked boxes are omitted otherwise).
+    # Package fields — support hidden value=0 + checkbox value=1 for reliable OFF
     pkg = _form_checkbox(form, "is_package")
     if pkg is not None:
         svc.is_package = 1 if pkg else 0
 
     if "min_people" in form and str(form.get("min_people") or "").strip() != "":
         svc.min_people = max(1, _form_int(form, "min_people", 1))
+
     if "max_people" in form:
         raw = str(form.get("max_people") or "").strip()
         if raw == "":
             svc.max_people = None
         else:
             try:
-                svc.max_people = max(int(getattr(svc, "min_people", 1) or 1), int(float(raw)))
+                svc.max_people = max(int(svc.min_people or 1), int(float(raw)))
             except (TypeError, ValueError):
                 pass
+
     if "includes_text" in form:
         txt = _form_str(form, "includes_text")
         svc.includes_text = txt or None
@@ -2600,23 +2576,18 @@ async def update_service(
     if upload and getattr(upload, "filename", None):
         try:
             svc.photo_url = _save_upload(upload, subfolder=f"services/{salon.id}", salon_id=salon.id)
-        except ValueError:
-            pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Service photo update failed: %s", e)
 
     try:
         db.add(svc)
         db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
+        logger.error("update_service failed: %s", e, exc_info=True)
         return RedirectResponse(url="/dashboard?tab=services&error=service_save_failed", status_code=303)
+
     return RedirectResponse(url="/dashboard?tab=services", status_code=303)
-
-
-# ---------------------------------------------------------------------------
-# Staff
-# ---------------------------------------------------------------------------
 
 
 
@@ -3265,41 +3236,25 @@ def public_booking_page(
     if not salon:
         return HTMLResponse("Salon not found", status_code=404)
     public_path = (salon.slug or "").strip() or str(salon.id)
-    services = db.query(Service).filter(Service.salon_id == salon.id).order_by(Service.name).all()
-    services = [s for s in services if getattr(s, "is_active", 1) != 0]
-    # Hydrate category from DB column even if Service model has no mapped attribute
-    try:
-        from sqlalchemy import text as sa_text
-        cat_map = {
-            int(r[0]): (r[1] or "").strip() or "Other"
-            for r in db.execute(
-                sa_text("SELECT id, category FROM services WHERE salon_id = :sid"),
-                {"sid": salon.id},
-            ).fetchall()
-        }
-        for s in services:
-            if not getattr(s, "category", None):
-                try:
-                    s.category = cat_map.get(int(s.id), "Other")
-                except Exception as e:
-                    logger.debug("Could not set category on service %s: %s", getattr(s, "id", None), e)
-    except Exception as e:
-        logger.warning("Category hydrate failed for salon %s: %s", getattr(salon, "id", None), e)
-        cat_map = {}
-    # Category cards for public booking (name + count) — computed in Python so Jinja stays simple
-    _counts: dict = {}
+    services = (
+        db.query(Service)
+        .filter(Service.salon_id == salon.id, Service.is_active != 0)
+        .order_by(Service.name)
+        .all()
+    )
+
+    # Build category → count cards. "Other" catches NULL/empty.
+    counts: dict = {}
     for s in services:
-        c = (getattr(s, "category", None) or "").strip() or "Other"
-        _counts[c] = _counts.get(c, 0) + 1
-    _ordered = list(_salon_service_categories(salon))
-    for c in _counts:
-        if c not in _ordered:
-            _ordered.append(c)
-    book_categories = [
-        {"name": c, "count": _counts.get(c, 0)}
-        for c in _ordered
-        if _counts.get(c, 0) > 0
-    ]
+        c = (s.category or "").strip() or "Other"
+        counts[c] = counts.get(c, 0) + 1
+
+    ordered = list(_salon_service_categories(salon))
+    for c in counts:
+        if c not in ordered:
+            ordered.append(c)
+
+    book_categories = [{"name": c, "count": counts.get(c, 0)} for c in ordered if counts.get(c, 0) > 0]
     if not book_categories and services:
         book_categories = [{"name": "Other", "count": len(services)}]
     staff_members = db.query(Staff).filter(Staff.salon_id == salon.id).order_by(Staff.name).all()

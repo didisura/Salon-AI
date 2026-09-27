@@ -86,6 +86,8 @@ class Salon(Base):
 
     deposit_enabled = Column(Integer, nullable=False, default=0)
     payment_methods = Column(JSON, nullable=True)
+    # Owner-managed list of service category names (Hair, Nails, Gel Nails…)
+    service_categories = Column(JSON, nullable=True)
 
     parent_id = Column(Integer, ForeignKey("salons.id"), nullable=True, index=True)
     location_name = Column(String(80), nullable=True)
@@ -262,6 +264,7 @@ class Service(Base):
     id = Column(Integer, primary_key=True, index=True)
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False, index=True)
     name = Column(String(120), nullable=False)
+    category = Column(String(80), nullable=True, default="Other", index=True)
     price = Column(Numeric(10, 2), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
     deposit_amount = Column(Numeric(10, 2), nullable=True, default=0)
